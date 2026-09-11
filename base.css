@@ -1,0 +1,202 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap');
+
+:root {
+  /* Overlay layers */
+  --z-overlay: 400;
+
+  --z-spotlight: 1000; /* Tutorial spotlights/guided help */
+
+  /* System layers */
+  --z-critical: 2000; /* Critical system notifications */
+
+  /* spacing */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+}
+
+:root {
+  --background: #faf6f0;
+  --foreground: #2c2a26;
+
+  --surface: #f4efe7;
+  --surface-foreground: #2c2a26;
+  --sidebar: #f1ece4;
+  --sidebar-foreground: #43403a;
+  --card: #ffffff;
+  --card-foreground: #2c2a26;
+  --popup: #ffffff;
+  --popup-foreground: #2c2a26;
+
+  --primary: #3e8e8c;
+  --primary-foreground: #ffffff;
+  --secondary: #efe9e0;
+  --secondary-foreground: #43403a;
+  --accent: #e4f0ef;
+  --accent-foreground: #2b5f5e;
+  --muted: #f1ece4;
+  --muted-foreground: #6f6a61;
+
+  --success: #41775c;
+  --success-foreground: #ffffff;
+  --error: #c4574e;
+  --error-foreground: #ffffff;
+  --warning: #b45b38;
+  --warning-foreground: #ffffff;
+  --info: #3e8e8c;
+  --info-foreground: #ffffff;
+  --info-hover: #357a78;
+  --info-active: #2b5f5e;
+
+  --border: #e6dfd4;
+
+  /* Suggestion category accents — text + hairline border only */
+  --suggestion-deeper: #6d5fa8;
+  --suggestion-deeper-border: #c4bbdf;
+  --suggestion-continue: #b45b38;
+  --suggestion-continue-border: #e3bca9;
+  --suggestion-forward: #41775c;
+  --suggestion-forward-border: #b3cfbf;
+
+  --font-family-base: 'Nunito Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-family-display: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-family-monospace: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  --font-family-cursive: 'Fraunces', ui-serif, Georgia, serif;
+
+  --shadow: 0 1px 2px rgba(44, 42, 38, 0.05), 0 1px 3px rgba(44, 42, 38, 0.04);
+  --shadow-md: 0 2px 6px rgba(44, 42, 38, 0.06), 0 6px 16px rgba(44, 42, 38, 0.05);
+  --shadow-lg: 0 8px 24px rgba(44, 42, 38, 0.08), 0 18px 44px rgba(44, 42, 38, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(62, 142, 140, 0.32);
+
+  --radius-sm: 0.5rem;
+  --radius: 0.875rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-full: 9999px;
+
+  --animation-duration-fast: 160ms;
+  --animation-duration-normal: 240ms;
+  --animation-duration-slow: 320ms;
+
+  --chart-color-1: #3e8e8c;
+  --chart-color-2: #6d5fa8;
+  --chart-color-3: #b45b38;
+  --chart-color-4: #41775c;
+  --chart-color-5: #a08f7a;
+}
+
+.dark {
+  --background: #1e1c19;
+  --foreground: #f0ede7;
+
+  --surface: #262320;
+  --surface-foreground: #f0ede7;
+  --sidebar: #232019;
+  --sidebar-foreground: #e4e0d8;
+  --card: #282521;
+  --card-foreground: #f0ede7;
+  --popup: #302c27;
+  --popup-foreground: #f0ede7;
+
+  --primary: #5fb3b0;
+  --primary-foreground: #0f2a29;
+  --secondary: #33302b;
+  --secondary-foreground: #e4e0d8;
+  --accent: #223b3a;
+  --accent-foreground: #9fd4d2;
+  --muted: #33302b;
+  --muted-foreground: #a39c90;
+
+  --success: #8fc3a7;
+  --success-foreground: #14291f;
+  --error: #e07a70;
+  --error-foreground: #2a100d;
+  --warning: #de9673;
+  --warning-foreground: #2c1710;
+  --info: #5fb3b0;
+  --info-foreground: #0f2a29;
+  --info-hover: #79c4c1;
+  --info-active: #94d3d0;
+
+  --border: #3a362f;
+
+  --suggestion-deeper: #b0a3dc;
+  --suggestion-deeper-border: #57507a;
+  --suggestion-continue: #de9673;
+  --suggestion-continue-border: #6e4a38;
+  --suggestion-forward: #8fc3a7;
+  --suggestion-forward-border: #3f5e4f;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.36), 0 6px 16px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.42), 0 18px 44px rgba(0, 0, 0, 0.32);
+  --shadow-focus: 0 0 0 3px rgba(95, 179, 176, 0.38);
+
+  --chart-color-1: #5fb3b0;
+  --chart-color-2: #b0a3dc;
+  --chart-color-3: #de9673;
+  --chart-color-4: #8fc3a7;
+  --chart-color-5: #bdae97;
+}
+@layer base {
+  /* Safe-area insets that resolve on every platform. iOS and the web populate
+     env(); Capacitor on Android 15+ cannot, so its SystemBars plugin sets these
+     SAME variables as inline styles on <html>, which beat this layered rule.
+     App code pads by var(--safe-area-inset-*) and never touches env() itself.
+     All 0px unless the native shell is in edge-to-edge mode (or the PWA runs
+     under a notch). */
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  }
+
+  ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-family-base);
+  }
+
+  * {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+
+  button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  th, td {
+    display: table-cell!important;
+  }
+}
+.rbc-month-view {
+  overflow: visible !important;
+}

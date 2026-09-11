@@ -1,0 +1,97 @@
+.dialog { width: 34rem; }
+
+.sheet {
+  height: auto;
+  max-height: 92svh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sheetHeader { border-bottom: none; padding-bottom: 0; }
+.sheetBody { padding: var(--spacing-4) var(--spacing-6) var(--spacing-6); }
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+.label {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.textarea {
+  min-height: 5.5rem;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-4);
+}
+
+.control { width: 100%; min-height: 3rem; }
+
+.dateRow { display: flex; align-items: center; gap: var(--spacing-1); min-width: 0; }
+.dateButton {
+  flex: 1;
+  min-width: 0;
+  min-height: 3rem;
+  justify-content: flex-start;
+  gap: var(--spacing-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dateButton svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+
+.statusGroup {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-2);
+  width: 100%;
+}
+.statusItem {
+  width: 100%;
+  border: 1px solid var(--border);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.statusItem[data-state="on"] { border-color: var(--primary); }
+
+.error {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.9rem;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-2);
+}
+
+.footerActions { display: flex; gap: var(--spacing-2); margin-left: auto; }
+.deleteButton { color: var(--muted-foreground); gap: var(--spacing-2); }
+.deleteButton:hover { color: var(--error); }
+.deleteButton svg { width: 1rem; height: 1rem; }
+
+@media (max-width: 36rem) {
+  .row { grid-template-columns: 1fr; }
+  .footer { flex-direction: column-reverse; align-items: stretch; }
+  .footerActions { margin-left: 0; }
+  .footerActions > * { flex: 1; }
+  .deleteButton { justify-content: center; }
+}

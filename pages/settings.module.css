@@ -1,0 +1,136 @@
+.page {
+  min-height: 100svh;
+  background-color: var(--background);
+  padding: var(--spacing-6) var(--spacing-4) var(--spacing-16);
+  max-width: 40rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin-left: calc(var(--spacing-3) * -1);
+}
+
+.back {
+  color: var(--foreground);
+}
+
+.backIcon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--spacing-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.cardTitle {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--card-foreground);
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+}
+
+.settingText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+
+.settingLabel {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--card-foreground);
+}
+
+.settingHint {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+.choiceRow {
+  display: flex;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+}
+
+.choice {
+  flex: 1;
+  min-width: 6rem;
+  min-height: 2.9rem;
+  padding: 0 var(--spacing-3);
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  font-family: var(--font-family-base);
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.choice[data-active="true"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.choice:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  min-height: 3rem;
+  color: inherit;
+}
+
+.linkRow:hover .settingLabel {
+  color: var(--primary);
+}
+
+.linkIcon {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  color: var(--muted-foreground);
+}
+
+.fullButton {
+  width: 100%;
+  min-height: 3.25rem;
+  font-size: 1rem;
+}

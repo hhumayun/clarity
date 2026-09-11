@@ -1,0 +1,284 @@
+.page {
+  min-height: 100svh;
+  background-color: var(--background);
+  padding: var(--spacing-6) var(--spacing-4) 11rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+.settingsButton {
+  color: var(--muted-foreground);
+}
+
+.settingsIcon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.searchRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--spacing-4);
+  width: 1.2rem;
+  height: 1.2rem;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: 3.4rem;
+  padding-left: 3rem;
+  padding-right: 3rem;
+  font-size: 1rem;
+  background-color: var(--card);
+  border-radius: var(--radius);
+}
+
+.clearSearch {
+  position: absolute;
+  right: var(--spacing-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted-foreground);
+}
+
+.clearSearch:hover {
+  background-color: var(--muted);
+}
+
+.clearIcon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.tab {
+  min-height: 2.9rem;
+  padding: 0 var(--spacing-6);
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  font-family: var(--font-family-base);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--animation-duration-fast) ease;
+}
+
+.tab[data-active="true"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.cardSkeleton {
+  height: 6.5rem;
+  border-radius: var(--radius);
+}
+
+.card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cardMain {
+  display: flex;
+  align-items: stretch;
+}
+
+.cardOpen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-4);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.cardOpen:hover {
+  background-color: var(--muted);
+}
+
+.cardOpen:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.cardTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--card-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardPreview {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardWhen {
+  margin-top: var(--spacing-1);
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  opacity: 0.85;
+}
+
+.cardMore {
+  width: 3.4rem;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cardMore:hover {
+  background-color: var(--muted);
+}
+
+.cardMore:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.moreIcon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.cardActions {
+  display: flex;
+  gap: var(--spacing-2);
+  padding: 0 var(--spacing-4) var(--spacing-4);
+}
+
+.cardAction {
+  flex: 1;
+  min-height: 3rem;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-16) var(--spacing-6) var(--spacing-8);
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.emptyText {
+  margin: 0;
+  max-width: 18rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 4.5rem;
+  padding: var(--spacing-4);
+  padding-bottom: max(var(--spacing-4), env(safe-area-inset-bottom));
+  background: linear-gradient(
+    to top,
+    var(--background) 60%,
+    color-mix(in srgb, var(--background) 0%, transparent)
+  );
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.newNoteButton {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 37rem;
+  min-height: 3.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  gap: var(--spacing-2);
+  box-shadow: var(--shadow-md);
+}
+
+.newNoteIcon {
+  width: 1.35rem;
+  height: 1.35rem;
+}

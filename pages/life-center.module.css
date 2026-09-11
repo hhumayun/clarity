@@ -1,0 +1,235 @@
+.page {
+  min-height: 100svh;
+  padding: var(--spacing-6) var(--spacing-4) 7rem;
+  background: var(--background);
+}
+
+.header,
+.filterBar,
+.statusSwitch,
+.board,
+.empty {
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- Header -------------------------------------------------------------- */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-5, 1.25rem);
+}
+
+.heading h1 {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+}
+
+.heading p {
+  margin: var(--spacing-1) 0 0;
+  color: var(--muted-foreground);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.headerActions { display: flex; align-items: center; gap: var(--spacing-2); flex-shrink: 0; }
+.addButton { gap: var(--spacing-2); }
+.addButton svg { width: 1.1rem; height: 1.1rem; }
+.settingsIcon { width: 1.5rem; height: 1.5rem; }
+
+/* ---- Project filter ------------------------------------------------------ */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-4);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.filterChip {
+  height: 2.5rem;
+  padding: 0 var(--spacing-3);
+  gap: var(--spacing-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--card);
+  color: var(--foreground);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.filterChip:hover { background: var(--muted); }
+
+.filterChip[data-state="on"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.filterCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.projectsButton { gap: var(--spacing-2); color: var(--muted-foreground); flex-shrink: 0; }
+.projectsButton svg { width: 1rem; height: 1rem; }
+
+/* ---- Mobile status switch ------------------------------------------------- */
+
+.statusSwitch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-4);
+}
+
+.statusSwitchItem {
+  width: 100%;
+  gap: var(--spacing-1);
+  padding: 0 var(--spacing-1);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  background: var(--card);
+}
+
+.statusSwitchItem[data-state="on"] { border-color: var(--primary); }
+
+/* ---- Board ---------------------------------------------------------------- */
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-4);
+  align-items: start;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--card) 55%, var(--background));
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.columnSkeleton { height: 28rem; border-radius: var(--radius-lg); }
+
+.columnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  min-height: 3.5rem;
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.columnHeader h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.columnCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding: 0 0.45rem;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-family: var(--font-family-base);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.clearButton { color: var(--muted-foreground); }
+.clearButton:hover { color: var(--error); }
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  min-height: 8rem;
+}
+
+.column[data-status="done"] .cards { opacity: 0.92; }
+
+.noTasks {
+  margin: auto 0;
+  padding: var(--spacing-6) var(--spacing-3);
+  color: var(--muted-foreground);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+/* ---- Empty / error --------------------------------------------------------- */
+
+.empty {
+  min-height: 24rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-3);
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.empty svg { width: 2.5rem; height: 2.5rem; opacity: 0.7; }
+.empty h2, .empty p { margin: 0; }
+.empty h2 { color: var(--foreground); font-family: var(--font-family-display); font-size: 1.35rem; }
+.empty p { max-width: 26rem; line-height: 1.6; }
+.empty button { margin-top: var(--spacing-2); gap: var(--spacing-2); }
+.empty button svg { width: 1.1rem; height: 1.1rem; opacity: 1; }
+
+/* ---- Responsive ------------------------------------------------------------ */
+
+@media (max-width: 56rem) {
+  .board { grid-template-columns: 1fr; }
+  .columnSkeleton { height: 12rem; }
+}
+
+@media (max-width: 40rem) {
+  .header { flex-direction: column; align-items: stretch; }
+  .headerActions { justify-content: space-between; }
+  .addButton { flex: 1; }
+  .filterBar { flex-direction: column; align-items: stretch; }
+  .filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--spacing-1); scrollbar-width: none; }
+  .filters::-webkit-scrollbar { display: none; }
+  .filterChip { flex-shrink: 0; }
+  .projectsButton { align-self: flex-end; }
+  .statusSwitchItem { font-size: 0.85rem; }
+}

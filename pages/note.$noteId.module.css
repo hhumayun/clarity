@@ -1,0 +1,176 @@
+.loadingPage {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background);
+}
+
+.page {
+  min-height: 100svh;
+  background-color: var(--background);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-2);
+  background-color: var(--background);
+  max-width: 42rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.headerButton {
+  color: var(--foreground);
+  flex-shrink: 0;
+}
+
+.backIcon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.micIcon {
+  width: 1.35rem;
+  height: 1.35rem;
+  color: var(--muted-foreground);
+}
+
+.status {
+  flex: 1;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  min-height: 1.2em;
+}
+
+.editor {
+  flex: 1;
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 0 var(--spacing-4) 8rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.titleInput {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: var(--spacing-2) var(--spacing-1);
+  font-family: var(--font-family-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+
+.titleInput::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.75;
+}
+
+.titleInput:focus,
+.body:focus {
+  outline: none;
+}
+
+.editorTabs {
+  display: flex;
+  flex-direction: column;
+}
+
+.tabList {
+  margin: var(--spacing-2) var(--spacing-1) var(--spacing-3);
+}
+
+.tabTrigger {
+  flex: 1;
+  min-height: 3rem;
+  font-size: 1rem;
+}
+
+.notePanel {
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  width: 100%;
+  min-height: 8rem;
+  border: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  padding: var(--spacing-2) var(--spacing-1);
+  font-family: var(--font-family-base);
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+
+.body::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.75;
+}
+
+.undoRow {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-2) 0;
+}
+
+.undoChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 2.75rem;
+  padding: 0 var(--spacing-6);
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  font-family: var(--font-family-base);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.undoChip:hover {
+  background-color: var(--muted);
+}
+
+.undoChip:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.undoIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  background-color: var(--background);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.footer > * {
+  max-width: 42rem;
+  margin: 0 auto;
+}

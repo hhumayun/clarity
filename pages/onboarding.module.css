@@ -1,0 +1,92 @@
+.page {
+  min-height: 100svh;
+  background-color: var(--background);
+  padding: var(--spacing-8) var(--spacing-6);
+  padding-bottom: max(var(--spacing-8), env(safe-area-inset-bottom));
+  max-width: 32rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-4);
+  text-align: center;
+}
+
+.iconRing {
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: var(--radius-full);
+  background-color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  color: var(--accent-foreground);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.body {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--muted-foreground);
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-6);
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background-color: var(--border);
+  transition: width var(--animation-duration-normal) ease;
+}
+
+.dot[data-active="true"] {
+  width: 1.5rem;
+  background-color: var(--primary);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.primaryAction {
+  width: 100%;
+  min-height: 3.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.skipAction {
+  width: 100%;
+  min-height: 3rem;
+  font-size: 1rem;
+  color: var(--muted-foreground);
+}

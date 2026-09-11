@@ -1,0 +1,199 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: 1.25rem var(--spacing-1) 8rem;
+}
+
+.headingRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+}
+
+.headingRow h2 { margin: 0; font-family: var(--font-family-display); font-size: 1.35rem; font-weight: 600; }
+.headingRow p { margin: var(--spacing-1) 0 0; color: var(--muted-foreground); line-height: 1.5; }
+
+.actions { display: flex; gap: var(--spacing-2); flex-shrink: 0; }
+.actions button { gap: var(--spacing-2); height: 3rem; min-height: 3rem; }
+.actions svg { width: 1rem; height: 1rem; }
+
+.changed {
+  margin: 0;
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  line-height: 1.5;
+}
+
+.list { display: flex; flex-direction: column; gap: var(--spacing-2); }
+.skeleton { height: 6rem; border-radius: var(--radius); }
+
+/* ---- Suggestions awaiting the writer's choice ----------------------------- */
+
+.suggestionBox {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--secondary);
+  padding: var(--spacing-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.suggestionIntro {
+  margin: 0;
+  color: var(--secondary-foreground);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.suggestionEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+.suggestionEmpty p { margin: 0; color: var(--secondary-foreground); }
+
+.suggestionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.suggestion {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--spacing-3);
+  align-items: start;
+  padding: var(--spacing-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color var(--animation-duration-fast) ease;
+}
+
+.suggestion:hover { border-color: var(--primary); }
+.suggestion:focus-within { box-shadow: var(--shadow-focus); }
+
+.suggestionCheck {
+  grid-row: 1 / span 2;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.2rem;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.suggestionText {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+.suggestionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.suggestionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.6rem;
+  padding: 0 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.suggestionChip svg { width: 0.85rem; height: 0.85rem; }
+
+.suggestionActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+}
+.suggestionActions button { min-height: 3rem; }
+
+.doneGroup {
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing-3);
+}
+
+.doneSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 3rem;
+  padding: 0 var(--spacing-2);
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.doneSummary::-webkit-details-marker { display: none; }
+.doneSummary::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--animation-duration-fast) ease;
+  margin: 0 var(--spacing-1);
+}
+.doneGroup[open] .doneSummary::before { transform: rotate(45deg); }
+.doneSummary:hover { background: var(--muted); color: var(--foreground); }
+.doneSummary:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.doneGroup .list { margin-top: var(--spacing-2); }
+
+.doneCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  font-size: 0.8rem;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.empty p { margin: 0; max-width: 24rem; line-height: 1.6; }
+.empty svg { width: 2rem; height: 2rem; opacity: 0.7; }
+
+.spinning { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 40rem) {
+  .headingRow { flex-direction: column; }
+  .actions { width: 100%; }
+  .actions button { flex: 1; }
+}
