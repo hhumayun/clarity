@@ -133,4 +133,10 @@
   width: 100%;
   min-height: 3.25rem;
   font-size: 1rem;
+  gap: var(--spacing-2);
+}
+
+.installIcon {
+  width: 1.2rem;
+  height: 1.2rem;
 }

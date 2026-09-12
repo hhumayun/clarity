@@ -1,12 +1,15 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import { HelmetProvider } from "react-helmet-async";
 import { App } from "./App";
-import {
-  HelmetProvider,
-} from "react-helmet-async"
+import { registerServiceWorker } from "./helpers/registerServiceWorker";
 
-
+registerServiceWorker();
 
 const container = document.getElementById("root") as HTMLDivElement;
-createRoot(container).render(<HelmetProvider><App /></HelmetProvider>);
+createRoot(container).render(
+  <HelmetProvider>
+    <App />
+  </HelmetProvider>,
+);
     

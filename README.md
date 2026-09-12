@@ -63,6 +63,16 @@ npm run dev        # Vite dev server on :5173 (proxies /_api to :3333) + API wat
 3. Add the environment variables from `.env.example` in the Railway **Variables** tab.
    (`VITE_CLERK_PUBLISHABLE_KEY` is needed at **build** time; `PORT` is set by Railway automatically.)
 4. Railway builds with `npm install && npm run build` and starts with `npm start` (see `railway.json`).
+5. Add the Railway HTTPS domain to Clerk's allowed origins. On a phone, open that URL in Chrome (Android) or Safari (iOS) and install from Settings, or use the browser's Add to Home Screen.
+
+## Install on a phone
+
+Clarity Notes is a Progressive Web App. After it is served over HTTPS (Railway) or localhost:
+
+- **Android / Chrome:** Settings → Install app, or the browser install banner.
+- **iOS / Safari:** Share → Add to Home Screen.
+
+The installed app opens on its own, without the browser chrome. Notes still need a network connection.
 
 ## How auth works
 

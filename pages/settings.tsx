@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "../components/Button";
 import { Switch } from "../components/Switch";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAuth } from "../helpers/useAuth";
+import { useInstallPrompt } from "../helpers/useInstallPrompt";
 import {
   useClaritySettings,
   rememberThemeChoice,
@@ -21,6 +22,7 @@ export default function SettingsPage() {
     useThemeMode();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const install = useInstallPrompt();
 
   const email = authState.type === "authenticated" ? authState.user.email : "";
 
@@ -92,6 +94,27 @@ export default function SettingsPage() {
             ))}
           </div>
         </section>
+
+        {install.kind !== "hidden" && (
+          <section className={styles.card}>
+            <h2 className={styles.cardTitle}>On this device</h2>
+            {install.kind === "prompt" ? (
+              <>
+                <p className={styles.settingHint}>
+                  Add Clarity Notes to your home screen. It opens on its own, like any other app.
+                </p>
+                <Button size="lg" className={styles.fullButton} onClick={() => void install.install()}>
+                  <Download className={styles.installIcon} aria-hidden="true" />
+                  Install app
+                </Button>
+              </>
+            ) : (
+              <p className={styles.settingHint}>
+                In Safari, tap Share, then Add to Home Screen. Clarity Notes will sit with your other apps.
+              </p>
+            )}
+          </section>
+        )}
 
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>Privacy</h2>

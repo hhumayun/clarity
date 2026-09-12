@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Clarity Notes">
+  <rect width="512" height="512" fill="#3e8e8c"/>
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-45 256 256)">
+    <ellipse cx="256" cy="256" rx="148" ry="54"/>
+    <path d="M96 256h320"/>
+    <path d="M196 256h90"/>
+    <path d="M318 214h56"/>
+  </g>
+</svg>
