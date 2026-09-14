@@ -7,6 +7,7 @@ It is an assistive tool, **not** a medical device.
 ## Stack
 
 - **Frontend:** React 19 + Vite + react-router + TanStack Query
+- **Mobile:** Expo SDK 57 + Expo Router in `mobile/` (Expo Go)
 - **Backend:** Node + Hono (`server.ts`), API endpoints in `endpoints/`
 - **Auth:** [Clerk](https://clerk.com) (email/password + social providers)
 - **Database:** [Neon](https://neon.tech) Postgres, queried with Kysely
@@ -102,6 +103,39 @@ npm run cap:sync
 ```
 
 Then run on a simulator/emulator or a USB-connected device from Xcode or Android Studio. You will need an Apple Developer account to install on a physical iPhone, and a signing key to publish to the App Store or Play Store.
+
+## iOS and Android in Expo Go
+
+`mobile/` is a React Native rewrite of the same screens. It talks to the same Railway `/_api` and Clerk app, and is meant to open in **Expo Go** (no custom native modules, no `expo prebuild`).
+
+### One-time setup
+
+1. Copy `mobile/.env.example` to `mobile/.env`.
+2. Set `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` to the same publishable key as `VITE_CLERK_PUBLISHABLE_KEY`.
+3. Leave `EXPO_PUBLIC_API_BASE_URL` as the Railway URL, or point it at a local server (`http://localhost:3333`).
+4. In the [Clerk dashboard](https://dashboard.clerk.com), add these **redirect URLs** (and allowed origins):
+   - `exp://127.0.0.1:8081`
+   - `exp://localhost:8081`
+   - `claritynotes://`
+
+Email and password sign-in works in Expo Go immediately. **Continue with Google** needs those `exp://` redirect URLs (same Google provider already enabled for the web app).
+
+### Run
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+Scan the QR code with [Expo Go](https://expo.dev/go) on iOS or Android. Or:
+
+```bash
+npm run ios       # Expo Go / simulator
+npm run android   # Expo Go / emulator
+```
+
+The Vite web app, PWA, and Capacitor shells stay as they are. Expo Go is a second client, not a replacement.
 
 ## How auth works
 
