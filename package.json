@@ -7,9 +7,19 @@
     "dev": "concurrently -k \"tsx watch server.ts\" \"vite\"",
     "build": "vite build",
     "start": "tsx server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "cap:sync": "vite build && cap sync",
+    "ios": "npm run cap:sync && cap open ios",
+    "android": "npm run cap:sync && cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@clerk/backend": "^2.17.0",
     "@clerk/clerk-react": "^5.47.0",
     "@google/genai": "^1.16.0",
@@ -61,6 +71,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",

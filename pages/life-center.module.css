@@ -1,6 +1,6 @@
 .page {
   min-height: 100svh;
-  padding: var(--spacing-6) var(--spacing-4) 7rem;
+  padding: calc(var(--spacing-6) + var(--safe-area-inset-top)) var(--spacing-4) 7rem;
   background: var(--background);
 }
 

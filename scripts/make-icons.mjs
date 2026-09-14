@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { createHash } from "node:crypto";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "icons");
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, "..", "public", "icons");
+const RESOURCES = join(HERE, "..", "resources");
 const TEAL = [0x3e, 0x8e, 0x8c, 0xff];
 const WHITE = [0xff, 0xff, 0xff, 0xff];
 
@@ -161,17 +163,19 @@ function makeIcon(size, inset) {
 }
 
 await mkdir(ROOT, { recursive: true });
+await mkdir(RESOURCES, { recursive: true });
 const files = {
-  "icon-512.png": makeIcon(512, 0.22),
-  "icon-192.png": makeIcon(192, 0.22),
-  "apple-touch-icon.png": makeIcon(180, 0.22),
-  "icon-maskable-512.png": makeIcon(512, 0.3),
+  [join(ROOT, "icon-512.png")]: makeIcon(512, 0.22),
+  [join(ROOT, "icon-192.png")]: makeIcon(192, 0.22),
+  [join(ROOT, "apple-touch-icon.png")]: makeIcon(180, 0.22),
+  [join(ROOT, "icon-maskable-512.png")]: makeIcon(512, 0.3),
+  [join(RESOURCES, "icon.png")]: makeIcon(1024, 0.22),
+  [join(RESOURCES, "icon-only.png")]: makeIcon(1024, 0.22),
 };
-for (const [name, data] of Object.entries(files)) {
-  const path = join(ROOT, name);
+for (const [path, data] of Object.entries(files)) {
   await new Promise((resolve, reject) => {
     createWriteStream(path).end(data, (err) => (err ? reject(err) : resolve()));
   });
   const hash = createHash("sha1").update(data).digest("hex").slice(0, 8);
-  console.log(`${name} ${data.length} bytes png ${hash}`);
+  console.log(`${path.split("/").slice(-2).join("/")} ${data.length} bytes png ${hash}`);
 }

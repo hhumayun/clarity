@@ -1,8 +1,8 @@
 .page {
   min-height: 100svh;
   background-color: var(--background);
-  padding: var(--spacing-8) var(--spacing-6);
-  padding-bottom: max(var(--spacing-8), env(safe-area-inset-bottom));
+  padding: calc(var(--spacing-8) + var(--safe-area-inset-top)) var(--spacing-6);
+  padding-bottom: max(var(--spacing-8), var(--safe-area-inset-bottom));
   max-width: 32rem;
   margin: 0 auto;
   display: flex;

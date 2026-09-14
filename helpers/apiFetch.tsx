@@ -5,6 +5,8 @@
  * Client only.
  */
 
+import { resolveApiUrl } from "./apiBase";
+
 let tokenGetter: (() => Promise<string | null>) | null = null;
 
 export function registerTokenGetter(getter: () => Promise<string | null>) {
@@ -25,5 +27,6 @@ export async function apiFetch(
       // the server will answer 401 and the UI will react accordingly.
     }
   }
-  return fetch(input, { ...init, headers });
+  const url = typeof input === "string" ? resolveApiUrl(input) : input;
+  return fetch(url, { ...init, headers });
 }

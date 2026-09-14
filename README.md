@@ -65,14 +65,43 @@ npm run dev        # Vite dev server on :5173 (proxies /_api to :3333) + API wat
 4. Railway builds with `npm install && npm run build` and starts with `npm start` (see `railway.json`).
 5. Add the Railway HTTPS domain to Clerk's allowed origins. On a phone, open that URL in Chrome (Android) or Safari (iOS) and install from Settings, or use the browser's Add to Home Screen.
 
-## Install on a phone
+## Install on a phone (PWA)
 
-Clarity Notes is a Progressive Web App. After it is served over HTTPS (Railway) or localhost:
+Clarity Notes is also a Progressive Web App. After it is served over HTTPS (Railway) or localhost:
 
 - **Android / Chrome:** Settings → Install app, or the browser install banner.
 - **iOS / Safari:** Share → Add to Home Screen.
 
 The installed app opens on its own, without the browser chrome. Notes still need a network connection.
+
+## iOS and Android apps (Capacitor)
+
+The same React UI is packaged as native projects in `ios/` and `android/`. Those apps talk to the Railway API.
+
+### One-time setup
+
+1. Install [Xcode](https://developer.apple.com/xcode/) (macOS 13+ / Xcode 16+) for iOS, and [Android Studio](https://developer.android.com/studio) with an SDK for Android.
+2. In the [Clerk dashboard](https://dashboard.clerk.com), add these **allowed origins** (and redirect URLs):
+   - `capacitor://localhost`
+   - `https://localhost`
+   - `http://localhost`
+   - `https://clarity-notes-production.up.railway.app`
+3. Optional: set `VITE_API_BASE_URL` in `.env` if the API is not the default Railway URL.
+
+### Build and open
+
+```bash
+npm run ios        # rebuild web assets, sync, open Xcode
+npm run android    # rebuild web assets, sync, open Android Studio
+```
+
+Or sync without opening an IDE:
+
+```bash
+npm run cap:sync
+```
+
+Then run on a simulator/emulator or a USB-connected device from Xcode or Android Studio. You will need an Apple Developer account to install on a physical iPhone, and a signing key to publish to the App Store or Play Store.
 
 ## How auth works
 

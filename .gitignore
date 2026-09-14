@@ -4,3 +4,20 @@ dist/
 env.json
 .DS_Store
 *.log
+
+# Native build output (keep the Capacitor projects themselves)
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+android/captures
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+ios/App/Pods
+ios/App/build
+ios/App/output
+ios/DerivedData
+xcuserdata/
+*.xcuserstate

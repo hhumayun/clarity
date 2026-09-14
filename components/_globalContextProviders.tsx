@@ -35,8 +35,19 @@ export const GlobalContextProviders = ({
     );
   }
 
+  const redirectOrigins = [
+    "capacitor://localhost",
+    "http://localhost",
+    "https://localhost",
+    typeof window !== "undefined" ? window.location.origin : "",
+  ].filter(Boolean);
+
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey}>
+    <ClerkProvider
+      publishableKey={clerkPublishableKey}
+      afterSignOutUrl="/login"
+      allowedRedirectOrigins={redirectOrigins}
+    >
       <QueryClientProvider client={queryClient}>
         <ThemeModeProvider>
           <AuthProvider>

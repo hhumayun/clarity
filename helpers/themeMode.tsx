@@ -6,6 +6,7 @@ import React, {
   useMemo,
   ReactNode,
 } from "react";
+import { syncNativeStatusBar } from "./native";
 
 export type ThemeMode = "light" | "dark" | "auto";
 
@@ -110,7 +111,9 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
     // Subscribe to changes triggered by standalone functions
     const unsubscribe = subscribeToThemeChange((newMode) => {
       setMode(newMode);
+      void syncNativeStatusBar();
     });
+    void syncNativeStatusBar();
     return unsubscribe;
   }, []);
 

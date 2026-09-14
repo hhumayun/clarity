@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isNativeApp } from "./native";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -51,7 +52,7 @@ export function useInstallPrompt() {
     setPromptEvent(null);
   }, [promptEvent]);
 
-  if (installed) return { kind: "hidden" as const, install };
+  if (isNativeApp() || installed) return { kind: "hidden" as const, install };
   if (promptEvent) return { kind: "prompt" as const, install };
   if (isIos()) return { kind: "ios" as const, install };
   return { kind: "hidden" as const, install };

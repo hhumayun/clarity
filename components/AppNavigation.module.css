@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: var(--spacing-2) var(--spacing-4) max(var(--spacing-2), env(safe-area-inset-bottom));
+  padding: var(--spacing-2) var(--spacing-4) max(var(--spacing-2), var(--safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--background) 94%, transparent);
   backdrop-filter: blur(14px);

@@ -1,9 +1,38 @@
 import "./loadEnv.js";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { serve } from "@hono/node-server";
 
 const app = new Hono();
+
+const extraOrigins = (process.env.CORS_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://localhost:3333",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3333",
+  "https://clarity-notes-production.up.railway.app",
+  "capacitor://localhost",
+  "ionic://localhost",
+  "http://localhost",
+  "https://localhost",
+  ...extraOrigins,
+]);
+
+app.use(
+  "/_api/*",
+  cors({
+    origin: (origin) => (origin && allowedOrigins.has(origin) ? origin : null),
+    allowHeaders: ["Authorization", "Content-Type"],
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    maxAge: 86400,
+  }),
+);
 
 // [method, path, endpoint module]
 const routes: Array<["GET" | "POST", string, string]> = [
