@@ -13,8 +13,8 @@ export async function getTasksList(
 }> {
   const search = new URLSearchParams();
   if (params.noteId) search.set("noteId", params.noteId);
-  const suffix = search.size > 0 ? `?${search.toString()}` : "";
-  const result = await apiFetch(`/_api/tasks/list${suffix}`, {
+  const query = search.toString();
+  const result = await apiFetch(`/_api/tasks/list${query ? `?${query}` : ""}`, {
     method: "GET",
     ...init,
   });
