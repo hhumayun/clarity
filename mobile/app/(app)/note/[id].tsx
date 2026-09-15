@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate } from "../../../src/api/notes";
 import { useReindexNotes } from "../../../src/hooks/useNotes";
 import { useSuggestions } from "../../../src/hooks/useSuggestions";
+import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts } from "../../../src/lib/localDrafts";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
@@ -393,6 +394,7 @@ export default function NoteEditorScreen() {
           accessibilityLabel="Note title"
         />
 
+        {TASKS_ENABLED ? (
         <Segmented
           accessibilityLabel="Note sections"
           value={editorTab}
@@ -408,8 +410,9 @@ export default function NoteEditorScreen() {
             { label: "Tasks", value: "tasks" },
           ]}
         />
+        ) : null}
 
-        {editorTab === "note" ? (
+        {!TASKS_ENABLED || editorTab === "note" ? (
           <>
             <ScrollView
               style={styles.flex}

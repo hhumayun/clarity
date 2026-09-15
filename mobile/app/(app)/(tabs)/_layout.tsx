@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { Feather, LayoutDashboard } from "lucide-react-native";
+import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { fonts } from "../../../src/theme";
 
@@ -11,10 +12,14 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
-        tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-        },
+        // With Life Center hidden, Notes is the only destination — a one-tab
+        // bar is just wasted space.
+        tabBarStyle: TASKS_ENABLED
+          ? {
+              backgroundColor: colors.card,
+              borderTopColor: colors.border,
+            }
+          : { display: "none" },
         tabBarLabelStyle: {
           fontFamily: fonts.baseSemi,
           fontSize: 12 * scale,
@@ -31,6 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="life-center"
         options={{
+          href: TASKS_ENABLED ? undefined : null,
           title: "Life Center",
           tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} />,
         }}
