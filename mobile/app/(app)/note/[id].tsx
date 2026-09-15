@@ -16,6 +16,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate } from "../../../src/api/notes";
 import { useReindexNotes } from "../../../src/hooks/useNotes";
@@ -44,6 +49,8 @@ const UNDO_VISIBLE_MS = 7_000;
 // Keeps a comfortable tap target on an empty note; past this the body grows
 // with the text so the suggestions sit just under what you wrote.
 const MIN_BODY_HEIGHT = 96;
+// Short enough to feel like a settle rather than a wait, while writing.
+const LAYOUT_MS = 180;
 
 function shouldCapitalize(before: string): boolean {
   const trimmed = before.trimEnd();
@@ -443,7 +450,10 @@ export default function NoteEditorScreen() {
                 }}
                 textAlignVertical="top"
               />
-              <View style={styles.suggestionBar}>
+              <Animated.View
+                style={styles.suggestionBar}
+                layout={LinearTransition.duration(LAYOUT_MS)}
+              >
                 <Button
                   variant="secondary"
                   size="sm"
@@ -460,7 +470,7 @@ export default function NoteEditorScreen() {
                     {hasSuggestions ? "New suggestions" : "Suggestions"}
                   </Text>
                 </Button>
-              </View>
+              </Animated.View>
               <InlineSuggestions
                 suggestions={suggestions}
                 completionSuggestions={completionSuggestions}
@@ -471,10 +481,16 @@ export default function NoteEditorScreen() {
                 onDismiss={dismiss}
               />
               {undoState ? (
-                <Button variant="secondary" size="sm" onPress={undoInsert} style={styles.undo}>
-                  <RotateCcw size={16} color={colors.secondaryForeground} />
-                  <Text style={styles.undoText}>Undo</Text>
-                </Button>
+                <Animated.View
+                  entering={FadeIn.duration(150)}
+                  exiting={FadeOut.duration(120)}
+                  layout={LinearTransition.duration(LAYOUT_MS)}
+                >
+                  <Button variant="secondary" size="sm" onPress={undoInsert} style={styles.undo}>
+                    <RotateCcw size={16} color={colors.secondaryForeground} />
+                    <Text style={styles.undoText}>Undo</Text>
+                  </Button>
+                </Animated.View>
               ) : null}
                 </>
               )}

@@ -1,5 +1,10 @@
 import React, { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { Minus, Plus, X } from "lucide-react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -13,6 +18,7 @@ import {
 } from "../types";
 
 const COLLAPSED_COUNT = 4;
+const LAYOUT_MS = 180;
 
 type Props = {
   suggestions: Suggestion[];
@@ -53,7 +59,12 @@ const Chip = React.memo(function Chip({
 }: ChipProps) {
   const color = categoryColor(colors, suggestion);
   return (
-    <View style={[styles.chipWrap, { borderColor: color }]}>
+    <Animated.View
+      style={[styles.chipWrap, { borderColor: color }]}
+      entering={FadeIn.duration(150)}
+      exiting={FadeOut.duration(120)}
+      layout={LinearTransition.duration(LAYOUT_MS)}
+    >
       <Pressable
         onPress={() => onAccept(suggestion)}
         accessibilityLabel={`Insert: ${suggestion.text}`}
@@ -68,7 +79,7 @@ const Chip = React.memo(function Chip({
       >
         <X size={14} color={colors.mutedForeground} />
       </Pressable>
-    </View>
+    </Animated.View>
   );
 });
 
@@ -87,10 +98,15 @@ export function InlineSuggestions({
   if (suggestions.length === 0 && completionSuggestions.length === 0) {
     if (!loading) return null;
     return (
-      <View style={styles.status}>
+      <Animated.View
+        style={styles.status}
+        entering={FadeIn.duration(150)}
+        exiting={FadeOut.duration(120)}
+        layout={LinearTransition.duration(LAYOUT_MS)}
+      >
         <ActivityIndicator color={colors.primary} />
         <Text style={styles.statusText}>Finding words…</Text>
-      </View>
+      </Animated.View>
     );
   }
 
@@ -98,7 +114,11 @@ export function InlineSuggestions({
   const hiddenCount = suggestions.length - inlineRow.length;
 
   return (
-    <View style={styles.container}>
+    <Animated.View
+      style={styles.container}
+      entering={FadeIn.duration(150)}
+      layout={LinearTransition.duration(LAYOUT_MS)}
+    >
       {completionSuggestions.length > 0 ? (
         <View>
           <Text style={styles.sectionLabel}>FINISH THIS SENTENCE</Text>
@@ -170,7 +190,7 @@ export function InlineSuggestions({
           </Pressable>
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
