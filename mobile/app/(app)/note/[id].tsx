@@ -513,7 +513,9 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[4],
       paddingVertical: spacing[2],
     },
-    notePanel: { paddingHorizontal: spacing[4], paddingBottom: spacing[8], gap: spacing[3] },
+    // Bottom padding clears the pinned reflection strip, so the last row of
+    // chips can always be scrolled out from behind it.
+    notePanel: { paddingHorizontal: spacing[4], paddingBottom: spacing[16], gap: spacing[3] },
     body: {
       minHeight: MIN_BODY_HEIGHT,
       fontFamily: fonts.base,
@@ -533,6 +535,11 @@ function makeStyles(colors: Colors, scale: number) {
       fontSize: 15 * scale,
       color: colors.secondaryForeground,
     },
-    footer: { paddingHorizontal: spacing[4], paddingBottom: spacing[3] },
+    footer: {
+      paddingHorizontal: spacing[4],
+      paddingTop: spacing[2],
+      paddingBottom: spacing[3],
+      backgroundColor: colors.background,
+    },
   });
 }

@@ -30,22 +30,26 @@ function makeStyles(colors: Colors, scale: number) {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing[2],
-      backgroundColor: colors.accent,
+      // Muted rather than accent-filled: this sits beside the writing, so it
+      // should not be the loudest thing on the screen.
+      backgroundColor: colors.muted,
+      borderWidth: 1,
+      borderColor: colors.border,
       borderRadius: radius.md,
-      paddingHorizontal: spacing[4],
-      paddingVertical: spacing[3],
+      paddingHorizontal: spacing[3],
+      paddingVertical: spacing[2],
     },
-    mark: { color: colors.accentForeground, fontSize: 16 * scale },
+    mark: { color: colors.mutedForeground, fontSize: 14 * scale },
     question: {
       flex: 1,
       fontFamily: fonts.base,
-      fontSize: 15 * scale,
-      color: colors.accentForeground,
+      fontSize: 14 * scale,
+      color: colors.mutedForeground,
     },
     hint: {
       fontFamily: fonts.baseSemi,
       fontSize: 12 * scale,
-      color: colors.accentForeground,
+      color: colors.mutedForeground,
     },
   });
 }
