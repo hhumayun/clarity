@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Mic, RotateCcw } from "lucide-react-native";
+import { ChevronLeft, Mic, RotateCcw, Sparkles } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -230,6 +230,7 @@ export default function NoteEditorScreen() {
     completionSuggestions,
     reflectionQuestion,
     loading,
+    refresh,
     accept,
     dismiss,
   } = useSuggestions({
@@ -238,6 +239,16 @@ export default function NoteEditorScreen() {
     textBeforeCursor,
     enabled: loaded && editorTab === "note",
   });
+
+  const hasSuggestions = suggestions.length > 0 || completionSuggestions.length > 0;
+
+  const requestSuggestions = useCallback(() => {
+    void refresh().then((ok) => {
+      if (!ok) {
+        toast.show("Couldn't get suggestions right now. Please try again in a moment.");
+      }
+    });
+  }, [refresh, toast]);
 
   useEffect(() => {
     if (pendingSelection === null) return;
@@ -418,6 +429,24 @@ export default function NoteEditorScreen() {
                 style={styles.body}
                 textAlignVertical="top"
               />
+              <View style={styles.suggestionBar}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={requestSuggestions}
+                  loading={loading}
+                  accessibilityLabel={
+                    hasSuggestions
+                      ? "Get new word suggestions"
+                      : "Get word suggestions for what you are writing"
+                  }
+                >
+                  <Sparkles size={16} color={colors.secondaryForeground} />
+                  <Text style={styles.suggestionButtonText}>
+                    {hasSuggestions ? "New suggestions" : "Suggestions"}
+                  </Text>
+                </Button>
+              </View>
               <InlineSuggestions
                 suggestions={suggestions}
                 completionSuggestions={completionSuggestions}
@@ -478,6 +507,12 @@ function makeStyles(colors: Colors, scale: number) {
       fontSize: 18 * scale,
       lineHeight: 28 * scale,
       color: colors.foreground,
+    },
+    suggestionBar: { flexDirection: "row", alignItems: "center" },
+    suggestionButtonText: {
+      fontFamily: fonts.baseSemi,
+      fontSize: 15 * scale,
+      color: colors.secondaryForeground,
     },
     undo: { alignSelf: "flex-start" },
     undoText: {

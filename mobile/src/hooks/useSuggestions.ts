@@ -6,7 +6,6 @@ import {
 } from "../lib/reflection";
 import type { BubbleSuggestion, CompletionSuggestion, Suggestion } from "../types";
 
-const DEBOUNCE_MS = 500;
 const COOLDOWN_MS = 60_000;
 
 function dismissalKey(text: string): string {
@@ -33,73 +32,84 @@ export function useSuggestions(opts: {
   const shownAtRef = useRef(Date.now());
   const dismissedRef = useRef(new Set<string>());
   const cooldownUntilRef = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  // Read inside refresh() so the callback stays stable and never fires with the
+  // text as it was when the button was last rendered.
+  const optsRef = useRef({ noteId, title, textBeforeCursor, enabled });
+  optsRef.current = { noteId, title, textBeforeCursor, enabled };
+
+  // The reflection prompt is picked locally and costs nothing, so it keeps
+  // following the text. Only the generate call waits for the button.
+  useEffect(() => {
+    setReflectionQuestion(reflectionQuestions(textBeforeCursor));
+  }, [textBeforeCursor]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (enabled) return;
+    seqRef.current += 1;
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    setLoading(false);
+  }, [enabled]);
+
+  useEffect(() => {
+    return () => {
       seqRef.current += 1;
-      setLoading(false);
-      return;
-    }
+      controllerRef.current?.abort();
+    };
+  }, []);
+
+  /** Returns false when nothing could be fetched, so the caller can say so. */
+  const refresh = useCallback(async (): Promise<boolean> => {
+    const current = optsRef.current;
+    if (!current.enabled) return false;
+    if (Date.now() < cooldownUntilRef.current) return false;
 
     const seq = ++seqRef.current;
+    controllerRef.current?.abort();
     const controller = new AbortController();
-    let cancelled = false;
+    controllerRef.current = controller;
     setLoading(true);
 
-    const timer = setTimeout(async () => {
-      setReflectionQuestion(reflectionQuestions(textBeforeCursor));
-      if (Date.now() < cooldownUntilRef.current) {
-        if (!cancelled && seq === seqRef.current) {
-          setSuggestions([]);
-          setCompletionSuggestions([]);
-          setLoading(false);
-        }
-        return;
+    try {
+      const result = await postSuggestionsGenerate(
+        {
+          noteId: current.noteId,
+          title: current.title,
+          textBeforeCursor: current.textBeforeCursor.slice(-2_000),
+        },
+        { signal: controller.signal },
+      );
+      if (seq !== seqRef.current) return false;
+      shownAtRef.current = Date.now();
+      setSuggestions(
+        result.suggestions.filter(
+          (s) => !dismissedRef.current.has(dismissalKey(s.text)),
+        ),
+      );
+      setCompletionSuggestions(
+        (result.completionSuggestions ?? []).filter(
+          (s) => !dismissedRef.current.has(dismissalKey(s.text)),
+        ),
+      );
+      if (result.reflectionQuestion) {
+        setReflectionQuestion(result.reflectionQuestion);
       }
-
-      try {
-        const result = await postSuggestionsGenerate(
-          {
-            noteId,
-            title,
-            textBeforeCursor: textBeforeCursor.slice(-2_000),
-          },
-          { signal: controller.signal },
-        );
-        if (cancelled || seq !== seqRef.current) return;
-        shownAtRef.current = Date.now();
-        setSuggestions(
-          result.suggestions.filter(
-            (s) => !dismissedRef.current.has(dismissalKey(s.text)),
-          ),
-        );
-        setCompletionSuggestions(
-          (result.completionSuggestions ?? []).filter(
-            (s) => !dismissedRef.current.has(dismissalKey(s.text)),
-          ),
-        );
-        if (result.reflectionQuestion) {
-          setReflectionQuestion(result.reflectionQuestion);
-        }
-      } catch (error) {
-        if (cancelled || seq !== seqRef.current) return;
-        const message = error instanceof Error ? error.message : "";
-        if (/wait a moment|too many|unavailable right now/i.test(message)) {
-          cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
-        }
-        setSuggestions([]);
-        setCompletionSuggestions([]);
-      } finally {
-        if (!cancelled && seq === seqRef.current) setLoading(false);
+      return true;
+    } catch (error) {
+      if (seq !== seqRef.current) return false;
+      const message = error instanceof Error ? error.message : "";
+      if (/wait a moment|too many|unavailable right now/i.test(message)) {
+        cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
       }
-    }, DEBOUNCE_MS);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [noteId, title, textBeforeCursor, enabled]);
+      setSuggestions([]);
+      setCompletionSuggestions([]);
+      return false;
+    } finally {
+      if (seq === seqRef.current) setLoading(false);
+    }
+  }, []);
 
   const accept = useCallback(
     (suggestion: BubbleSuggestion) => {
@@ -136,6 +146,7 @@ export function useSuggestions(opts: {
     completionSuggestions,
     reflectionQuestion,
     loading,
+    refresh,
     accept,
     dismiss,
   };
