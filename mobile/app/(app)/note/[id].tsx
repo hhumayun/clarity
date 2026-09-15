@@ -40,6 +40,9 @@ type SaveStatus = "idle" | "saving" | "saved" | "offline";
 const SERVER_SAVE_DELAY_MS = 900;
 const REINDEX_DELAY_MS = 4_000;
 const UNDO_VISIBLE_MS = 7_000;
+// Keeps a comfortable tap target on an empty note; past this the body grows
+// with the text so the suggestions sit just under what you wrote.
+const MIN_BODY_HEIGHT = 96;
 
 function shouldCapitalize(before: string): boolean {
   const trimmed = before.trimEnd();
@@ -65,6 +68,7 @@ export default function NoteEditorScreen() {
   const [undoState, setUndoState] = useState<{ text: string; cursor: number } | null>(null);
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
+  const [bodyHeight, setBodyHeight] = useState(MIN_BODY_HEIGHT);
 
   const contentRef = useRef(content);
   contentRef.current = content;
@@ -426,7 +430,13 @@ export default function NoteEditorScreen() {
                 placeholder="Start writing…"
                 placeholderTextColor={colors.mutedForeground}
                 accessibilityLabel="Note text"
-                style={styles.body}
+                style={[styles.body, { height: Math.max(MIN_BODY_HEIGHT, bodyHeight) }]}
+                onContentSizeChange={(event) => {
+                  const next = event.nativeEvent.contentSize.height;
+                  // Ignore sub-pixel reports; feeding them back as height would
+                  // bounce between two values forever.
+                  setBodyHeight((prev) => (Math.abs(prev - next) < 1 ? prev : next));
+                }}
                 textAlignVertical="top"
               />
               <View style={styles.suggestionBar}>
@@ -502,7 +512,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     notePanel: { paddingHorizontal: spacing[4], paddingBottom: spacing[8], gap: spacing[3] },
     body: {
-      minHeight: 220,
+      minHeight: MIN_BODY_HEIGHT,
       fontFamily: fonts.base,
       fontSize: 18 * scale,
       lineHeight: 28 * scale,

@@ -135,7 +135,7 @@ export function InlineSuggestions({
 
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
-    container: { gap: spacing[3], paddingTop: spacing[2] },
+    container: { gap: spacing[3] },
     status: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingVertical: spacing[2] },
     statusText: {
       fontFamily: fonts.base,
