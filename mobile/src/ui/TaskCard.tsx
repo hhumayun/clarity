@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -39,7 +39,7 @@ export function TaskCard({
   const router = useRouter();
   const toast = useToast();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);

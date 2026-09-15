@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -30,7 +30,7 @@ export function ProjectSheet({
 }: Props) {
   const toast = useToast();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [newName, setNewName] = useState("");

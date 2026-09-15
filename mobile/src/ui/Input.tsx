@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, TextInput, type TextInputProps } from "react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 export function Input({ style, ...props }: TextInputProps) {
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   return (
     <TextInput
       placeholderTextColor={colors.mutedForeground}

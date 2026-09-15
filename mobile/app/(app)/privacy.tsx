@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { cacheDirectory, writeAsStringAsync } from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { ChevronLeft } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAccountExport, postAccountDelete } from "../../src/api/account";
@@ -27,7 +27,7 @@ export default function PrivacyScreen() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { data: preferences, isFetching } = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const clearPersonalization = useClearPersonalization();

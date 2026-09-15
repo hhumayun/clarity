@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Minus, Plus, X } from "lucide-react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
@@ -31,6 +31,47 @@ function categoryColor(colors: Colors, suggestion: BubbleSuggestion): string {
   return colors.suggestionForward;
 }
 
+type ChipProps = {
+  suggestion: BubbleSuggestion;
+  colors: Colors;
+  styles: ReturnType<typeof makeStyles>;
+  onAccept: (suggestion: BubbleSuggestion) => void;
+  onDismiss: (suggestion: BubbleSuggestion) => void;
+};
+
+/**
+ * Module scope on purpose: declared inside InlineSuggestions this was a new
+ * component type on every render, which remounted every chip rather than
+ * updating it.
+ */
+const Chip = React.memo(function Chip({
+  suggestion,
+  colors,
+  styles,
+  onAccept,
+  onDismiss,
+}: ChipProps) {
+  const color = categoryColor(colors, suggestion);
+  return (
+    <View style={[styles.chipWrap, { borderColor: color }]}>
+      <Pressable
+        onPress={() => onAccept(suggestion)}
+        accessibilityLabel={`Insert: ${suggestion.text}`}
+        style={styles.chip}
+      >
+        <Text style={[styles.chipText, { color }]}>{suggestion.text}</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => onDismiss(suggestion)}
+        accessibilityLabel={`Hide the suggestion: ${suggestion.text}`}
+        style={styles.dismiss}
+      >
+        <X size={14} color={colors.mutedForeground} />
+      </Pressable>
+    </View>
+  );
+});
+
 export function InlineSuggestions({
   suggestions,
   completionSuggestions,
@@ -41,7 +82,7 @@ export function InlineSuggestions({
   onDismiss,
 }: Props) {
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   if (suggestions.length === 0 && completionSuggestions.length === 0) {
     if (!loading) return null;
@@ -56,27 +97,6 @@ export function InlineSuggestions({
   const inlineRow = suggestions.slice(0, COLLAPSED_COUNT);
   const hiddenCount = suggestions.length - inlineRow.length;
 
-  const Chip = ({ suggestion }: { suggestion: BubbleSuggestion }) => (
-    <View style={[styles.chipWrap, { borderColor: categoryColor(colors, suggestion) }]}>
-      <Pressable
-        onPress={() => onAccept(suggestion)}
-        accessibilityLabel={`Insert: ${suggestion.text}`}
-        style={styles.chip}
-      >
-        <Text style={[styles.chipText, { color: categoryColor(colors, suggestion) }]}>
-          {suggestion.text}
-        </Text>
-      </Pressable>
-      <Pressable
-        onPress={() => onDismiss(suggestion)}
-        accessibilityLabel={`Hide the suggestion: ${suggestion.text}`}
-        style={styles.dismiss}
-      >
-        <X size={14} color={colors.mutedForeground} />
-      </Pressable>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       {completionSuggestions.length > 0 ? (
@@ -84,7 +104,14 @@ export function InlineSuggestions({
           <Text style={styles.sectionLabel}>FINISH THIS SENTENCE</Text>
           <View style={styles.row}>
             {completionSuggestions.map((suggestion) => (
-              <Chip key={suggestion.text} suggestion={suggestion} />
+              <Chip
+                key={suggestion.text}
+                suggestion={suggestion}
+                colors={colors}
+                styles={styles}
+                onAccept={onAccept}
+                onDismiss={onDismiss}
+              />
             ))}
           </View>
         </View>
@@ -95,7 +122,14 @@ export function InlineSuggestions({
           <Text style={styles.sectionLabel}>START THE NEXT SENTENCE</Text>
           <View style={styles.row}>
             {inlineRow.map((suggestion) => (
-              <Chip key={suggestion.text} suggestion={suggestion} />
+              <Chip
+                key={suggestion.text}
+                suggestion={suggestion}
+                colors={colors}
+                styles={styles}
+                onAccept={onAccept}
+                onDismiss={onDismiss}
+              />
             ))}
             {hiddenCount > 0 ? (
               <Pressable style={styles.expander} onPress={onToggleExpanded}>
@@ -117,7 +151,14 @@ export function InlineSuggestions({
                 </Text>
                 <View style={styles.row}>
                   {group.map((suggestion) => (
-                    <Chip key={suggestion.text} suggestion={suggestion} />
+                    <Chip
+                key={suggestion.text}
+                suggestion={suggestion}
+                colors={colors}
+                styles={styles}
+                onAccept={onAccept}
+                onDismiss={onDismiss}
+              />
                   ))}
                 </View>
               </View>

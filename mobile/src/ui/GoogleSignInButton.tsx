@@ -1,7 +1,7 @@
 import { useSSO } from "@clerk/clerk-expo";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, spacing, type Colors } from "../theme";
@@ -14,7 +14,7 @@ export function GoogleSignInButton({
 }) {
   const { startSSOFlow } = useSSO();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {

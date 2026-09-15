@@ -1,6 +1,6 @@
 import { useSignUp } from "@clerk/clerk-expo";
 import { Link } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
@@ -12,7 +12,7 @@ import { Input } from "../../src/ui/Input";
 export default function RegisterScreen() {
   const { isLoaded, signUp, setActive } = useSignUp();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");

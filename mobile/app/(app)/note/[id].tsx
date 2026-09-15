@@ -56,7 +56,7 @@ export default function NoteEditorScreen() {
   const router = useRouter();
   const toast = useToast();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const [noteId, setNoteId] = useState<string | null>(isNew ? null : routeId ?? null);
   const [title, setTitle] = useState("");

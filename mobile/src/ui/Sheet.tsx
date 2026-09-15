@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -24,7 +24,7 @@ type Props = {
 export function Sheet({ open, title, description, onClose, children }: Props) {
   const insets = useSafeAreaInsets();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>

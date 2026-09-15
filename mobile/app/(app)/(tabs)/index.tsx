@@ -34,7 +34,7 @@ const BACKFILL_FLAG = "clarity:backfilled";
 export default function NotesListScreen() {
   const router = useRouter();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);

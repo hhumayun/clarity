@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -23,7 +23,7 @@ export function Segmented<T extends string>({
   accessibilityLabel,
 }: Props<T>) {
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   return (
     <View style={styles.row} accessibilityRole="tablist" accessibilityLabel={accessibilityLabel}>

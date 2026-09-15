@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { Lock, MessageCircle, PenLine } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
@@ -28,7 +28,7 @@ const STEPS = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const { colors, scale, completeOnboarding } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [step, setStep] = useState(0);
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;

@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/providers/AuthProvider";
@@ -14,7 +14,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { authState, logout } = useAuth();
   const { colors, scale, xlText, setXlText, mode, setMode } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const email = authState.type === "authenticated" ? authState.user.email : "";

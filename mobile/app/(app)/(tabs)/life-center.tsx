@@ -39,7 +39,7 @@ export default function LifeCenterScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 720;
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { query, create, update, remove, clearDone, createProject, renameProject, deleteProject } =
     useTasks();
 

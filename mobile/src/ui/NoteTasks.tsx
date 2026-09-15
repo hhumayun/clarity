@@ -38,7 +38,7 @@ function commonProjectId(tasks: TaskRecord[]): string | null {
 export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled: boolean }) {
   const toast = useToast();
   const { colors, scale } = useAppTheme();
-  const styles = makeStyles(colors, scale);
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { query, extract, addSuggested, create, update, remove, createProject } = useTasks(
     noteId ?? undefined,
     enabled && Boolean(noteId),
