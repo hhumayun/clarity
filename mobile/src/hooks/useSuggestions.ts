@@ -45,6 +45,27 @@ export function useSuggestions(opts: {
     setReflectionQuestion(reflectionQuestions(textBeforeCursor));
   }, [textBeforeCursor]);
 
+  // Suggestions are generated for one note, so they must not survive a move to
+  // another one. A brand new note is exempt: it starts with no id and gets one
+  // the moment it is first saved, which is the same writing session and must
+  // keep the chips already on screen.
+  const previousNoteIdRef = useRef(noteId);
+  useEffect(() => {
+    const previous = previousNoteIdRef.current;
+    previousNoteIdRef.current = noteId;
+    if (previous === noteId) return;
+    if (previous === undefined && noteId !== undefined) return;
+
+    seqRef.current += 1;
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    dismissedRef.current = new Set();
+    setSuggestions([]);
+    setCompletionSuggestions([]);
+    setReflectionQuestion(DEFAULT_REFLECTION_QUESTION);
+    setLoading(false);
+  }, [noteId]);
+
   useEffect(() => {
     if (enabled) return;
     seqRef.current += 1;
