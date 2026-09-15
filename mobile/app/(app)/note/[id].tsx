@@ -8,7 +8,6 @@ import React, {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -34,6 +33,7 @@ import { Button } from "../../../src/ui/Button";
 import { InlineSuggestions } from "../../../src/ui/InlineSuggestions";
 import { NoteTasks } from "../../../src/ui/NoteTasks";
 import { ReflectionStrip } from "../../../src/ui/ReflectionStrip";
+import { Skeleton } from "../../../src/ui/Skeleton";
 import { Segmented } from "../../../src/ui/Segmented";
 
 type SaveStatus = "idle" | "saving" | "saved" | "offline";
@@ -353,14 +353,6 @@ export default function NoteEditorScreen() {
           ? "Saved on this device"
           : "";
 
-  if (!loaded) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
       <KeyboardAvoidingView
@@ -387,7 +379,8 @@ export default function NoteEditorScreen() {
         <TextInput
           value={title}
           onChangeText={setTitle}
-          placeholder="Title"
+          editable={loaded}
+          placeholder={loaded ? "Title" : ""}
           placeholderTextColor={colors.mutedForeground}
           maxLength={300}
           style={styles.titleInput}
@@ -419,6 +412,14 @@ export default function NoteEditorScreen() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.notePanel}
             >
+              {!loaded ? (
+                <View style={styles.bodySkeleton}>
+                  <Skeleton style={styles.skeletonLine} />
+                  <Skeleton style={styles.skeletonLine} />
+                  <Skeleton style={styles.skeletonLineShort} />
+                </View>
+              ) : (
+                <>
               <TextInput
                 multiline
                 autoFocus={isNew}
@@ -475,6 +476,8 @@ export default function NoteEditorScreen() {
                   <Text style={styles.undoText}>Undo</Text>
                 </Button>
               ) : null}
+                </>
+              )}
             </ScrollView>
             <View style={styles.footer}>
               <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
@@ -494,7 +497,9 @@ function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },
-    loading: { flex: 1, alignItems: "center", justifyContent: "center" },
+    bodySkeleton: { minHeight: MIN_BODY_HEIGHT, gap: spacing[3], paddingTop: spacing[2] },
+    skeletonLine: { height: 18 * scale },
+    skeletonLineShort: { height: 18 * scale, width: "60%" },
     header: {
       flexDirection: "row",
       alignItems: "center",
