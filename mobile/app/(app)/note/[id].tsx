@@ -319,7 +319,13 @@ export default function NoteEditorScreen() {
 
   const goBack = useCallback(() => {
     void persist(titleRef.current, contentRef.current);
-    router.replace("/");
+    // Pop the editor off the stack so it animates back out the way it came in.
+    // router.replace would push a fresh screen, which slides in from the right again.
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/");
+    }
   }, [persist, router]);
 
   const statusLabel =
