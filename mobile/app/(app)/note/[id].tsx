@@ -76,31 +76,49 @@ export default function NoteEditorScreen() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const draftKey = isNew ? "new" : (routeId ?? "new");
+  // The key ("new" or a note id) whose text the editor buffer currently holds. Until it
+  // matches draftKey the buffer belongs to another note (or to nothing yet), so neither
+  // autosave nor persist may write it anywhere.
+  const loadedKeyRef = useRef<string | null>(null);
   const reindex = useReindexNotes();
   const reindexRef = useRef(reindex.mutate);
   reindexRef.current = reindex.mutate;
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   useEffect(() => {
     let cancelled = false;
 
+    // Already holding this note's text (e.g. the redirect right after creating it) —
+    // re-fetching would discard unsaved edits.
+    if (loadedKeyRef.current === draftKey) {
+      setLoaded(true);
+      return;
+    }
+
+    setLoaded(false);
+    setUndoState(null);
+
     const applyDraftOnly = async () => {
       const draft = await localDrafts.load(draftKey);
-      if (draft) {
-        setTitle(draft.title);
-        setContent(draft.content);
-        setCursorPos(draft.content.length);
-      }
+      if (cancelled) return;
+      setNoteId(null);
+      noteIdRef.current = null;
+      setTitle(draft?.title ?? "");
+      setContent(draft?.content ?? "");
+      setCursorPos(draft?.content.length ?? 0);
+      setStatus("idle");
+      loadedKeyRef.current = draftKey;
       setLoaded(true);
     };
 
     if (isNew) {
       void applyDraftOnly();
-      return;
-    }
-
-    if (noteIdRef.current && noteIdRef.current === routeId) {
-      setLoaded(true);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     void (async () => {
@@ -108,6 +126,7 @@ export default function NoteEditorScreen() {
         const { note } = await getNote({ id: routeId as string });
         if (cancelled) return;
         const draft = await localDrafts.load(draftKey);
+        if (cancelled) return;
         if (draft && draft.at > note.updatedAt.getTime()) {
           setTitle(draft.title);
           setContent(draft.content);
@@ -119,19 +138,24 @@ export default function NoteEditorScreen() {
           setCursorPos(note.content.length);
           setStatus("saved");
         }
+        setNoteId(note.id);
+        noteIdRef.current = note.id;
+        loadedKeyRef.current = draftKey;
         setLoaded(true);
       } catch {
         if (cancelled) return;
         const draft = await localDrafts.load(draftKey);
+        if (cancelled) return;
         if (draft) {
           setTitle(draft.title);
           setContent(draft.content);
           setCursorPos(draft.content.length);
           setStatus("offline");
+          loadedKeyRef.current = draftKey;
           setLoaded(true);
         } else {
-          toast.show("Couldn't open this note. Please try again.");
-          router.replace("/");
+          toastRef.current.show("Couldn't open this note. Please try again.");
+          routerRef.current.replace("/");
         }
       }
     })();
@@ -139,10 +163,11 @@ export default function NoteEditorScreen() {
     return () => {
       cancelled = true;
     };
-  }, [routeId, isNew, draftKey, router, toast]);
+  }, [routeId, isNew, draftKey]);
 
   const persist = useCallback(
     async (nextTitle: string, nextContent: string) => {
+      if (loadedKeyRef.current !== draftKey) return;
       if (nextTitle.trim() === "" && nextContent.trim() === "" && !noteIdRef.current) {
         setStatus("idle");
         return;
@@ -159,6 +184,9 @@ export default function NoteEditorScreen() {
             });
             setNoteId(note.id);
             noteIdRef.current = note.id;
+            // The buffer now belongs to the created note, so the redirect below reuses it
+            // instead of re-fetching.
+            loadedKeyRef.current = note.id;
             router.replace(`/note/${note.id}`);
           } finally {
             creatingRef.current = false;
@@ -180,7 +208,7 @@ export default function NoteEditorScreen() {
   );
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadedKeyRef.current !== draftKey) return;
     void localDrafts.save(draftKey, { title, content, at: Date.now() });
     const timer = setTimeout(() => {
       void persist(title, content);
