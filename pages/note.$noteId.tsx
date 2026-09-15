@@ -15,6 +15,7 @@ import { Spinner } from "../components/Spinner";
 import { InlineSuggestions } from "../components/InlineSuggestions";
 import { ReflectionStrip } from "../components/ReflectionStrip";
 import { NoteTasks } from "../components/NoteTasks";
+import { TASKS_ENABLED } from "../helpers/featureFlags";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/Tabs";
 import { useSuggestions } from "../helpers/useSuggestions";
 import { useReindexNotes } from "../helpers/useNotes";
@@ -396,10 +397,12 @@ export default function NoteEditorPage() {
               }
             }}
           >
-            <TabsList className={styles.tabList} aria-label="Note sections">
-              <TabsTrigger className={styles.tabTrigger} value="note">Note</TabsTrigger>
-              <TabsTrigger className={styles.tabTrigger} value="tasks">Tasks</TabsTrigger>
-            </TabsList>
+            {TASKS_ENABLED && (
+              <TabsList className={styles.tabList} aria-label="Note sections">
+                <TabsTrigger className={styles.tabTrigger} value="note">Note</TabsTrigger>
+                <TabsTrigger className={styles.tabTrigger} value="tasks">Tasks</TabsTrigger>
+              </TabsList>
+            )}
 
             <TabsContent value="note" className={styles.notePanel}>
               <textarea
@@ -446,9 +449,11 @@ export default function NoteEditorPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="tasks">
-              <NoteTasks noteId={noteId} enabled={editorTab === "tasks"} />
-            </TabsContent>
+            {TASKS_ENABLED && (
+              <TabsContent value="tasks">
+                <NoteTasks noteId={noteId} enabled={editorTab === "tasks"} />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
 

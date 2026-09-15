@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
+import { TASKS_ENABLED } from "./helpers/featureFlags";
 import Page_0 from "./pages/login.tsx";
 import PageLayout_0 from "./pages/login.pageLayout.tsx";
 import Page_1 from "./pages/_index.tsx";
@@ -26,8 +27,14 @@ if (!window.requestIdleCallback) {
 
 import "./base.css";
 
-const fileNameToRoute = new Map([["./pages/login.tsx","/login"],["./pages/_index.tsx","/"],["./pages/privacy.tsx","/privacy"],["./pages/register.tsx","/register"],["./pages/settings.tsx","/settings"],["./pages/onboarding.tsx","/onboarding"],["./pages/note.$noteId.tsx","/note/:noteId"],["./pages/life-center.tsx","/life-center"]]);
-const fileNameToComponent = new Map([
+// Life Center is registered only when the feature is on; without a route the
+// URL falls through to NotFound.
+const fileNameToRoute = new Map<string, string>([
+  ...(TASKS_ENABLED
+    ? ([["./pages/life-center.tsx", "/life-center"]] as [string, string][])
+    : []),
+  ["./pages/login.tsx","/login"],["./pages/_index.tsx","/"],["./pages/privacy.tsx","/privacy"],["./pages/register.tsx","/register"],["./pages/settings.tsx","/settings"],["./pages/onboarding.tsx","/onboarding"],["./pages/note.$noteId.tsx","/note/:noteId"]]);
+const fileNameToComponent = new Map<string, React.ComponentType>([
     ["./pages/login.tsx", Page_0],
 ["./pages/_index.tsx", Page_1],
 ["./pages/privacy.tsx", Page_2],
@@ -35,7 +42,9 @@ const fileNameToComponent = new Map([
 ["./pages/settings.tsx", Page_4],
 ["./pages/onboarding.tsx", Page_5],
 ["./pages/note.$noteId.tsx", Page_6],
-["./pages/life-center.tsx", Page_7],
+...(TASKS_ENABLED
+  ? ([["./pages/life-center.tsx", Page_7]] as [string, React.ComponentType][])
+  : []),
   ]);
 
 function makePageRoute(filename: string) {
@@ -144,7 +153,7 @@ export function App() {
 "./pages/settings.tsx": PageLayout_4,
 "./pages/onboarding.tsx": PageLayout_5,
 "./pages/note.$noteId.tsx": PageLayout_6,
-"./pages/life-center.tsx": PageLayout_7,
+...(TASKS_ENABLED ? { "./pages/life-center.tsx": PageLayout_7 } : {}),
 }), fileNameToRoute, makePageRoute })}
           {/* Clerk's SignIn/SignUp use path routing with sub-steps like
               /register/verify-email-address — let those render the same pages. */}
