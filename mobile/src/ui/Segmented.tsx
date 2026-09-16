@@ -14,6 +14,8 @@ type Props<T extends string> = {
   options: Option<T>[];
   onChange: (value: T) => void;
   accessibilityLabel: string;
+  /** "sm" is a quiet, content-width switch for secondary choices. */
+  size?: "md" | "sm";
 };
 
 export function Segmented<T extends string>({
@@ -21,12 +23,18 @@ export function Segmented<T extends string>({
   options,
   onChange,
   accessibilityLabel,
+  size = "md",
 }: Props<T>) {
+  const small = size === "sm";
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   return (
-    <View style={styles.row} accessibilityRole="tablist" accessibilityLabel={accessibilityLabel}>
+    <View
+      style={[styles.row, small && styles.rowSm]}
+      accessibilityRole="tablist"
+      accessibilityLabel={accessibilityLabel}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -35,9 +43,11 @@ export function Segmented<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(option.value)}
-            style={[styles.item, active && styles.itemActive]}
+            style={[styles.item, small && styles.itemSm, active && styles.itemActive]}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>{option.label}</Text>
+            <Text style={[styles.label, small && styles.labelSm, active && styles.labelActive]}>
+              {option.label}
+            </Text>
             {option.count !== undefined ? (
               <Text style={[styles.count, active && styles.labelActive]}>{option.count}</Text>
             ) : null}
@@ -53,7 +63,7 @@ function makeStyles(colors: Colors, scale: number) {
     row: {
       flexDirection: "row",
       backgroundColor: colors.muted,
-      borderRadius: radius.md,
+      borderRadius: radius.full,
       padding: 4,
       gap: 4,
     },
@@ -68,6 +78,14 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[2],
     },
     itemActive: { backgroundColor: colors.card },
+    rowSm: { alignSelf: "center", padding: 3, gap: 3 },
+    itemSm: {
+      flex: 0,
+      minHeight: 30,
+      paddingHorizontal: spacing[4],
+      borderRadius: radius.full,
+    },
+    labelSm: { fontSize: 13 * scale },
     label: {
       fontFamily: fonts.baseSemi,
       fontSize: 15 * scale,

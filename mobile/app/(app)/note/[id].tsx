@@ -372,7 +372,23 @@ export default function NoteEditorScreen() {
           <Button variant="ghost" size="icon" accessibilityLabel="Back to your notes" onPress={goBack}>
             <ChevronLeft size={26} color={colors.foreground} />
           </Button>
-          <Text style={styles.status}>{statusLabel}</Text>
+          <View style={styles.headerCenter}>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              editable={loaded}
+              placeholder={loaded ? "Untitled" : ""}
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={300}
+              style={styles.titleInput}
+              accessibilityLabel="Note title"
+              returnKeyType="done"
+            />
+            {/* Reserved height even when blank, so the header never shifts. */}
+            <Text style={styles.status} numberOfLines={1}>
+              {statusLabel}
+            </Text>
+          </View>
           <Button
             variant="ghost"
             size="icon"
@@ -385,19 +401,10 @@ export default function NoteEditorScreen() {
           </Button>
         </View>
 
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          editable={loaded}
-          placeholder={loaded ? "Title" : ""}
-          placeholderTextColor={colors.mutedForeground}
-          maxLength={300}
-          style={styles.titleInput}
-          accessibilityLabel="Note title"
-        />
-
         {TASKS_ENABLED ? (
+        <View style={styles.tabs}>
         <Segmented
+          size="sm"
           accessibilityLabel="Note sections"
           value={editorTab}
           onChange={(value) => {
@@ -412,6 +419,7 @@ export default function NoteEditorScreen() {
             { label: "Tasks", value: "tasks" },
           ]}
         />
+        </View>
         ) : null}
 
         {!TASKS_ENABLED || editorTab === "note" ? (
@@ -525,24 +533,34 @@ function makeStyles(colors: Colors, scale: number) {
     header: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
       paddingHorizontal: spacing[2],
+      paddingTop: spacing[1],
+      paddingBottom: spacing[2],
+    },
+    headerCenter: { flex: 1, alignItems: "center", paddingHorizontal: spacing[2] },
+    titleInput: {
+      alignSelf: "stretch",
+      textAlign: "center",
+      fontFamily: fonts.display,
+      fontSize: 20 * scale,
+      color: colors.foreground,
+      paddingVertical: 2,
     },
     status: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: 12 * scale,
+      lineHeight: 16 * scale,
       color: colors.mutedForeground,
     },
-    titleInput: {
-      fontFamily: fonts.display,
-      fontSize: 28 * scale,
-      color: colors.foreground,
-      paddingHorizontal: spacing[4],
-      paddingVertical: spacing[2],
-    },
+    tabs: { alignSelf: "center", marginBottom: spacing[2] },
     // Bottom padding clears the pinned reflection strip, so the last row of
     // chips can always be scrolled out from behind it.
-    notePanel: { paddingHorizontal: spacing[4], paddingBottom: spacing[16], gap: spacing[3] },
+    notePanel: {
+      paddingHorizontal: spacing[4],
+      paddingTop: spacing[3],
+      paddingBottom: spacing[16],
+      gap: spacing[3],
+    },
     body: {
       // Height comes from the text itself (see the input). The floor keeps a
       // usable tap target on an empty note.
