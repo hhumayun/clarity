@@ -72,6 +72,7 @@ export default function NoteEditorScreen() {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [cursorPos, setCursorPos] = useState(0);
   const [editorTab, setEditorTab] = useState<"note" | "tasks">("note");
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
   const [undoState, setUndoState] = useState<{ text: string; cursor: number } | null>(null);
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
@@ -318,6 +319,7 @@ export default function NoteEditorScreen() {
       contentRef.current = next;
       setContent(next);
       setPendingSelection(before.length + inserted.length);
+      setSuggestionsExpanded(false);
       accept(suggestion);
     },
     [accept, cursorPos, scheduleUndoExpiry],
@@ -477,6 +479,8 @@ export default function NoteEditorScreen() {
                 suggestions={suggestions}
                 completionSuggestions={completionSuggestions}
                 loading={loading}
+                expanded={suggestionsExpanded}
+                onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
                 onAccept={insertSuggestion}
                 onDismiss={dismiss}
               />

@@ -1,12 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -15,15 +8,19 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { X } from "lucide-react-native";
+import { Minus, Plus, X } from "lucide-react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import {
+  SUGGESTION_CATEGORIES,
+  SUGGESTION_CATEGORY_LABELS,
   type BubbleSuggestion,
   type CompletionSuggestion,
   type Suggestion,
+  type SuggestionCategory,
 } from "../types";
 
+const COLLAPSED_COUNT = 4;
 const LAYOUT_MS = 180;
 // Dimmed while a new set is being fetched, restored as it lands — one fade for
 // the whole block instead of every chip animating against its neighbours.
@@ -31,15 +28,12 @@ const DIM_OPACITY = 0.35;
 const DIM_MS = 140;
 const RESTORE_MS = 220;
 
-// Each row holds one line of chips and scrolls sideways, so the block occupies
-// the same height whatever comes back: no reflow when a set is replaced, and
-// long suggestions no longer push the note around by wrapping onto new lines.
-const ROW_HEIGHT = 46;
-
 type Props = {
   suggestions: Suggestion[];
   completionSuggestions: CompletionSuggestion[];
   loading: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onAccept: (suggestion: BubbleSuggestion) => void;
   onDismiss: (suggestion: BubbleSuggestion) => void;
 };
@@ -51,12 +45,10 @@ function categoryColor(colors: Colors, suggestion: BubbleSuggestion): string {
   return colors.suggestionForward;
 }
 
-type Styles = ReturnType<typeof makeStyles>;
-
 type ChipProps = {
   suggestion: BubbleSuggestion;
   colors: Colors;
-  styles: Styles;
+  styles: ReturnType<typeof makeStyles>;
   onAccept: (suggestion: BubbleSuggestion) => void;
   onDismiss: (suggestion: BubbleSuggestion) => void;
 };
@@ -84,9 +76,7 @@ const Chip = React.memo(function Chip({
         accessibilityLabel={`Insert: ${suggestion.text}`}
         style={styles.chip}
       >
-        <Text numberOfLines={1} style={[styles.chipText, { color }]}>
-          {suggestion.text}
-        </Text>
+        <Text style={[styles.chipText, { color }]}>{suggestion.text}</Text>
       </Pressable>
       <Pressable
         onPress={() => onDismiss(suggestion)}
@@ -99,55 +89,12 @@ const Chip = React.memo(function Chip({
   );
 });
 
-type RowProps = {
-  label: string;
-  items: BubbleSuggestion[];
-  colors: Colors;
-  styles: Styles;
-  onAccept: (suggestion: BubbleSuggestion) => void;
-  onDismiss: (suggestion: BubbleSuggestion) => void;
-};
-
-function SuggestionRow({
-  label,
-  items,
-  colors,
-  styles,
-  onAccept,
-  onDismiss,
-}: RowProps) {
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>{label}</Text>
-        <Text style={styles.sectionCount}>{items.length}</Text>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        style={styles.row}
-        contentContainerStyle={styles.rowContent}
-      >
-        {items.map((suggestion) => (
-          <Chip
-            key={suggestion.text}
-            suggestion={suggestion}
-            colors={colors}
-            styles={styles}
-            onAccept={onAccept}
-            onDismiss={onDismiss}
-          />
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
 export function InlineSuggestions({
   suggestions,
   completionSuggestions,
   loading,
+  expanded,
+  onToggleExpanded,
   onAccept,
   onDismiss,
 }: Props) {
@@ -177,6 +124,9 @@ export function InlineSuggestions({
     );
   }
 
+  const inlineRow = suggestions.slice(0, COLLAPSED_COUNT);
+  const hiddenCount = suggestions.length - inlineRow.length;
+
   return (
     <Animated.View
       style={[styles.container, fade]}
@@ -184,26 +134,76 @@ export function InlineSuggestions({
       layout={LinearTransition.duration(LAYOUT_MS)}
     >
       {completionSuggestions.length > 0 ? (
-        <SuggestionRow
-          label="FINISH THIS SENTENCE"
-          items={completionSuggestions}
-          colors={colors}
-          styles={styles}
-          onAccept={onAccept}
-          onDismiss={onDismiss}
-        />
+        <View>
+          <Text style={styles.sectionLabel}>FINISH THIS SENTENCE</Text>
+          <View style={styles.row}>
+            {completionSuggestions.map((suggestion) => (
+              <Chip
+                key={suggestion.text}
+                suggestion={suggestion}
+                colors={colors}
+                styles={styles}
+                onAccept={onAccept}
+                onDismiss={onDismiss}
+              />
+            ))}
+          </View>
+        </View>
       ) : null}
 
-      {suggestions.length > 0 ? (
-        <SuggestionRow
-          label="START THE NEXT SENTENCE"
-          items={suggestions}
-          colors={colors}
-          styles={styles}
-          onAccept={onAccept}
-          onDismiss={onDismiss}
-        />
-      ) : null}
+      {!expanded ? (
+        <View>
+          <Text style={styles.sectionLabel}>START THE NEXT SENTENCE</Text>
+          <View style={styles.row}>
+            {inlineRow.map((suggestion) => (
+              <Chip
+                key={suggestion.text}
+                suggestion={suggestion}
+                colors={colors}
+                styles={styles}
+                onAccept={onAccept}
+                onDismiss={onDismiss}
+              />
+            ))}
+            {hiddenCount > 0 ? (
+              <Pressable style={styles.expander} onPress={onToggleExpanded}>
+                <Plus size={14} color={colors.mutedForeground} />
+                <Text style={styles.expanderText}>{hiddenCount} more</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ) : (
+        <View>
+          {SUGGESTION_CATEGORIES.map((category: SuggestionCategory) => {
+            const group = suggestions.filter((item) => item.category === category);
+            if (group.length === 0) return null;
+            return (
+              <View key={category} style={styles.group}>
+                <Text style={[styles.groupLabel, { color: categoryColor(colors, group[0]) }]}>
+                  {SUGGESTION_CATEGORY_LABELS[category]}
+                </Text>
+                <View style={styles.row}>
+                  {group.map((suggestion) => (
+                    <Chip
+                key={suggestion.text}
+                suggestion={suggestion}
+                colors={colors}
+                styles={styles}
+                onAccept={onAccept}
+                onDismiss={onDismiss}
+              />
+                  ))}
+                </View>
+              </View>
+            );
+          })}
+          <Pressable style={styles.expander} onPress={onToggleExpanded}>
+            <Minus size={14} color={colors.mutedForeground} />
+            <Text style={styles.expanderText}>Show less</Text>
+          </Pressable>
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -211,37 +211,20 @@ export function InlineSuggestions({
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     container: { gap: spacing[3] },
-    status: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing[2],
-      height: ROW_HEIGHT,
-    },
+    status: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingVertical: spacing[2] },
     statusText: {
       fontFamily: fonts.base,
       fontSize: 14 * scale,
       color: colors.mutedForeground,
-    },
-    section: { gap: spacing[2] },
-    sectionHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
     },
     sectionLabel: {
       fontFamily: fonts.baseSemi,
       fontSize: 11 * scale,
       letterSpacing: 0.8,
       color: colors.mutedForeground,
+      marginBottom: spacing[2],
     },
-    sectionCount: {
-      fontFamily: fonts.baseSemi,
-      fontSize: 12 * scale,
-      color: colors.mutedForeground,
-    },
-    // Fixed height: the row scrolls sideways rather than growing downwards.
-    row: { height: ROW_HEIGHT },
-    rowContent: { alignItems: "center", gap: spacing[2], paddingRight: spacing[4] },
+    row: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
     chipWrap: {
       flexDirection: "row",
       alignItems: "center",
@@ -252,5 +235,24 @@ function makeStyles(colors: Colors, scale: number) {
     chip: { paddingVertical: 8, paddingLeft: spacing[3], paddingRight: spacing[1] },
     chipText: { fontFamily: fonts.base, fontSize: 15 * scale, maxWidth: 240 },
     dismiss: { paddingHorizontal: spacing[2], paddingVertical: 8 },
+    expander: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: spacing[3],
+      paddingVertical: 8,
+    },
+    expanderText: {
+      fontFamily: fonts.baseSemi,
+      fontSize: 14 * scale,
+      color: colors.mutedForeground,
+    },
+    group: { marginBottom: spacing[3] },
+    groupLabel: {
+      fontFamily: fonts.baseSemi,
+      fontSize: 11 * scale,
+      letterSpacing: 0.8,
+      marginBottom: spacing[2],
+    },
   });
 }
