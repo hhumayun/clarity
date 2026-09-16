@@ -1,9 +1,12 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
   LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { Minus, Plus, X } from "lucide-react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
@@ -19,6 +22,11 @@ import {
 
 const COLLAPSED_COUNT = 4;
 const LAYOUT_MS = 180;
+// Dimmed while a new set is being fetched, restored as it lands — one fade for
+// the whole block instead of every chip animating against its neighbours.
+const DIM_OPACITY = 0.35;
+const DIM_MS = 140;
+const RESTORE_MS = 220;
 
 type Props = {
   suggestions: Suggestion[];
@@ -61,8 +69,6 @@ const Chip = React.memo(function Chip({
   return (
     <Animated.View
       style={[styles.chipWrap, { borderColor: color }]}
-      entering={FadeIn.duration(150)}
-      exiting={FadeOut.duration(120)}
       layout={LinearTransition.duration(LAYOUT_MS)}
     >
       <Pressable
@@ -95,6 +101,14 @@ export function InlineSuggestions({
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
+  const dim = useSharedValue(1);
+  useEffect(() => {
+    dim.value = withTiming(loading ? DIM_OPACITY : 1, {
+      duration: loading ? DIM_MS : RESTORE_MS,
+    });
+  }, [loading, dim]);
+  const fade = useAnimatedStyle(() => ({ opacity: dim.value }));
+
   if (suggestions.length === 0 && completionSuggestions.length === 0) {
     if (!loading) return null;
     return (
@@ -115,7 +129,7 @@ export function InlineSuggestions({
 
   return (
     <Animated.View
-      style={styles.container}
+      style={[styles.container, fade]}
       entering={FadeIn.duration(150)}
       layout={LinearTransition.duration(LAYOUT_MS)}
     >
