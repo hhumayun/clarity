@@ -471,6 +471,14 @@ export default function NoteEditorScreen() {
                   }
                 }}
                 selection={selection}
+                // We drive the height from onContentSizeChange, so the input
+                // must not also scroll its own content: on the frame before the
+                // new height lands the text is taller than the box, and it
+                // scrolls itself to keep the caret in view. The height then
+                // catches up but that offset is never reset, leaving the text
+                // pushed up with blank space beneath it. The outer ScrollView
+                // does the scrolling instead.
+                scrollEnabled={false}
                 placeholder="Start writing…"
                 placeholderTextColor={colors.mutedForeground}
                 accessibilityLabel="Note text"
