@@ -6,4 +6,4 @@
  * Set TASKS_ENABLED back to true to restore the Life Center tab and the Tasks
  * tab inside a note. Nothing else needs to change.
  */
-export const TASKS_ENABLED = false;
+export const TASKS_ENABLED = true;
