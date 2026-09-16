@@ -1,5 +1,11 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Mic, RotateCcw, Sparkles } from "lucide-react-native";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Mic,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -10,16 +16,21 @@ import React, {
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
   LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate } from "../../../src/api/notes";
@@ -29,7 +40,7 @@ import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts } from "../../../src/lib/localDrafts";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { fonts, spacing, type Colors } from "../../../src/theme";
+import { fonts, radius, spacing, type Colors } from "../../../src/theme";
 import {
   isCompletionSuggestion,
   type BubbleSuggestion,
@@ -51,6 +62,10 @@ const UNDO_VISIBLE_MS = 7_000;
 const MIN_BODY_HEIGHT = 96;
 // Short enough to feel like a settle rather than a wait, while writing.
 const LAYOUT_MS = 180;
+const TRAY_MS = 240;
+const TRAY_MAX_WIDTH = 320;
+const TRAY_WIDTH_RATIO = 0.82;
+const TRAY_HANDLE_WIDTH = 34;
 
 function shouldCapitalize(before: string): boolean {
   const trimmed = before.trimEnd();
@@ -77,6 +92,19 @@ export default function NoteEditorScreen() {
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
   const [bodyHeight, setBodyHeight] = useState(MIN_BODY_HEIGHT);
+  // Open on arrival: the suggestions are the point of the editor, so they
+  // should be visible without being asked for.
+  const [trayOpen, setTrayOpen] = useState(true);
+
+  const { width: windowWidth } = useWindowDimensions();
+  const trayWidth = Math.min(TRAY_MAX_WIDTH, windowWidth * TRAY_WIDTH_RATIO);
+  const trayOffset = useSharedValue(0);
+  useEffect(() => {
+    trayOffset.value = withTiming(trayOpen ? 0 : trayWidth, { duration: TRAY_MS });
+  }, [trayOpen, trayWidth, trayOffset]);
+  const trayStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: trayOffset.value }],
+  }));
 
   const contentRef = useRef(content);
   contentRef.current = content;
@@ -418,6 +446,7 @@ export default function NoteEditorScreen() {
 
         {!TASKS_ENABLED || editorTab === "note" ? (
           <>
+            <View style={styles.contentArea}>
             <ScrollView
               style={styles.flex}
               keyboardShouldPersistTaps="handled"
@@ -454,36 +483,6 @@ export default function NoteEditorScreen() {
                 }}
                 textAlignVertical="top"
               />
-              <Animated.View
-                style={styles.suggestionBar}
-                layout={LinearTransition.duration(LAYOUT_MS)}
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onPress={requestSuggestions}
-                  loading={loading}
-                  accessibilityLabel={
-                    hasSuggestions
-                      ? "Get new word suggestions"
-                      : "Get word suggestions for what you are writing"
-                  }
-                >
-                  <Sparkles size={16} color={colors.secondaryForeground} />
-                  <Text style={styles.suggestionButtonText}>
-                    {hasSuggestions ? "New suggestions" : "Suggestions"}
-                  </Text>
-                </Button>
-              </Animated.View>
-              <InlineSuggestions
-                suggestions={suggestions}
-                completionSuggestions={completionSuggestions}
-                loading={loading}
-                expanded={suggestionsExpanded}
-                onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
-                onAccept={insertSuggestion}
-                onDismiss={dismiss}
-              />
               {undoState ? (
                 <Animated.View
                   entering={FadeIn.duration(150)}
@@ -499,6 +498,60 @@ export default function NoteEditorScreen() {
                 </>
               )}
             </ScrollView>
+
+            <Animated.View style={[styles.tray, { width: trayWidth }, trayStyle]}>
+              <Pressable
+                style={styles.trayHandle}
+                onPress={() => setTrayOpen((open) => !open)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  trayOpen ? "Hide the suggestions tray" : "Show the suggestions tray"
+                }
+              >
+                {trayOpen ? (
+                  <ChevronRight size={20} color={colors.mutedForeground} />
+                ) : (
+                  <ChevronLeft size={20} color={colors.mutedForeground} />
+                )}
+              </Pressable>
+
+              <View style={styles.trayBody}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={requestSuggestions}
+                  loading={loading}
+                  style={styles.trayButton}
+                  accessibilityLabel={
+                    hasSuggestions
+                      ? "Get new word suggestions"
+                      : "Get word suggestions for what you are writing"
+                  }
+                >
+                  <Sparkles size={16} color={colors.secondaryForeground} />
+                  <Text style={styles.suggestionButtonText}>
+                    {hasSuggestions ? "New suggestions" : "Suggestions"}
+                  </Text>
+                </Button>
+
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.trayScroll}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <InlineSuggestions
+                    suggestions={suggestions}
+                    completionSuggestions={completionSuggestions}
+                    loading={loading}
+                    expanded={suggestionsExpanded}
+                    onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
+                    onAccept={insertSuggestion}
+                    onDismiss={dismiss}
+                  />
+                </ScrollView>
+              </View>
+            </Animated.View>
+            </View>
             <View style={styles.footer}>
               <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
             </View>
@@ -548,6 +601,36 @@ function makeStyles(colors: Colors, scale: number) {
       lineHeight: 28 * scale,
       color: colors.foreground,
     },
+    contentArea: { flex: 1, overflow: "hidden" },
+    tray: {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      right: 0,
+      backgroundColor: colors.surface,
+      borderLeftWidth: 1,
+      borderLeftColor: colors.border,
+    },
+    // Sits outside the tray's left edge, so it stays reachable once the tray
+    // has slid away.
+    trayHandle: {
+      position: "absolute",
+      left: -TRAY_HANDLE_WIDTH,
+      top: spacing[6],
+      width: TRAY_HANDLE_WIDTH,
+      height: 56,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderRightWidth: 0,
+      borderColor: colors.border,
+      borderTopLeftRadius: radius.md,
+      borderBottomLeftRadius: radius.md,
+    },
+    trayBody: { flex: 1, padding: spacing[3], gap: spacing[3] },
+    trayButton: { alignSelf: "flex-start" },
+    trayScroll: { paddingBottom: spacing[4] },
     suggestionBar: { flexDirection: "row", alignItems: "center" },
     suggestionButtonText: {
       fontFamily: fonts.baseSemi,
