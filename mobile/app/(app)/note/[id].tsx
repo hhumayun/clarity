@@ -48,6 +48,8 @@ const REINDEX_DELAY_MS = 4_000;
 const UNDO_VISIBLE_MS = 7_000;
 // Short enough to feel like a settle rather than a wait, while writing.
 const LAYOUT_MS = 180;
+// Roughly four lines: below this the note stops feeling like somewhere to write.
+const MIN_BODY_HEIGHT = 120;
 
 function shouldCapitalize(before: string): boolean {
   const trimmed = before.trimEnd();
@@ -543,17 +545,20 @@ function makeStyles(colors: Colors, scale: number) {
     },
     body: {
       // Fills the pane and scrolls its own content, so nothing has to measure
-      // the text or resize around it.
+      // the text or resize around it. flex sets shrink: 1, so the minHeight is
+      // what stops the chips below from squeezing the note down to one line.
       flex: 1,
+      minHeight: MIN_BODY_HEIGHT,
       fontFamily: fonts.base,
       fontSize: 18 * scale,
       lineHeight: 28 * scale,
       color: colors.foreground,
     },
     suggestionBar: { flexDirection: "row", alignItems: "center" },
-    // Bounded so expanding the chips scrolls them rather than squeezing the
-    // note out of the pane.
-    suggestionArea: { maxHeight: 200 },
+    // Capped, and the first thing to give way when the pane is short — with
+    // the keyboard up there is not room for both, and the note wins. The
+    // chips scroll inside whatever height is left.
+    suggestionArea: { maxHeight: 200, flexShrink: 1 },
     suggestionButtonText: {
       fontFamily: fonts.baseSemi,
       fontSize: 15 * scale,
