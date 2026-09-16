@@ -416,7 +416,11 @@ export default function NoteEditorScreen() {
 
         {!TASKS_ENABLED || editorTab === "note" ? (
           <>
-            <View style={styles.notePane}>
+            <ScrollView
+              style={styles.flex}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.notePanel}
+            >
               {!loaded ? (
                 <View style={styles.bodySkeleton}>
                   <Skeleton style={styles.skeletonLine} />
@@ -439,6 +443,16 @@ export default function NoteEditorScreen() {
                 placeholder="Start writing…"
                 placeholderTextColor={colors.mutedForeground}
                 accessibilityLabel="Note text"
+                // No height here, on purpose. Under the new architecture the
+                // shadow node measures the text on every keystroke, so an
+                // unsized multiline input grows with its content by itself.
+                // Pinning the height from onContentSizeChange defeats that:
+                // that event only fires from updateLayoutMetrics, i.e. when
+                // the frame changes — which a pinned height never lets happen.
+                // With the box always fitting the text there is nothing for
+                // the input to scroll, so its own scrolling is off and the
+                // surrounding ScrollView carries the note and chips together.
+                scrollEnabled={false}
                 style={styles.body}
                 textAlignVertical="top"
               />
@@ -475,26 +489,18 @@ export default function NoteEditorScreen() {
                   </Text>
                 </Button>
               </Animated.View>
-              <View style={styles.suggestionArea}>
-                <ScrollView
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  <InlineSuggestions
-                    suggestions={suggestions}
-                    completionSuggestions={completionSuggestions}
-                    loading={loading}
-                    expanded={suggestionsExpanded}
-                    onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
-                    onAccept={insertSuggestion}
-                    onDismiss={dismiss}
-                  />
-                </ScrollView>
-              </View>
+              <InlineSuggestions
+                suggestions={suggestions}
+                completionSuggestions={completionSuggestions}
+                loading={loading}
+                expanded={suggestionsExpanded}
+                onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
+                onAccept={insertSuggestion}
+                onDismiss={dismiss}
+              />
                 </>
               )}
-            </View>
-
+            </ScrollView>
             <View style={styles.footer}>
               <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
             </View>
@@ -537,17 +543,9 @@ function makeStyles(colors: Colors, scale: number) {
     // Bottom padding clears the pinned reflection strip, so the last row of
     // chips can always be scrolled out from behind it.
     notePanel: { paddingHorizontal: spacing[4], paddingBottom: spacing[16], gap: spacing[3] },
-    notePane: {
-      flex: 1,
-      paddingHorizontal: spacing[4],
-      paddingBottom: spacing[3],
-      gap: spacing[3],
-    },
     body: {
-      // Fills the pane and scrolls its own content, so nothing has to measure
-      // the text or resize around it. flex sets shrink: 1, so the minHeight is
-      // what stops the chips below from squeezing the note down to one line.
-      flex: 1,
+      // Height comes from the text itself (see the input). The floor keeps a
+      // usable tap target on an empty note.
       minHeight: MIN_BODY_HEIGHT,
       fontFamily: fonts.base,
       fontSize: 18 * scale,
@@ -555,10 +553,6 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.foreground,
     },
     suggestionBar: { flexDirection: "row", alignItems: "center" },
-    // Capped, and the first thing to give way when the pane is short — with
-    // the keyboard up there is not room for both, and the note wins. The
-    // chips scroll inside whatever height is left.
-    suggestionArea: { maxHeight: 200, flexShrink: 1 },
     suggestionButtonText: {
       fontFamily: fonts.baseSemi,
       fontSize: 15 * scale,
