@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -53,13 +53,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Only the tick that was just earned should draw itself. Without this every
+  // finished task would replay the animation on each page load.
+  const [celebrating, setCelebrating] = useState(false);
+  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+  }, []);
   const done = task.status === "done";
   const due = task.completeBy ? dueState(task.completeBy) : null;
   const noteHref = task.noteId ? `/note/${task.noteId}` : null;
 
   return (
     <article
-      className={`${styles.card} ${done ? styles.done : ""} ${className ?? ""}`}
+      className={`${styles.card} ${done ? styles.done : ""} ${
+        celebrating ? styles.celebrate : ""
+      } ${className ?? ""}`}
       data-status={task.status}
     >
       <button
@@ -67,14 +76,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         className={styles.check}
         aria-pressed={done}
         aria-label={done ? "Mark as not done" : "Mark as done"}
-        onClick={() => onStatusChange(done ? "todo" : "done")}
+        onClick={() => {
+          if (!done) {
+            if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+            setCelebrating(true);
+            celebrateTimer.current = setTimeout(() => setCelebrating(false), 700);
+          }
+          onStatusChange(done ? "todo" : "done");
+        }}
       >
         {done && <Check aria-hidden="true" />}
       </button>
 
       <div className={styles.body}>
         <button type="button" className={styles.text} onClick={onEdit}>
-          {task.text}
+          <span className={styles.textInner}>{task.text}</span>
         </button>
 
         {(showProject || task.completeBy || (showNoteLink && noteHref)) && (

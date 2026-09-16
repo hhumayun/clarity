@@ -1,5 +1,18 @@
-import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type TextLayoutLine,
+} from "react-native";
+import Animated, {
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import {
   CalendarDays,
@@ -18,6 +31,41 @@ import {
   type TaskStatus,
 } from "../types";
 import { ConfirmModal } from "./ConfirmModal";
+
+const TICK_SPRING = { damping: 13, stiffness: 240, mass: 0.6 };
+const STRIKE_MS = 260;
+
+/**
+ * One line drawn across one line of text. Separate component because each
+ * needs its own animated width, and hooks cannot be called from a map.
+ */
+function StrikeLine({
+  progress,
+  line,
+  color,
+}: {
+  progress: SharedValue<number>;
+  line: { x: number; y: number; width: number; height: number };
+  color: string;
+}) {
+  const style = useAnimatedStyle(() => ({ width: progress.value * line.width }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: "absolute",
+          left: line.x,
+          top: line.y + line.height / 2 - 1,
+          height: 2,
+          borderRadius: 1,
+          backgroundColor: color,
+        },
+        style,
+      ]}
+    />
+  );
+}
 
 type Props = {
   task: TaskRecord;
@@ -45,6 +93,32 @@ export function TaskCard({
   const [deleting, setDeleting] = useState(false);
   const done = task.status === "done";
   const due = task.completeBy ? dueState(task.completeBy) : null;
+  const [textLines, setTextLines] = useState<
+    { x: number; y: number; width: number; height: number }[]
+  >([]);
+
+  // Settled state on first render, animated only on a real change — otherwise
+  // every finished task on the board would tick itself off on load.
+  const tick = useSharedValue(done ? 1 : 0);
+  const strike = useSharedValue(done ? 1 : 0);
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!settled.current) {
+      settled.current = true;
+      return;
+    }
+    tick.value = withSpring(done ? 1 : 0, TICK_SPRING);
+    strike.value = withTiming(done ? 1 : 0, { duration: STRIKE_MS });
+  }, [done, tick, strike]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    opacity: tick.value,
+    transform: [{ scale: 0.4 + 0.6 * tick.value }],
+  }));
+  const tickStyle = useAnimatedStyle(() => ({
+    opacity: tick.value,
+    transform: [{ scale: tick.value }],
+  }));
 
   return (
     <View style={[styles.card, done && styles.done]}>
@@ -52,15 +126,42 @@ export function TaskCard({
         accessibilityRole="button"
         accessibilityLabel={done ? "Mark as not done" : "Mark as done"}
         onPress={() => onStatusChange(done ? "todo" : "done")}
-        style={[styles.check, done && styles.checkDone]}
+        style={styles.check}
       >
-        {done ? <Check size={18} color={colors.primaryForeground} /> : null}
+        <Animated.View style={[styles.checkFill, fillStyle]} />
+        <Animated.View style={tickStyle}>
+          <Check size={18} color={colors.primaryForeground} />
+        </Animated.View>
       </Pressable>
 
       <View style={styles.body}>
-        <Pressable onPress={onEdit}>
-          <Text style={[styles.text, done && styles.textDone]}>{task.text}</Text>
-        </Pressable>
+        <View>
+          <Pressable onPress={onEdit}>
+            <Text
+              style={[styles.text, done && styles.textDone]}
+              onTextLayout={(event) =>
+                setTextLines(
+                  event.nativeEvent.lines.map((line: TextLayoutLine) => ({
+                    x: line.x,
+                    y: line.y,
+                    width: line.width,
+                    height: line.height,
+                  })),
+                )
+              }
+            >
+              {task.text}
+            </Text>
+          </Pressable>
+          {textLines.map((line, index) => (
+            <StrikeLine
+              key={index}
+              progress={strike}
+              line={line}
+              color={colors.mutedForeground}
+            />
+          ))}
+        </View>
         <View style={styles.meta}>
           {showProject ? <Text style={styles.chip}>{task.projectName}</Text> : null}
           {task.completeBy && due ? (
@@ -171,6 +272,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     done: { opacity: 0.72 },
     check: {
+      overflow: "visible",
       width: 28,
       height: 28,
       borderRadius: 14,
@@ -180,14 +282,22 @@ function makeStyles(colors: Colors, scale: number) {
       justifyContent: "center",
       marginTop: 2,
     },
-    checkDone: { backgroundColor: colors.primary },
+    checkFill: {
+      position: "absolute",
+      top: -2,
+      left: -2,
+      right: -2,
+      bottom: -2,
+      borderRadius: 14,
+      backgroundColor: colors.primary,
+    },
     body: { flex: 1, gap: spacing[2] },
     text: {
       fontFamily: fonts.baseSemi,
       fontSize: 16 * scale,
       color: colors.foreground,
     },
-    textDone: { textDecorationLine: "line-through", color: colors.mutedForeground },
+    textDone: { color: colors.mutedForeground },
     meta: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
     chipWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
     chip: {

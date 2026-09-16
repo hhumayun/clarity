@@ -38,6 +38,24 @@
 .check svg { width: 1.25rem; height: 1.25rem; stroke-width: 3; }
 .done .check { border-color: var(--primary); background: var(--primary); }
 
+/* Completing a task: the circle gives a little, then the tick draws itself. */
+.celebrate .check { animation: checkPop var(--animation-duration-normal) ease; }
+.celebrate .check svg path {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: tickDraw var(--animation-duration-normal) ease forwards;
+}
+
+@keyframes checkPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes tickDraw {
+  to { stroke-dashoffset: 0; }
+}
+
 .body {
   display: flex;
   flex-direction: column;
@@ -66,6 +84,28 @@
 .text:hover { color: var(--primary); }
 .text:focus-visible { box-shadow: var(--shadow-focus); }
 .done .text { color: var(--muted-foreground); }
+
+/* The line is a background gradient rather than text-decoration, because only
+   background-size can be transitioned. box-decoration-break gives each wrapped
+   line its own box, so a task running to three lines gets struck through on
+   all three. */
+.textInner {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 0.75em;
+  background-size: 0% 2px;
+  transition: background-size var(--animation-duration-normal) ease;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.done .textInner { background-size: 100% 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .celebrate .check,
+  .celebrate .check svg path { animation: none; }
+  .textInner { transition: none; }
+}
 
 .meta {
   display: flex;
