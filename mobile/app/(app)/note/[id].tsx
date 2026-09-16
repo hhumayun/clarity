@@ -57,9 +57,6 @@ type SaveStatus = "idle" | "saving" | "saved" | "offline";
 const SERVER_SAVE_DELAY_MS = 900;
 const REINDEX_DELAY_MS = 4_000;
 const UNDO_VISIBLE_MS = 7_000;
-// Keeps a comfortable tap target on an empty note; past this the body grows
-// with the text so the suggestions sit just under what you wrote.
-const MIN_BODY_HEIGHT = 96;
 // Short enough to feel like a settle rather than a wait, while writing.
 const LAYOUT_MS = 180;
 const TRAY_MS = 240;
@@ -91,7 +88,6 @@ export default function NoteEditorScreen() {
   const [undoState, setUndoState] = useState<{ text: string; cursor: number } | null>(null);
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
-  const [bodyHeight, setBodyHeight] = useState(MIN_BODY_HEIGHT);
   // Open on arrival: the suggestions are the point of the editor, so they
   // should be visible without being asked for.
   const [trayOpen, setTrayOpen] = useState(true);
@@ -447,11 +443,7 @@ export default function NoteEditorScreen() {
         {!TASKS_ENABLED || editorTab === "note" ? (
           <>
             <View style={styles.contentArea}>
-            <ScrollView
-              style={styles.flex}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.notePanel}
-            >
+            <View style={styles.notePane}>
               {!loaded ? (
                 <View style={styles.bodySkeleton}>
                   <Skeleton style={styles.skeletonLine} />
@@ -471,24 +463,10 @@ export default function NoteEditorScreen() {
                   }
                 }}
                 selection={selection}
-                // We drive the height from onContentSizeChange, so the input
-                // must not also scroll its own content: on the frame before the
-                // new height lands the text is taller than the box, and it
-                // scrolls itself to keep the caret in view. The height then
-                // catches up but that offset is never reset, leaving the text
-                // pushed up with blank space beneath it. The outer ScrollView
-                // does the scrolling instead.
-                scrollEnabled={false}
                 placeholder="Start writing…"
                 placeholderTextColor={colors.mutedForeground}
                 accessibilityLabel="Note text"
-                style={[styles.body, { height: Math.max(MIN_BODY_HEIGHT, bodyHeight) }]}
-                onContentSizeChange={(event) => {
-                  const next = event.nativeEvent.contentSize.height;
-                  // Ignore sub-pixel reports; feeding them back as height would
-                  // bounce between two values forever.
-                  setBodyHeight((prev) => (Math.abs(prev - next) < 1 ? prev : next));
-                }}
+                style={styles.body}
                 textAlignVertical="top"
               />
               {undoState ? (
@@ -505,7 +483,7 @@ export default function NoteEditorScreen() {
               ) : null}
                 </>
               )}
-            </ScrollView>
+            </View>
 
             <Animated.View style={[styles.tray, { width: trayWidth }, trayStyle]}>
               <Pressable
@@ -578,7 +556,7 @@ function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },
-    bodySkeleton: { minHeight: MIN_BODY_HEIGHT, gap: spacing[3], paddingTop: spacing[2] },
+    bodySkeleton: { gap: spacing[3], paddingTop: spacing[2] },
     skeletonLine: { height: 18 * scale },
     skeletonLineShort: { height: 18 * scale, width: "60%" },
     header: {
@@ -602,8 +580,16 @@ function makeStyles(colors: Colors, scale: number) {
     // Bottom padding clears the pinned reflection strip, so the last row of
     // chips can always be scrolled out from behind it.
     notePanel: { paddingHorizontal: spacing[4], paddingBottom: spacing[16], gap: spacing[3] },
+    notePane: {
+      flex: 1,
+      paddingHorizontal: spacing[4],
+      paddingBottom: spacing[3],
+      gap: spacing[3],
+    },
     body: {
-      minHeight: MIN_BODY_HEIGHT,
+      // Fills the pane and scrolls its own content, so nothing has to measure
+      // the text or resize around it.
+      flex: 1,
       fontFamily: fonts.base,
       fontSize: 18 * scale,
       lineHeight: 28 * scale,
