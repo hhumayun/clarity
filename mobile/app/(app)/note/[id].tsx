@@ -87,7 +87,9 @@ export default function NoteEditorScreen() {
   const creatingRef = useRef(false);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const draftKey = isNew ? "new" : (routeId ?? "new");
+  // Keyed on the note once it exists, so creating one mid-session moves the
+  // draft from "new" to its id without a navigation.
+  const draftKey = noteId ?? (isNew ? "new" : (routeId ?? "new"));
   // The key ("new" or a note id) whose text the editor buffer currently holds. Until it
   // matches draftKey the buffer belongs to another note (or to nothing yet), so neither
   // autosave nor persist may write it anywhere.
@@ -196,10 +198,12 @@ export default function NoteEditorScreen() {
             });
             setNoteId(note.id);
             noteIdRef.current = note.id;
-            // The buffer now belongs to the created note, so the redirect below reuses it
-            // instead of re-fetching.
+            // Deliberately no navigation here. Replacing /note/new with
+            // /note/<id> swapped the top of the stack, which animates: the
+            // editor slid away and an identical one slid back a beat after
+            // the note saved. The id lives in state, and draftKey follows it,
+            // so the route can stay where it is.
             loadedKeyRef.current = note.id;
-            router.replace(`/note/${note.id}`);
           } finally {
             creatingRef.current = false;
           }
@@ -216,7 +220,7 @@ export default function NoteEditorScreen() {
         setStatus("offline");
       }
     },
-    [draftKey, router],
+    [draftKey],
   );
 
   useEffect(() => {
