@@ -20,6 +20,14 @@ import { reflectionQuestions } from "./reflectionQuestions";
  * history + entity-matched related notes) is best-effort and never blocks the
  * writer: any failure falls back to an empty bubble row plus a local
  * reflection question. Backend only.
+ *
+ * Accepted phrases are deliberately NOT fed back into the prompt. Doing so was
+ * self-reinforcing: accepting a stem raised its count, which kept it in the
+ * top eight, which had it suggested again. Measured over five runs on one
+ * note, sending them made 28 of 30 stems verbatim replays and cut distinct
+ * stems from 27 to 10. Dismissals are still sent — that filter only ever
+ * removes phrases — and related-note excerpts still provide topic context,
+ * since neither causes the loop.
  */
 
 const MAX_SUGGESTION_LEN = 60;
@@ -258,7 +266,6 @@ Rules:
 - Stems must clearly connect to THIS writer's words — echo their subject, moment, or feeling when natural. Never offer filler that could fit any note.
 - If the writer stopped mid-sentence, favor stems that would also read well right after their unfinished thought is completed.
 - Give exactly 2 stems per mood. Vary them; no near-duplicates.
-- If the writer often uses certain phrases and one fits as a stem, include it.
 - Never repeat a phrase the writer dismissed.
 - Never give advice or corrections.
 - The question is one short, gentle, open question about what they just wrote — curious, never probing or clinical.
@@ -278,11 +285,6 @@ function buildPrompt(
       ...ctx.excerpts.map(
         (e) => `- ${e.title ? e.title + ": " : ""}${e.excerpt}`,
       ),
-    );
-  }
-  if (ctx.frequentPhrases.length > 0) {
-    parts.push(
-      `Phrases this writer often uses and likes: ${ctx.frequentPhrases.join("; ")}`,
     );
   }
   if (ctx.dismissedPhrases.length > 0) {
