@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CalendarDays, Sparkles } from "lucide-react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useToast } from "../providers/ToastProvider";
 import { useTasks } from "../hooks/useTasks";
 import { formatDue } from "../lib/taskDates";
@@ -288,8 +289,13 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
       {openTasks.length > 0 ? (
         <View style={styles.list}>
           {openTasks.map((task) => (
-            <TaskCard
+            <Animated.View
               key={task.id}
+              layout={LinearTransition.duration(220)}
+              entering={FadeInDown.duration(180)}
+              exiting={FadeOutUp.duration(140)}
+            >
+            <TaskCard
               task={task}
               showNoteLink={false}
               onStatusChange={(next) => changeStatus(task, next)}
@@ -298,6 +304,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
                 await remove.mutateAsync({ id: task.id });
               }}
             />
+            </Animated.View>
           ))}
         </View>
       ) : null}
@@ -311,7 +318,13 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
           </Pressable>
           {(showDone || openTasks.length === 0) &&
             doneTasks.map((task) => (
-              <View key={task.id} style={{ marginBottom: spacing[2] }}>
+              <Animated.View
+                key={task.id}
+                style={{ marginBottom: spacing[2] }}
+                layout={LinearTransition.duration(220)}
+                entering={FadeInDown.duration(180)}
+                exiting={FadeOutUp.duration(140)}
+              >
                 <TaskCard
                   task={task}
                   showNoteLink={false}
@@ -321,7 +334,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
                     await remove.mutateAsync({ id: task.id });
                   }}
                 />
-              </View>
+              </Animated.View>
             ))}
         </View>
       ) : null}

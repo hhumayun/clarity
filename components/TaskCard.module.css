@@ -13,6 +13,16 @@
 
 .card:hover { box-shadow: var(--shadow-md); }
 
+/* A card that changes section is a fresh element in its new column, so this is
+   how it arrives. It also runs on first paint, which reads as the board
+   settling into place. */
+.card { animation: cardIn var(--animation-duration-normal) ease both; }
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* One big circle: the whole point of the card. */
 .check {
   width: 2.25rem;
@@ -102,6 +112,7 @@
 .done .textInner { background-size: 100% 2px; }
 
 @media (prefers-reduced-motion: reduce) {
+  .card,
   .celebrate .check,
   .celebrate .check svg path { animation: none; }
   .textInner { transition: none; }

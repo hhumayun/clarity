@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { summarizeTasks } from "../../../src/lib/taskDates";
 import { openCountByProject, sortProjects, sortTasks } from "../../../src/lib/taskSort";
@@ -220,8 +221,13 @@ export default function LifeCenterScreen() {
                       ) : null}
                     </View>
                     {tasks.map((task) => (
-                      <TaskCard
+                      <Animated.View
                         key={task.id}
+                        layout={LinearTransition.duration(220)}
+                        entering={FadeInDown.duration(180)}
+                        exiting={FadeOutUp.duration(140)}
+                      >
+                      <TaskCard
                         task={task}
                         showProject={effectiveFilter === ALL}
                         onStatusChange={(next) => changeStatus(task, next)}
@@ -230,6 +236,7 @@ export default function LifeCenterScreen() {
                           await remove.mutateAsync({ id: task.id });
                         }}
                       />
+                      </Animated.View>
                     ))}
                     {tasks.length === 0 ? (
                       <Text style={styles.noTasks}>

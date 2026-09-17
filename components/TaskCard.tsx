@@ -64,18 +64,36 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   // here first, plays the tick and the strike where it sits, and the status
   // change follows once they have finished. Gating on this click also keeps
   // every already-finished task from replaying the animation on page load.
-  const [celebrating, setCelebrating] = useState(false);
-  const shownDone = celebrating || done;
+  const [pendingDone, setPendingDone] = useState<boolean | null>(null);
+  const shownDone = pendingDone ?? done;
+  // The tick only draws itself on the way in; leaving done just lets the
+  // strike and the fill transition back.
+  const celebrating = pendingDone === true;
   const completeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (celebrating && done) setCelebrating(false);
-  }, [celebrating, done]);
+    if (pendingDone !== null && pendingDone === done) setPendingDone(null);
+  }, [pendingDone, done]);
   useEffect(
     () => () => {
       if (completeTimer.current) clearTimeout(completeTimer.current);
     },
     [],
   );
+  // Any move into or out of done plays on this card first, then the status is
+  // sent and the card changes section. Moves between open columns are
+  // immediate.
+  const changeStatus = (next: TaskStatus) => {
+    const entering = next === "done" && !done;
+    const leaving = next !== "done" && done;
+    if (!entering && !leaving) {
+      onStatusChange(next);
+      return;
+    }
+    if (pendingDone !== null) return;
+    setPendingDone(entering);
+    if (completeTimer.current) clearTimeout(completeTimer.current);
+    completeTimer.current = setTimeout(() => onStatusChange(next), COMPLETE_DELAY_MS);
+  };
   const due = task.completeBy ? dueState(task.completeBy) : null;
   const noteHref = task.noteId ? `/note/${task.noteId}` : null;
 
@@ -91,15 +109,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         className={styles.check}
         aria-pressed={shownDone}
         aria-label={shownDone ? "Mark as not done" : "Mark as done"}
-        onClick={() => {
-          if (done) {
-            onStatusChange("todo");
-            return;
-          }
-          if (celebrating) return;
-          setCelebrating(true);
-          completeTimer.current = setTimeout(() => onStatusChange("done"), COMPLETE_DELAY_MS);
-        }}
+        onClick={() => changeStatus(done ? "todo" : "done")}
       >
         {shownDone && <Check aria-hidden="true" />}
       </button>
@@ -137,7 +147,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className={styles.menu}>
           {TASK_STATUS_VALUES.filter((status) => status !== task.status).map((status) => (
-            <DropdownMenuItem key={status} onSelect={() => onStatusChange(status)}>
+            <DropdownMenuItem key={status} onSelect={() => changeStatus(status)}>
               <ArrowRight aria-hidden="true" />
               Move to {TASK_STATUS_LABELS[status]}
             </DropdownMenuItem>

@@ -113,15 +113,22 @@ export function TaskCard({
     },
     [],
   );
-  const toggleDone = () => {
-    if (done) {
-      onStatusChange("todo");
+  // Any move into or out of done plays here first — the circle, the tick and
+  // the line run in reverse on the way out — then the status is sent and the
+  // card changes section. Moves between the open columns are immediate.
+  const changeStatus = (next: TaskStatus) => {
+    const entering = next === "done" && !done;
+    const leaving = next !== "done" && done;
+    if (!entering && !leaving) {
+      onStatusChange(next);
       return;
     }
-    setPendingDone(true);
+    if (pendingDone !== null) return;
+    setPendingDone(entering);
     if (completeTimer.current) clearTimeout(completeTimer.current);
-    completeTimer.current = setTimeout(() => onStatusChange("done"), COMPLETE_DELAY_MS);
+    completeTimer.current = setTimeout(() => onStatusChange(next), COMPLETE_DELAY_MS);
   };
+  const toggleDone = () => changeStatus(done ? "todo" : "done");
 
   const [textLines, setTextLines] = useState<
     { x: number; y: number; width: number; height: number }[]
@@ -221,7 +228,7 @@ export function TaskCard({
                 style={styles.menuItem}
                 onPress={() => {
                   setMenuOpen(false);
-                  onStatusChange(status);
+                  changeStatus(status);
                 }}
               >
                 <Text style={styles.menuText}>Move to {TASK_STATUS_LABELS[status]}</Text>

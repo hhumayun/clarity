@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useDeleteNote, useNotes, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
 import { formatNoteDate } from "../../../src/lib/formatNoteDate";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
@@ -125,7 +126,13 @@ export default function NotesListScreen() {
           : notes.map((note) => {
               const expanded = expandedId === note.id;
               return (
-                <View key={note.id} style={styles.card}>
+                <Animated.View
+                  key={note.id}
+                  style={styles.card}
+                  layout={LinearTransition.duration(220)}
+                  entering={FadeInDown.duration(180)}
+                  exiting={FadeOutUp.duration(140)}
+                >
                   <View style={styles.cardMain}>
                     <Pressable
                       style={styles.cardOpen}
@@ -169,7 +176,7 @@ export default function NotesListScreen() {
                       </Button>
                     </View>
                   ) : null}
-                </View>
+                </Animated.View>
               );
             })}
 
