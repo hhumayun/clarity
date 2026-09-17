@@ -25,6 +25,10 @@ import {
 } from "./DropdownMenu";
 import styles from "./TaskCard.module.css";
 
+// Long enough for the tick to draw and the line to finish before the card
+// moves to the done section.
+const COMPLETE_DELAY_MS = 460;
+
 interface TaskCardProps {
   task: TaskRecord;
   /** Hide the project chip when every card on screen shares one project. */
@@ -53,20 +57,31 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  // Only the tick that was just earned should draw itself. Without this every
-  // finished task would replay the animation on each page load.
-  const [celebrating, setCelebrating] = useState(false);
-  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
-  }, []);
   const done = task.status === "done";
+  // The lists group cards by status, so changing the status moves the card
+  // under a different parent and React mounts a fresh one there — which would
+  // arrive already done and never animate. So the card takes on its done look
+  // here first, plays the tick and the strike where it sits, and the status
+  // change follows once they have finished. Gating on this click also keeps
+  // every already-finished task from replaying the animation on page load.
+  const [celebrating, setCelebrating] = useState(false);
+  const shownDone = celebrating || done;
+  const completeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (celebrating && done) setCelebrating(false);
+  }, [celebrating, done]);
+  useEffect(
+    () => () => {
+      if (completeTimer.current) clearTimeout(completeTimer.current);
+    },
+    [],
+  );
   const due = task.completeBy ? dueState(task.completeBy) : null;
   const noteHref = task.noteId ? `/note/${task.noteId}` : null;
 
   return (
     <article
-      className={`${styles.card} ${done ? styles.done : ""} ${
+      className={`${styles.card} ${shownDone ? styles.done : ""} ${
         celebrating ? styles.celebrate : ""
       } ${className ?? ""}`}
       data-status={task.status}
@@ -74,18 +89,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       <button
         type="button"
         className={styles.check}
-        aria-pressed={done}
-        aria-label={done ? "Mark as not done" : "Mark as done"}
+        aria-pressed={shownDone}
+        aria-label={shownDone ? "Mark as not done" : "Mark as done"}
         onClick={() => {
-          if (!done) {
-            if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
-            setCelebrating(true);
-            celebrateTimer.current = setTimeout(() => setCelebrating(false), 700);
+          if (done) {
+            onStatusChange("todo");
+            return;
           }
-          onStatusChange(done ? "todo" : "done");
+          if (celebrating) return;
+          setCelebrating(true);
+          completeTimer.current = setTimeout(() => onStatusChange("done"), COMPLETE_DELAY_MS);
         }}
       >
-        {done && <Check aria-hidden="true" />}
+        {shownDone && <Check aria-hidden="true" />}
       </button>
 
       <div className={styles.body}>

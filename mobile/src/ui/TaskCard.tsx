@@ -34,6 +34,9 @@ import { ConfirmModal } from "./ConfirmModal";
 
 const TICK_SPRING = { damping: 13, stiffness: 240, mass: 0.6 };
 const STRIKE_MS = 260;
+// Long enough for the tick to land and the line to finish before the card
+// moves to the done section.
+const COMPLETE_DELAY_MS = 460;
 
 /**
  * One line drawn across one line of text. Separate component because each
@@ -93,23 +96,50 @@ export function TaskCard({
   const [deleting, setDeleting] = useState(false);
   const done = task.status === "done";
   const due = task.completeBy ? dueState(task.completeBy) : null;
+
+  // Both lists group cards by status, so changing the status moves the card
+  // under a different parent and React mounts a fresh one there — which would
+  // arrive already done and never animate. So the animation runs here first,
+  // on the card as it sits, and the status change follows once it has played.
+  const [pendingDone, setPendingDone] = useState<boolean | null>(null);
+  const shownDone = pendingDone ?? done;
+  const completeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (pendingDone !== null && pendingDone === done) setPendingDone(null);
+  }, [done, pendingDone]);
+  useEffect(
+    () => () => {
+      if (completeTimer.current) clearTimeout(completeTimer.current);
+    },
+    [],
+  );
+  const toggleDone = () => {
+    if (done) {
+      onStatusChange("todo");
+      return;
+    }
+    setPendingDone(true);
+    if (completeTimer.current) clearTimeout(completeTimer.current);
+    completeTimer.current = setTimeout(() => onStatusChange("done"), COMPLETE_DELAY_MS);
+  };
+
   const [textLines, setTextLines] = useState<
     { x: number; y: number; width: number; height: number }[]
   >([]);
 
   // Settled state on first render, animated only on a real change — otherwise
   // every finished task on the board would tick itself off on load.
-  const tick = useSharedValue(done ? 1 : 0);
-  const strike = useSharedValue(done ? 1 : 0);
+  const tick = useSharedValue(shownDone ? 1 : 0);
+  const strike = useSharedValue(shownDone ? 1 : 0);
   const settled = useRef(false);
   useEffect(() => {
     if (!settled.current) {
       settled.current = true;
       return;
     }
-    tick.value = withSpring(done ? 1 : 0, TICK_SPRING);
-    strike.value = withTiming(done ? 1 : 0, { duration: STRIKE_MS });
-  }, [done, tick, strike]);
+    tick.value = withSpring(shownDone ? 1 : 0, TICK_SPRING);
+    strike.value = withTiming(shownDone ? 1 : 0, { duration: STRIKE_MS });
+  }, [shownDone, tick, strike]);
 
   const fillStyle = useAnimatedStyle(() => ({
     opacity: tick.value,
@@ -121,11 +151,11 @@ export function TaskCard({
   }));
 
   return (
-    <View style={[styles.card, done && styles.done]}>
+    <View style={[styles.card, shownDone && styles.done]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={done ? "Mark as not done" : "Mark as done"}
-        onPress={() => onStatusChange(done ? "todo" : "done")}
+        accessibilityLabel={shownDone ? "Mark as not done" : "Mark as done"}
+        onPress={toggleDone}
         style={styles.check}
       >
         <Animated.View style={[styles.checkFill, fillStyle]} />
@@ -138,7 +168,7 @@ export function TaskCard({
         <View>
           <Pressable onPress={onEdit}>
             <Text
-              style={[styles.text, done && styles.textDone]}
+              style={[styles.text, shownDone && styles.textDone]}
               onTextLayout={(event) =>
                 setTextLines(
                   event.nativeEvent.lines.map((line: TextLayoutLine) => ({
