@@ -115,6 +115,15 @@ async function generateOnce(
       response_format: { type: "json_object" },
       // Keep reasoning off so the answer is not delayed by hidden tokens.
       reasoning: { enabled: false },
+      // OpenRouter routes to the cheapest provider by default, which for the
+      // flash models means one generating at ~4 tok/s — measured at 8-35s for
+      // a ~100 token answer. Suggestions are typed against, so pay for speed.
+      // Measured over 5-6 runs each on 2026-09-21, same prompt:
+      //   default (cheapest)  8-35s
+      //   sort: "throughput"  4.0s median — ranks on tok/s, which a short
+      //                       answer never amortises, so it is the wrong key
+      //   sort: "latency"     0.83s median
+      provider: { sort: "latency" },
     }),
   });
 
