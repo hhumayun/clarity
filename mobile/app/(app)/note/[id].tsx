@@ -239,6 +239,7 @@ export default function NoteEditorScreen() {
   } = useSuggestions({
     noteId: noteId ?? undefined,
     title,
+    text: content,
     textBeforeCursor,
     enabled: loaded && editorTab === "note" && aiSuggestions,
   });

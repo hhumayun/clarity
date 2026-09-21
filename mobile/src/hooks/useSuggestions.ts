@@ -18,10 +18,13 @@ function dismissalKey(text: string): string {
 export function useSuggestions(opts: {
   noteId?: string;
   title: string;
+  /** The whole note. Used only to count how much has been written. */
+  text: string;
+  /** The slice the model is asked about. */
   textBeforeCursor: string;
   enabled: boolean;
 }) {
-  const { noteId, title, textBeforeCursor, enabled } = opts;
+  const { noteId, title, text, textBeforeCursor, enabled } = opts;
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [completionSuggestions, setCompletionSuggestions] = useState<
     CompletionSuggestion[]
@@ -36,17 +39,21 @@ export function useSuggestions(opts: {
   const dismissedRef = useRef(new Set<string>());
   const cooldownUntilRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
-  // The text new characters are counted from: set after every fetch, manual or
-  // automatic, and lowered again when the writer deletes. Because a manual tap
-  // resets it, tapping the button is never followed by an automatic fetch for
-  // the same text.
+  // The note as it stood at the last fetch, manual or automatic. New
+  // characters are counted against this, and it is lowered again when the
+  // writer deletes. Because a manual tap resets it, tapping the button is
+  // never followed by an automatic fetch for the same text.
+  //
+  // Deliberately the whole note rather than the text before the cursor: that
+  // slice grows when the caret is merely moved towards the end, which is not
+  // writing and must not trigger a fetch.
   const autoBaselineRef = useRef<string | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Read inside refresh() so the callback stays stable and never fires with the
   // text as it was when the button was last rendered.
-  const optsRef = useRef({ noteId, title, textBeforeCursor, enabled });
-  optsRef.current = { noteId, title, textBeforeCursor, enabled };
+  const optsRef = useRef({ noteId, title, text, textBeforeCursor, enabled });
+  optsRef.current = { noteId, title, text, textBeforeCursor, enabled };
 
   const clearAutoTimer = () => {
     if (autoTimerRef.current) {
@@ -102,7 +109,7 @@ export function useSuggestions(opts: {
     if (Date.now() < cooldownUntilRef.current) return false;
 
     clearAutoTimer();
-    autoBaselineRef.current = current.textBeforeCursor;
+    autoBaselineRef.current = current.text;
 
     const seq = ++seqRef.current;
     controllerRef.current?.abort();
@@ -150,12 +157,13 @@ export function useSuggestions(opts: {
     }
   }, []);
 
-  // Automatic refresh: once AUTO_MIN_NEW_CHARS characters have been added
-  // since the last fetch, wait for a pause in typing and then fetch. Every
-  // keystroke restarts the wait, so nothing is requested mid-word. Opening a
-  // note does not count as writing — the text present when suggestions become
-  // enabled is the starting baseline, and only characters added after that
-  // count towards the threshold.
+  // Automatic refresh: once AUTO_MIN_NEW_CHARS characters have been added to
+  // the note since the last fetch, wait for a pause in typing and then fetch.
+  // Every keystroke restarts the wait, so nothing is requested mid-word.
+  // Opening a note does not count as writing — the text present when
+  // suggestions become enabled is the starting baseline, and only characters
+  // added after that count. Moving the caret changes which slice the model is
+  // asked about but adds nothing, so on its own it never schedules a fetch.
   const wasEnabledRef = useRef(false);
   useEffect(() => {
     const justEnabled = enabled && !wasEnabledRef.current;
@@ -165,16 +173,16 @@ export function useSuggestions(opts: {
     // No baseline yet (just enabled, or moved to another note): take the text
     // as it stands as the starting point rather than fetching for it.
     if (justEnabled || baseline === null) {
-      autoBaselineRef.current = textBeforeCursor;
+      autoBaselineRef.current = text;
       return;
     }
 
-    const added = textBeforeCursor.length - baseline.length;
+    const added = text.length - baseline.length;
     // The writer deleted. Drop the baseline to the shorter text, so the next
     // ten characters they type count from here rather than having to climb
     // back past the old high-water mark before anything fetches again.
     if (added < 0) {
-      autoBaselineRef.current = textBeforeCursor;
+      autoBaselineRef.current = text;
       return;
     }
     if (added < AUTO_MIN_NEW_CHARS) return;
@@ -186,7 +194,7 @@ export function useSuggestions(opts: {
       void refresh();
     }, AUTO_PAUSE_MS);
     return clearAutoTimer;
-  }, [textBeforeCursor, enabled, refresh]);
+  }, [text, enabled, refresh]);
 
   const accept = useCallback(
     (suggestion: BubbleSuggestion) => {
