@@ -1,16 +1,17 @@
+import { CalendarDays, Plus } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import {
-  TASK_STATUS_LABELS,
-  TASK_STATUS_VALUES,
   type ProjectRecord,
   type TaskRecord,
   type TaskStatus,
 } from "../types";
 import { Button } from "./Button";
 import { ConfirmModal } from "./ConfirmModal";
+import { formatShortDate, isSameDay } from "../lib/dates";
+import { DatePickerSheet } from "./DatePickerSheet";
 import { Input } from "./Input";
 import { Sheet } from "./Sheet";
 import { TextArea } from "./TextArea";
@@ -82,6 +83,8 @@ export function TaskSheet({
   const [creatingProject, setCreatingProject] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [addingProject, setAddingProject] = useState(false);
+  const [pickingDate, setPickingDate] = useState(false);
   const editing = Boolean(task);
 
   useEffect(() => {
@@ -91,6 +94,19 @@ export function TaskSheet({
       setNewProject("");
     }
   }, [open, task?.id, defaultProjectId, projects]);
+
+  // The quick options, and whether completeBy is a day none of them covers.
+  const shortcuts = [
+    { label: "No date", value: null as Date | null },
+    { label: "Today", value: addDays(0) },
+    { label: "Tomorrow", value: addDays(1) },
+    { label: "Next week", value: addDays(7) },
+  ];
+  const customDate =
+    draft.completeBy &&
+    !shortcuts.some((option) => isSameDay(option.value, draft.completeBy))
+      ? draft.completeBy
+      : null;
 
   const canSave = draft.text.trim().length > 0 && Boolean(draft.projectId) && !saving;
 
@@ -138,46 +154,21 @@ export function TaskSheet({
               </Pressable>
             );
           })}
-        </View>
-        <View style={styles.addProject}>
-          <Input
-            value={newProject}
-            onChangeText={setNewProject}
-            placeholder="New project name"
-            style={styles.addInput}
-          />
-          <Button
-            size="sm"
-            variant="secondary"
-            loading={creatingProject}
-            disabled={!newProject.trim()}
-            onPress={async () => {
-              const name = newProject.trim().replace(/\s+/g, " ");
-              if (!name) return;
-              setCreatingProject(true);
-              try {
-                const project = await onCreateProject(name);
-                setDraft((current) => ({ ...current, projectId: project.id }));
-                setNewProject("");
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "That project could not be added.");
-              } finally {
-                setCreatingProject(false);
-              }
+          <Pressable
+            onPress={() => {
+              setNewProject("");
+              setAddingProject(true);
             }}
+            accessibilityLabel="Add a project"
+            style={[styles.chip, styles.chipAdd]}
           >
-            Add
-          </Button>
+            <Plus size={16} color={colors.mutedForeground} />
+          </Pressable>
         </View>
 
         <Text style={styles.label}>Complete by</Text>
         <View style={styles.chips}>
-          {[
-            { label: "No date", value: null as Date | null },
-            { label: "Today", value: addDays(0) },
-            { label: "Tomorrow", value: addDays(1) },
-            { label: "Next week", value: addDays(7) },
-          ].map((option) => {
+          {shortcuts.map((option) => {
             const active =
               option.value === null
                 ? draft.completeBy === null
@@ -192,24 +183,23 @@ export function TaskSheet({
               </Pressable>
             );
           })}
-        </View>
-
-        <Text style={styles.label}>Where is it?</Text>
-        <View style={styles.chips}>
-          {TASK_STATUS_VALUES.map((status) => {
-            const active = draft.status === status;
-            return (
-              <Pressable
-                key={status}
-                onPress={() => setDraft((current) => ({ ...current, status }))}
-                style={[styles.chip, active && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {TASK_STATUS_LABELS[status]}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {/* Shows the chosen day once it is one the shortcuts cannot express,
+              so a custom date is never invisible behind a generic label. */}
+          <Pressable
+            onPress={() => setPickingDate(true)}
+            accessibilityLabel={
+              customDate ? `Change date: ${formatShortDate(customDate)}` : "Pick a date"
+            }
+            style={[styles.chip, styles.chipWithIcon, customDate && styles.chipActive]}
+          >
+            <CalendarDays
+              size={14}
+              color={customDate ? colors.accentForeground : colors.mutedForeground}
+            />
+            <Text style={[styles.chipText, customDate && styles.chipTextActive]}>
+              {customDate ? formatShortDate(customDate) : "Pick a date"}
+            </Text>
+          </Pressable>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -223,6 +213,54 @@ export function TaskSheet({
           </Button>
         ) : null}
       </Sheet>
+
+      <Sheet
+        open={addingProject}
+        title="Add a project"
+        description="A short name is easiest to recognise later."
+        onClose={() => setAddingProject(false)}
+      >
+        <Input
+          value={newProject}
+          onChangeText={setNewProject}
+          placeholder="For example, Health"
+          autoFocus
+          maxLength={100}
+          returnKeyType="done"
+        />
+        <Button
+          size="lg"
+          loading={creatingProject}
+          disabled={!newProject.trim()}
+          onPress={async () => {
+            const name = newProject.trim().replace(/\s+/g, " ");
+            if (!name) return;
+            setCreatingProject(true);
+            try {
+              const project = await onCreateProject(name);
+              setDraft((current) => ({ ...current, projectId: project.id }));
+              setNewProject("");
+              setAddingProject(false);
+            } catch (err) {
+              setError(
+                err instanceof Error ? err.message : "That project could not be added.",
+              );
+              setAddingProject(false);
+            } finally {
+              setCreatingProject(false);
+            }
+          }}
+        >
+          Add project
+        </Button>
+      </Sheet>
+
+      <DatePickerSheet
+        open={pickingDate}
+        value={draft.completeBy}
+        onClose={() => setPickingDate(false)}
+        onSelect={(date) => setDraft((current) => ({ ...current, completeBy: date }))}
+      />
 
       <ConfirmModal
         open={confirmingDelete}
@@ -269,8 +307,8 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.mutedForeground,
     },
     chipTextActive: { color: colors.accentForeground, fontFamily: fonts.baseSemi },
-    addProject: { flexDirection: "row", gap: spacing[2], alignItems: "center" },
-    addInput: { flex: 1 },
+    chipWithIcon: { flexDirection: "row", alignItems: "center", gap: spacing[1] },
+    chipAdd: { paddingHorizontal: spacing[3], borderStyle: "dashed" },
     error: {
       fontFamily: fonts.base,
       fontSize: 14 * scale,
