@@ -11,7 +11,7 @@ It is an assistive tool, **not** a medical device.
 - **Backend:** Node + Hono (`server.ts`), API endpoints in `endpoints/`
 - **Auth:** [Clerk](https://clerk.com) (email/password + social providers)
 - **Database:** [Neon](https://neon.tech) Postgres, queried with Kysely
-- **AI:** Google Gemini (`@google/genai`) for suggestions, task extraction and entity indexing
+- **AI:** [OpenRouter](https://openrouter.ai) (`deepseek/deepseek-v4.1-flash`) for suggestions, task extraction and entity indexing
 - **Hosting:** [Railway](https://railway.com) (see `railway.json`)
 
 ## Setup
@@ -30,9 +30,10 @@ It is an assistive tool, **not** a medical device.
 2. From **API keys**, copy the **Publishable key** (`pk_...`) and **Secret key** (`sk_...`).
 3. When you deploy to Railway, add your Railway domain to Clerk's allowed domains (or create a Clerk production instance).
 
-### 3. Gemini (AI suggestions)
+### 3. OpenRouter (AI suggestions)
 
-Get an API key from [Google AI Studio](https://aistudio.google.com/apikey).
+Get an API key from [openrouter.ai/keys](https://openrouter.ai/keys). The default
+model is `deepseek/deepseek-v4.1-flash`; override it with `OPENROUTER_MODEL`.
 
 ### 4. Environment variables
 
@@ -41,7 +42,7 @@ cp .env.example .env
 ```
 
 Fill in `DATABASE_URL`, `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`,
-`VITE_CLERK_PUBLISHABLE_KEY` and `GEMINI_API_KEY`.
+`VITE_CLERK_PUBLISHABLE_KEY` and `OPENROUTER_API_KEY`.
 
 ## Run locally
 
