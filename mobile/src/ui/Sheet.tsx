@@ -26,8 +26,16 @@ export function Sheet({ open, title, description, onClose, children }: Props) {
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
+  // Unmount when closed rather than leaving a hidden Modal in the tree. RN
+  // only clears a Modal's internal isRendered flag from the native
+  // "modalDismissed" event, which its own source notes is "for the old
+  // renderer in iOS only" — so under the new renderer a Modal that has been
+  // opened once keeps rendering a transparent full-screen window, which
+  // silently swallows every touch on the screen behind it.
+  if (!open) return null;
+
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

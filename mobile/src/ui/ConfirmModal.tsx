@@ -30,8 +30,12 @@ export function ConfirmModal({
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
+  // See Sheet: a hidden Modal left mounted keeps eating touches under the new
+  // renderer, so a closed dialog must contribute nothing to the tree.
+  if (!open) return null;
+
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.card} onPress={() => {}}>
           <Text style={styles.title}>{title}</Text>
