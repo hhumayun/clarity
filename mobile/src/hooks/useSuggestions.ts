@@ -3,11 +3,13 @@ import { postSuggestionEvent, postSuggestionsGenerate } from "../api/suggestions
 import type { BubbleSuggestion, CompletionSuggestion, Suggestion } from "../types";
 
 const COOLDOWN_MS = 60_000;
-// Suggestions refresh on their own once the writer has this much text before
-// the cursor and then stops typing for this long. Either number is a product
-// choice, not a technical one.
-const AUTO_MIN_CHARS = 10;
-const AUTO_PAUSE_MS = 3_000;
+// Suggestions refresh on their own once the writer has added this many
+// characters since the last fetch and then stopped typing for this long.
+// The count is of newly added characters, not of the note's total length, so
+// opening a long note does not immediately qualify. Either number is a
+// product choice, not a technical one.
+const AUTO_MIN_NEW_CHARS = 10;
+const AUTO_PAUSE_MS = 2_000;
 
 function dismissalKey(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
@@ -34,10 +36,11 @@ export function useSuggestions(opts: {
   const dismissedRef = useRef(new Set<string>());
   const cooldownUntilRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
-  // The text the last fetch (manual or automatic) was made for. The auto
-  // refresh only fires when the text has moved on from this, so a tap on the
-  // button does not get followed by a second, identical automatic fetch.
-  const lastFetchedTextRef = useRef<string | null>(null);
+  // The text new characters are counted from: set after every fetch, manual or
+  // automatic, and lowered again when the writer deletes. Because a manual tap
+  // resets it, tapping the button is never followed by an automatic fetch for
+  // the same text.
+  const autoBaselineRef = useRef<string | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Read inside refresh() so the callback stays stable and never fires with the
@@ -68,7 +71,7 @@ export function useSuggestions(opts: {
     controllerRef.current = null;
     clearAutoTimer();
     dismissedRef.current = new Set();
-    lastFetchedTextRef.current = null;
+    autoBaselineRef.current = null;
     setSuggestions([]);
     setCompletionSuggestions([]);
     setReflectionQuestion(null);
@@ -99,7 +102,7 @@ export function useSuggestions(opts: {
     if (Date.now() < cooldownUntilRef.current) return false;
 
     clearAutoTimer();
-    lastFetchedTextRef.current = current.textBeforeCursor;
+    autoBaselineRef.current = current.textBeforeCursor;
 
     const seq = ++seqRef.current;
     controllerRef.current?.abort();
@@ -147,22 +150,34 @@ export function useSuggestions(opts: {
     }
   }, []);
 
-  // Automatic refresh: wait for a pause in typing, then fetch for the text as
-  // it stands. Every keystroke restarts the wait, so nothing is requested
-  // mid-word. Opening a note does not count as writing — the text present
-  // when suggestions become enabled is the baseline, and only a change from
-  // it can schedule a fetch.
+  // Automatic refresh: once AUTO_MIN_NEW_CHARS characters have been added
+  // since the last fetch, wait for a pause in typing and then fetch. Every
+  // keystroke restarts the wait, so nothing is requested mid-word. Opening a
+  // note does not count as writing — the text present when suggestions become
+  // enabled is the starting baseline, and only characters added after that
+  // count towards the threshold.
   const wasEnabledRef = useRef(false);
   useEffect(() => {
     const justEnabled = enabled && !wasEnabledRef.current;
     wasEnabledRef.current = enabled;
     if (!enabled) return;
-    if (justEnabled) {
-      lastFetchedTextRef.current = textBeforeCursor;
+    const baseline = autoBaselineRef.current;
+    // No baseline yet (just enabled, or moved to another note): take the text
+    // as it stands as the starting point rather than fetching for it.
+    if (justEnabled || baseline === null) {
+      autoBaselineRef.current = textBeforeCursor;
       return;
     }
-    if (textBeforeCursor === lastFetchedTextRef.current) return;
-    if (textBeforeCursor.trim().length < AUTO_MIN_CHARS) return;
+
+    const added = textBeforeCursor.length - baseline.length;
+    // The writer deleted. Drop the baseline to the shorter text, so the next
+    // ten characters they type count from here rather than having to climb
+    // back past the old high-water mark before anything fetches again.
+    if (added < 0) {
+      autoBaselineRef.current = textBeforeCursor;
+      return;
+    }
+    if (added < AUTO_MIN_NEW_CHARS) return;
 
     clearAutoTimer();
     autoTimerRef.current = setTimeout(() => {
