@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Mic, RotateCcw, Sparkles } from "lucide-react-native";
+import { ChevronLeft, Eye, EyeOff, Mic, Sparkles } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -16,11 +16,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate } from "../../../src/api/notes";
 import { useReindexNotes } from "../../../src/hooks/useNotes";
@@ -45,9 +40,6 @@ type SaveStatus = "idle" | "saving" | "saved" | "offline";
 
 const SERVER_SAVE_DELAY_MS = 900;
 const REINDEX_DELAY_MS = 4_000;
-const UNDO_VISIBLE_MS = 7_000;
-// Short enough to feel like a settle rather than a wait, while writing.
-const LAYOUT_MS = 180;
 // Roughly four lines: below this the note stops feeling like somewhere to write.
 const MIN_BODY_HEIGHT = 120;
 
@@ -61,7 +53,7 @@ export default function NoteEditorScreen() {
   const isNew = routeId === "new";
   const router = useRouter();
   const toast = useToast();
-  const { colors, scale } = useAppTheme();
+  const { colors, scale, aiSuggestions, setAiSuggestions } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const [noteId, setNoteId] = useState<string | null>(isNew ? null : routeId ?? null);
@@ -72,7 +64,6 @@ export default function NoteEditorScreen() {
   const [cursorPos, setCursorPos] = useState(0);
   const [editorTab, setEditorTab] = useState<"note" | "tasks">("note");
   const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
-  const [undoState, setUndoState] = useState<{ text: string; cursor: number } | null>(null);
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
 
@@ -83,7 +74,6 @@ export default function NoteEditorScreen() {
   const noteIdRef = useRef(noteId);
   noteIdRef.current = noteId;
   const creatingRef = useRef(false);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keyed on the note once it exists, so creating one mid-session moves the
   // draft from "new" to its id without a navigation.
@@ -111,7 +101,6 @@ export default function NoteEditorScreen() {
     }
 
     setLoaded(false);
-    setUndoState(null);
 
     const applyDraftOnly = async () => {
       const draft = await localDrafts.load(draftKey);
@@ -251,10 +240,8 @@ export default function NoteEditorScreen() {
     noteId: noteId ?? undefined,
     title,
     textBeforeCursor,
-    enabled: loaded && editorTab === "note",
+    enabled: loaded && editorTab === "note" && aiSuggestions,
   });
-
-  const hasSuggestions = suggestions.length > 0 || completionSuggestions.length > 0;
 
   const requestSuggestions = useCallback(() => {
     void refresh().then((ok) => {
@@ -274,17 +261,6 @@ export default function NoteEditorScreen() {
     }, 0);
     return () => clearTimeout(timer);
   }, [pendingSelection]);
-
-  const scheduleUndoExpiry = useCallback(() => {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    undoTimerRef.current = setTimeout(() => setUndoState(null), UNDO_VISIBLE_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    };
-  }, []);
 
   const insertSuggestion = useCallback(
     (suggestion: BubbleSuggestion) => {
@@ -310,9 +286,6 @@ export default function NoteEditorScreen() {
       const needsSpaceAfter = after.length === 0 || !/^\s/.test(after);
       const inserted = (needsSpaceBefore ? " " : "") + text + (needsSpaceAfter ? " " : "");
 
-      setUndoState({ text: current, cursor: start });
-      scheduleUndoExpiry();
-
       const next = before + inserted + after;
       contentRef.current = next;
       setContent(next);
@@ -320,27 +293,18 @@ export default function NoteEditorScreen() {
       setSuggestionsExpanded(false);
       accept(suggestion);
     },
-    [accept, cursorPos, scheduleUndoExpiry],
+    [accept, cursorPos],
   );
 
   const answerQuestion = useCallback(() => {
+    if (!reflectionQuestion) return;
     const current = contentRef.current;
     const trimmed = current.replace(/\s+$/, "");
     const next = (trimmed.length > 0 ? trimmed + "\n\n" : "") + reflectionQuestion + "\n";
-    setUndoState({ text: current, cursor: current.length });
-    scheduleUndoExpiry();
     contentRef.current = next;
     setContent(next);
     setPendingSelection(next.length);
-  }, [reflectionQuestion, scheduleUndoExpiry]);
-
-  const undoInsert = useCallback(() => {
-    if (!undoState) return;
-    contentRef.current = undoState.text;
-    setContent(undoState.text);
-    setPendingSelection(undoState.cursor);
-    setUndoState(null);
-  }, [undoState]);
+  }, [reflectionQuestion]);
 
   const goBack = useCallback(() => {
     void persist(titleRef.current, contentRef.current);
@@ -464,53 +428,54 @@ export default function NoteEditorScreen() {
                 style={styles.body}
                 textAlignVertical="top"
               />
-              {undoState ? (
-                <Animated.View
-                  entering={FadeIn.duration(150)}
-                  exiting={FadeOut.duration(120)}
-                  layout={LinearTransition.duration(LAYOUT_MS)}
-                >
-                  <Button variant="secondary" size="sm" onPress={undoInsert} style={styles.undo}>
-                    <RotateCcw size={16} color={colors.secondaryForeground} />
-                    <Text style={styles.undoText}>Undo</Text>
-                  </Button>
-                </Animated.View>
-              ) : null}
-              <Animated.View
-                style={styles.suggestionBar}
-                layout={LinearTransition.duration(LAYOUT_MS)}
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onPress={requestSuggestions}
+              {aiSuggestions ? (
+                <InlineSuggestions
+                  suggestions={suggestions}
+                  completionSuggestions={completionSuggestions}
                   loading={loading}
-                  accessibilityLabel={
-                    hasSuggestions
-                      ? "Get new word suggestions"
-                      : "Get word suggestions for what you are writing"
-                  }
-                >
-                  <Sparkles size={16} color={colors.secondaryForeground} />
-                  <Text style={styles.suggestionButtonText}>
-                    {hasSuggestions ? "New suggestions" : "Suggestions"}
-                  </Text>
-                </Button>
-              </Animated.View>
-              <InlineSuggestions
-                suggestions={suggestions}
-                completionSuggestions={completionSuggestions}
-                loading={loading}
-                expanded={suggestionsExpanded}
-                onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
-                onAccept={insertSuggestion}
-                onDismiss={dismiss}
-              />
+                  expanded={suggestionsExpanded}
+                  onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
+                  onAccept={insertSuggestion}
+                  onDismiss={dismiss}
+                />
+              ) : null}
                 </>
               )}
             </ScrollView>
             <View style={styles.footer}>
-              <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
+              <View style={styles.toolbar}>
+                <Text style={styles.toolbarLabel}>
+                  {aiSuggestions ? "AI suggestions" : "AI suggestions off"}
+                </Text>
+                {aiSuggestions ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style={styles.toolButton}
+                    onPress={requestSuggestions}
+                    loading={loading}
+                    accessibilityLabel="Get new suggestions for what you are writing"
+                  >
+                    <Sparkles size={18} color={colors.foreground} />
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  style={styles.toolButton}
+                  onPress={() => setAiSuggestions(!aiSuggestions)}
+                  accessibilityLabel={aiSuggestions ? "Hide AI suggestions" : "Show AI suggestions"}
+                >
+                  {aiSuggestions ? (
+                    <EyeOff size={18} color={colors.foreground} />
+                  ) : (
+                    <Eye size={18} color={colors.foreground} />
+                  )}
+                </Button>
+              </View>
+              {aiSuggestions && reflectionQuestion ? (
+                <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
+              ) : null}
             </View>
           </>
         ) : (
@@ -570,23 +535,28 @@ function makeStyles(colors: Colors, scale: number) {
       lineHeight: 28 * scale,
       color: colors.foreground,
     },
-    suggestionBar: { flexDirection: "row", alignItems: "center" },
-    suggestionButtonText: {
-      fontFamily: fonts.baseSemi,
-      fontSize: 15 * scale,
-      color: colors.secondaryForeground,
-    },
-    undo: { alignSelf: "flex-start" },
-    undoText: {
-      fontFamily: fonts.baseSemi,
-      fontSize: 15 * scale,
-      color: colors.secondaryForeground,
-    },
     footer: {
       paddingHorizontal: spacing[4],
-      paddingTop: spacing[2],
+      paddingTop: spacing[1],
       paddingBottom: spacing[3],
+      gap: spacing[2],
       backgroundColor: colors.background,
     },
+    // One slim row of controls pinned above the keyboard: a caption on the
+    // left, then the refresh and show/hide buttons, each a 36pt target.
+    toolbar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: spacing[1],
+    },
+    toolbarLabel: {
+      flex: 1,
+      fontFamily: fonts.baseSemi,
+      fontSize: 12 * scale,
+      letterSpacing: 0.4,
+      color: colors.mutedForeground,
+    },
+    toolButton: { width: 36, height: 36 },
   });
 }

@@ -13,7 +13,6 @@ import {
   type CompletionSuggestion,
   type Suggestion,
 } from "./suggestionCategories";
-import { reflectionQuestions } from "./reflectionQuestions";
 
 /**
  * Adaptive sentence-starter suggestions. Personalization (accepted/dismissed
@@ -312,7 +311,6 @@ export async function generateSuggestions(opts: {
 }): Promise<SuggestionsResult> {
   const { userId, noteId, textBeforeCursor } = opts;
   const title = opts.title ?? "";
-  const localQuestion = reflectionQuestions(textBeforeCursor);
 
   let ctx: Context = EMPTY_CONTEXT;
   try {
@@ -387,13 +385,13 @@ export async function generateSuggestions(opts: {
   const question =
     typeof parsed.question === "string" && parsed.question.trim().length > 0
       ? normalize(parsed.question).slice(0, 120)
-      : localQuestion;
+      : "";
 
   if (suggestions.length === 0 && completionSuggestions.length === 0) {
     return {
       suggestions: [],
       completionSuggestions: [],
-      reflectionQuestion: localQuestion,
+      reflectionQuestion: "",
     };
   }
   return { suggestions, completionSuggestions, reflectionQuestion: question };

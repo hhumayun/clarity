@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { postSuggestionEvent, postSuggestionsGenerate } from "../api/suggestions";
-import {
-  DEFAULT_REFLECTION_QUESTION,
-  reflectionQuestions,
-} from "../lib/reflection";
 import type { BubbleSuggestion, CompletionSuggestion, Suggestion } from "../types";
 
 const COOLDOWN_MS = 60_000;
+// Suggestions refresh on their own once the writer has this much text before
+// the cursor and then stops typing for this long. Either number is a product
+// choice, not a technical one.
+const AUTO_MIN_CHARS = 10;
+const AUTO_PAUSE_MS = 3_000;
 
 function dismissalKey(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
@@ -23,9 +24,9 @@ export function useSuggestions(opts: {
   const [completionSuggestions, setCompletionSuggestions] = useState<
     CompletionSuggestion[]
   >([]);
-  const [reflectionQuestion, setReflectionQuestion] = useState(
-    DEFAULT_REFLECTION_QUESTION,
-  );
+  // Only ever what the model returned. Null means nothing to show — there is
+  // no local list to fall back on, by design.
+  const [reflectionQuestion, setReflectionQuestion] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const seqRef = useRef(0);
@@ -33,17 +34,23 @@ export function useSuggestions(opts: {
   const dismissedRef = useRef(new Set<string>());
   const cooldownUntilRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
+  // The text the last fetch (manual or automatic) was made for. The auto
+  // refresh only fires when the text has moved on from this, so a tap on the
+  // button does not get followed by a second, identical automatic fetch.
+  const lastFetchedTextRef = useRef<string | null>(null);
+  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Read inside refresh() so the callback stays stable and never fires with the
   // text as it was when the button was last rendered.
   const optsRef = useRef({ noteId, title, textBeforeCursor, enabled });
   optsRef.current = { noteId, title, textBeforeCursor, enabled };
 
-  // The reflection prompt is picked locally and costs nothing, so it keeps
-  // following the text. Only the generate call waits for the button.
-  useEffect(() => {
-    setReflectionQuestion(reflectionQuestions(textBeforeCursor));
-  }, [textBeforeCursor]);
+  const clearAutoTimer = () => {
+    if (autoTimerRef.current) {
+      clearTimeout(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+  };
 
   // Suggestions are generated for one note, so they must not survive a move to
   // another one. A brand new note is exempt: it starts with no id and gets one
@@ -59,10 +66,12 @@ export function useSuggestions(opts: {
     seqRef.current += 1;
     controllerRef.current?.abort();
     controllerRef.current = null;
+    clearAutoTimer();
     dismissedRef.current = new Set();
+    lastFetchedTextRef.current = null;
     setSuggestions([]);
     setCompletionSuggestions([]);
-    setReflectionQuestion(DEFAULT_REFLECTION_QUESTION);
+    setReflectionQuestion(null);
     setLoading(false);
   }, [noteId]);
 
@@ -71,6 +80,7 @@ export function useSuggestions(opts: {
     seqRef.current += 1;
     controllerRef.current?.abort();
     controllerRef.current = null;
+    clearAutoTimer();
     setLoading(false);
   }, [enabled]);
 
@@ -78,6 +88,7 @@ export function useSuggestions(opts: {
     return () => {
       seqRef.current += 1;
       controllerRef.current?.abort();
+      clearAutoTimer();
     };
   }, []);
 
@@ -86,6 +97,9 @@ export function useSuggestions(opts: {
     const current = optsRef.current;
     if (!current.enabled) return false;
     if (Date.now() < cooldownUntilRef.current) return false;
+
+    clearAutoTimer();
+    lastFetchedTextRef.current = current.textBeforeCursor;
 
     const seq = ++seqRef.current;
     controllerRef.current?.abort();
@@ -114,9 +128,8 @@ export function useSuggestions(opts: {
           (s) => !dismissedRef.current.has(dismissalKey(s.text)),
         ),
       );
-      if (result.reflectionQuestion) {
-        setReflectionQuestion(result.reflectionQuestion);
-      }
+      const question = result.reflectionQuestion?.trim();
+      setReflectionQuestion(question ? question : null);
       return true;
     } catch (error) {
       if (seq !== seqRef.current) return false;
@@ -124,13 +137,41 @@ export function useSuggestions(opts: {
       if (/wait a moment|too many|unavailable right now/i.test(message)) {
         cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
       }
+      // The model failed, so there is nothing trustworthy to leave on screen.
       setSuggestions([]);
       setCompletionSuggestions([]);
+      setReflectionQuestion(null);
       return false;
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
   }, []);
+
+  // Automatic refresh: wait for a pause in typing, then fetch for the text as
+  // it stands. Every keystroke restarts the wait, so nothing is requested
+  // mid-word. Opening a note does not count as writing — the text present
+  // when suggestions become enabled is the baseline, and only a change from
+  // it can schedule a fetch.
+  const wasEnabledRef = useRef(false);
+  useEffect(() => {
+    const justEnabled = enabled && !wasEnabledRef.current;
+    wasEnabledRef.current = enabled;
+    if (!enabled) return;
+    if (justEnabled) {
+      lastFetchedTextRef.current = textBeforeCursor;
+      return;
+    }
+    if (textBeforeCursor === lastFetchedTextRef.current) return;
+    if (textBeforeCursor.trim().length < AUTO_MIN_CHARS) return;
+
+    clearAutoTimer();
+    autoTimerRef.current = setTimeout(() => {
+      autoTimerRef.current = null;
+      // Failures stay silent here; the manual button is where a toast belongs.
+      void refresh();
+    }, AUTO_PAUSE_MS);
+    return clearAutoTimer;
+  }, [textBeforeCursor, enabled, refresh]);
 
   const accept = useCallback(
     (suggestion: BubbleSuggestion) => {

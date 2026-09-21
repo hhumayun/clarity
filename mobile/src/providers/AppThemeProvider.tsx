@@ -12,6 +12,7 @@ import { fontScale, palette, type Colors, type ThemeMode, useResolvedDark } from
 const XL_KEY = "clarity:xl-text";
 const ONBOARDING_KEY = "clarity:onboarding-done";
 const THEME_KEY = "clarity:theme-mode";
+const AI_SUGGESTIONS_KEY = "clarity:ai-suggestions";
 
 type AppThemeValue = {
   ready: boolean;
@@ -24,6 +25,10 @@ type AppThemeValue = {
   scale: number;
   onboardingDone: boolean;
   completeOnboarding: () => void;
+  // Whether the note editor shows AI suggestions at all. Off hides the chips
+  // and the reflection question and stops fetching; on brings them back.
+  aiSuggestions: boolean;
+  setAiSuggestions: (value: boolean) => void;
 };
 
 const AppThemeContext = createContext<AppThemeValue | undefined>(undefined);
@@ -33,19 +38,22 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("auto");
   const [xlText, setXlTextState] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
+  const [aiSuggestions, setAiSuggestionsState] = useState(true);
   const dark = useResolvedDark(mode);
   const colors = palette(dark);
   const scale = fontScale(xlText);
 
   useEffect(() => {
     void (async () => {
-      const [xl, onboard, theme] = await Promise.all([
+      const [xl, onboard, theme, ai] = await Promise.all([
         AsyncStorage.getItem(XL_KEY),
         AsyncStorage.getItem(ONBOARDING_KEY),
         AsyncStorage.getItem(THEME_KEY),
+        AsyncStorage.getItem(AI_SUGGESTIONS_KEY),
       ]);
       setXlTextState(xl === "true");
       setOnboardingDone(onboard === "true");
+      setAiSuggestionsState(ai !== "false");
       if (theme === "light" || theme === "dark" || theme === "auto") {
         setModeState(theme);
       }
@@ -68,6 +76,11 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     void AsyncStorage.setItem(ONBOARDING_KEY, "true");
   }, []);
 
+  const setAiSuggestions = useCallback((value: boolean) => {
+    setAiSuggestionsState(value);
+    void AsyncStorage.setItem(AI_SUGGESTIONS_KEY, value ? "true" : "false");
+  }, []);
+
   const value = useMemo(
     () => ({
       ready,
@@ -80,8 +93,23 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
       scale,
       onboardingDone,
       completeOnboarding,
+      aiSuggestions,
+      setAiSuggestions,
     }),
-    [ready, colors, dark, mode, setMode, xlText, setXlText, scale, onboardingDone, completeOnboarding],
+    [
+      ready,
+      colors,
+      dark,
+      mode,
+      setMode,
+      xlText,
+      setXlText,
+      scale,
+      onboardingDone,
+      completeOnboarding,
+      aiSuggestions,
+      setAiSuggestions,
+    ],
   );
 
   return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
