@@ -4,7 +4,8 @@ type ParsedTask = {
   completeBy: string | null;
 };
 
-function validDate(value: unknown): string | null {
+/** A model-supplied YYYY-MM-DD, or null if it is malformed or not a real day. */
+export function validDate(value: unknown): string | null {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value

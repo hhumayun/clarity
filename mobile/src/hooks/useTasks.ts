@@ -49,7 +49,19 @@ export function useTasks(noteId?: string, enabled = true) {
       status?: TaskStatus;
       noteId?: string | null;
     }) => postTaskCreate(body),
-    onSuccess: invalidate,
+    onSuccess: ({ task }) => {
+      // Show the new card at once rather than after the refetch, so the
+      // screen can scroll to it and flash it the moment the dialog closes.
+      const insert = (old: TasksListOutput | undefined) =>
+        old && !old.tasks.some((t) => t.id === task.id)
+          ? { ...old, tasks: [task, ...old.tasks] }
+          : old;
+      queryClient.setQueryData<TasksListOutput>([...TASKS_QUERY_KEY, "all"], insert);
+      if (task.noteId) {
+        queryClient.setQueryData<TasksListOutput>([...TASKS_QUERY_KEY, task.noteId], insert);
+      }
+      invalidate();
+    },
   });
 
   const update = useMutation({

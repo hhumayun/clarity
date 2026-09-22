@@ -10,6 +10,7 @@ import Animated, {
   type SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -74,6 +75,8 @@ type Props = {
   task: TaskRecord;
   showProject?: boolean;
   showNoteLink?: boolean;
+  /** Change this value to make the card pulse twice — used to point at a task just added. */
+  flashKey?: number;
   onStatusChange: (status: TaskStatus) => void;
   onEdit: () => void;
   onDelete: () => Promise<void>;
@@ -83,6 +86,7 @@ export function TaskCard({
   task,
   showProject = true,
   showNoteLink = true,
+  flashKey,
   onStatusChange,
   onEdit,
   onDelete,
@@ -152,6 +156,22 @@ export function TaskCard({
     opacity: tick.value,
     transform: [{ scale: 0.4 + 0.6 * tick.value }],
   }));
+
+  // Two soft pulses of the accent over the card, then gone. Only runs when the
+  // key changes, so a card mounting with a key does not flash on its own.
+  const flash = useSharedValue(0);
+  const lastFlashKey = useRef(flashKey);
+  useEffect(() => {
+    if (flashKey === undefined || flashKey === lastFlashKey.current) return;
+    lastFlashKey.current = flashKey;
+    flash.value = withSequence(
+      withTiming(1, { duration: 180 }),
+      withTiming(0, { duration: 320 }),
+      withTiming(1, { duration: 180 }),
+      withTiming(0, { duration: 460 }),
+    );
+  }, [flashKey, flash]);
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value * 0.35 }));
   const tickStyle = useAnimatedStyle(() => ({
     opacity: tick.value,
     transform: [{ scale: tick.value }],
@@ -159,6 +179,7 @@ export function TaskCard({
 
   return (
     <View style={[styles.card, shownDone && styles.done]}>
+      <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={shownDone ? "Mark as not done" : "Mark as done"}
@@ -308,6 +329,15 @@ function makeStyles(colors: Colors, scale: number) {
       padding: spacing[3],
     },
     done: { opacity: 0.72 },
+    flash: {
+      position: "absolute",
+      top: -1,
+      left: -1,
+      right: -1,
+      bottom: -1,
+      borderRadius: radius.md,
+      backgroundColor: colors.primary,
+    },
     check: {
       overflow: "visible",
       width: 28,

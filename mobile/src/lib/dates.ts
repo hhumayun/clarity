@@ -30,3 +30,27 @@ export function isSameDay(a: Date | null, b: Date | null): boolean {
 export function formatShortDate(date: Date): string {
   return `${WEEKDAYS_SHORT[date.getDay()]} ${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
 }
+
+/** The calendar day as YYYY-MM-DD in the device's own timezone. */
+export function localIsoDay(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** A YYYY-MM-DD read as a local day at noon; null if malformed or not a real day. */
+export function fromIsoDay(iso: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return null;
+  const date = atNoon(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return localIsoDay(date) === iso ? date : null;
+}
+
+/** "Today", "Tomorrow", else "Fri 25 Sep" — for a chip that names a due day. */
+export function dateChipLabel(date: Date, now: Date = new Date()): string {
+  if (isSameDay(date, now)) return "Today";
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (isSameDay(date, tomorrow)) return "Tomorrow";
+  return formatShortDate(date);
+}

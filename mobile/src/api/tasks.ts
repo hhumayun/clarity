@@ -86,6 +86,19 @@ export async function postTasksExtract(
   return parseResponse(result);
 }
 
+export async function postTaskParse(
+  body: { text: string; currentDate: string },
+  init?: RequestInit,
+): Promise<{ text: string; completeBy: string | null; datePhrase: string | null }> {
+  const result = await apiFetch("/_api/tasks/parse", {
+    method: "POST",
+    body: superjson.stringify(body),
+    ...init,
+    headers: jsonHeaders(init),
+  });
+  return parseResponse(result);
+}
+
 export async function postTasksAdd(
   body: {
     noteId: string;

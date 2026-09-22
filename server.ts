@@ -56,6 +56,7 @@ const routes: Array<["GET" | "POST", string, string]> = [
   ["POST", "/_api/tasks/clear_done", "./endpoints/tasks/clear_done_POST.js"],
   ["POST", "/_api/tasks/extract", "./endpoints/tasks/extract_POST.js"],
   ["POST", "/_api/tasks/add", "./endpoints/tasks/add_POST.js"],
+  ["POST", "/_api/tasks/parse", "./endpoints/tasks/parse_POST.js"],
   ["POST", "/_api/suggestions/generate", "./endpoints/suggestions/generate_POST.js"],
   ["POST", "/_api/suggestions/event", "./endpoints/suggestions/event_POST.js"],
   ["GET", "/_api/account/export", "./endpoints/account/export_GET.js"],

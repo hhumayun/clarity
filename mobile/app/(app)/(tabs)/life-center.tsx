@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { FolderOpen, LayoutDashboard, Plus, Settings } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -30,6 +30,8 @@ import { ProjectSheet } from "../../../src/ui/ProjectSheet";
 import { Segmented } from "../../../src/ui/Segmented";
 import { Skeleton } from "../../../src/ui/Skeleton";
 import { TaskCard } from "../../../src/ui/TaskCard";
+import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
+import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
 import { TaskSheet, type TaskDraft } from "../../../src/ui/TaskSheet";
 
 const ALL = "__all__";
@@ -52,6 +54,19 @@ export default function LifeCenterScreen() {
   });
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  // After an add: the confirmation, then which card to scroll to and flash.
+  const [added, setAdded] = useState<TaskRecord | null>(null);
+  const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const cardRefs = useRef(new Map<string, View>());
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+    },
+    [],
+  );
 
   const projects = useMemo(() => sortProjects(query.data?.projects ?? []), [query.data?.projects]);
   const allTasks = query.data?.tasks ?? [];
@@ -87,23 +102,49 @@ export default function LifeCenterScreen() {
 
   const saveTask = async (draft: TaskDraft) => {
     if (!draft.projectId) throw new Error("Choose a project for this task.");
-    if (taskDialog.task) {
-      await update.mutateAsync({
-        id: taskDialog.task.id,
-        text: draft.text,
-        projectId: draft.projectId,
-        completeBy: draft.completeBy,
-        status: draft.status,
-      });
-    } else {
-      await create.mutateAsync({
-        text: draft.text,
-        projectId: draft.projectId,
-        completeBy: draft.completeBy,
-        status: draft.status,
-      });
-      toast.show("Task added");
+    if (!taskDialog.task) return;
+    await update.mutateAsync({
+      id: taskDialog.task.id,
+      text: draft.text,
+      projectId: draft.projectId,
+      completeBy: draft.completeBy,
+      status: draft.status,
+    });
+  };
+
+  // Bring the new card into view and pulse it, so the eye lands on what was
+  // just added rather than on the top of the list.
+  const revealTask = (id: string) => {
+    const node = cardRefs.current.get(id);
+    const scroller = scrollRef.current;
+    if (node && scroller) {
+      node.measureLayout(
+        scroller.getInnerViewNode(),
+        (_x, y) => scroller.scrollTo({ y: Math.max(0, y - 96), animated: true }),
+        () => {},
+      );
     }
+    setFlash({ id, key: Date.now() });
+  };
+
+  const handleAdded = (task: TaskRecord) => {
+    setQuickAddOpen(false);
+    // The card must actually be on screen to be scrolled to: new tasks land
+    // in To do, and behind a different project filter they would be hidden.
+    setMobileStatus("todo");
+    if (projectFilter !== ALL && projectFilter !== task.projectId) setProjectFilter(task.projectId);
+    setAdded(task);
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    revealTimer.current = setTimeout(() => {
+      revealTimer.current = null;
+      setAdded(null);
+      revealTask(task.id);
+    }, TASK_ADDED_MS);
+  };
+
+  const addTask = async (draft: QuickAddDraft) => {
+    const { task } = await create.mutateAsync({ ...draft, status: "todo" });
+    handleAdded(task);
   };
 
   return (
@@ -123,7 +164,11 @@ export default function LifeCenterScreen() {
         </Button>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {!loading && !query.isError && projects.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
             <Pressable
@@ -154,7 +199,7 @@ export default function LifeCenterScreen() {
 
         <Button
           size="lg"
-          onPress={() => setTaskDialog({ open: true, task: null })}
+          onPress={() => setQuickAddOpen(true)}
           disabled={loading}
         >
           <Plus size={18} color={colors.primaryForeground} />
@@ -185,7 +230,7 @@ export default function LifeCenterScreen() {
             <Text style={styles.emptyText}>
               Tasks you add here, or that are found in your notes, will gather in one calm place.
             </Text>
-            <Button size="lg" onPress={() => setTaskDialog({ open: true, task: null })}>
+            <Button size="lg" onPress={() => setQuickAddOpen(true)}>
               Add your first task
             </Button>
           </View>
@@ -227,15 +272,24 @@ export default function LifeCenterScreen() {
                         entering={FadeInDown.duration(180)}
                         exiting={FadeOutUp.duration(140)}
                       >
-                      <TaskCard
-                        task={task}
-                        showProject={effectiveFilter === ALL}
-                        onStatusChange={(next) => changeStatus(task, next)}
-                        onEdit={() => setTaskDialog({ open: true, task })}
-                        onDelete={async () => {
-                          await remove.mutateAsync({ id: task.id });
+                      <View
+                        collapsable={false}
+                        ref={(node) => {
+                          if (node) cardRefs.current.set(task.id, node);
+                          else cardRefs.current.delete(task.id);
                         }}
-                      />
+                      >
+                        <TaskCard
+                          task={task}
+                          showProject={effectiveFilter === ALL}
+                          flashKey={flash?.id === task.id ? flash.key : undefined}
+                          onStatusChange={(next) => changeStatus(task, next)}
+                          onEdit={() => setTaskDialog({ open: true, task })}
+                          onDelete={async () => {
+                            await remove.mutateAsync({ id: task.id });
+                          }}
+                        />
+                      </View>
                       </Animated.View>
                     ))}
                     {tasks.length === 0 ? (
@@ -252,6 +306,15 @@ export default function LifeCenterScreen() {
           </>
         ) : null}
       </ScrollView>
+
+      <QuickAddTask
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        projects={projects}
+        defaultProjectId={activeProject?.id ?? projects[0]?.id ?? null}
+        onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
+        onSubmit={addTask}
+      />
 
       <TaskSheet
         open={taskDialog.open}
@@ -307,6 +370,8 @@ export default function LifeCenterScreen() {
           });
         }}
       />
+
+      <TaskAddedOverlay visible={added !== null} projectName={added?.projectName ?? ""} />
     </SafeAreaView>
   );
 }

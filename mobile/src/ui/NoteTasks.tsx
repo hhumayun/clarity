@@ -12,6 +12,8 @@ import type { SuggestedTask, TaskRecord, TaskStatus } from "../types";
 import { Button } from "./Button";
 import { Skeleton } from "./Skeleton";
 import { TaskCard } from "./TaskCard";
+import { QuickAddTask, type QuickAddDraft } from "./QuickAddTask";
+import { TASK_ADDED_MS, TaskAddedOverlay } from "./TaskAddedOverlay";
 import { TaskSheet, type TaskDraft } from "./TaskSheet";
 
 function quietAiFailure(error: unknown): boolean {
@@ -55,6 +57,17 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [adding, setAdding] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  // After an add: the confirmation, then which card to flash.
+  const [added, setAdded] = useState<TaskRecord | null>(null);
+  const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+    },
+    [],
+  );
 
   const runExtract = () => {
     if (!noteId) return;
@@ -148,24 +161,30 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
 
   const saveTask = async (draft: TaskDraft) => {
     if (!draft.projectId) throw new Error("Choose a project for this task.");
-    if (taskDialog.task) {
-      await update.mutateAsync({
-        id: taskDialog.task.id,
-        text: draft.text,
-        projectId: draft.projectId,
-        completeBy: draft.completeBy,
-        status: draft.status,
-      });
-    } else {
-      await create.mutateAsync({
-        text: draft.text,
-        projectId: draft.projectId,
-        completeBy: draft.completeBy,
-        status: draft.status,
-        noteId,
-      });
-      toast.show("Task added");
-    }
+    if (!taskDialog.task) return;
+    await update.mutateAsync({
+      id: taskDialog.task.id,
+      text: draft.text,
+      projectId: draft.projectId,
+      completeBy: draft.completeBy,
+      status: draft.status,
+    });
+  };
+
+  const handleAdded = (task: TaskRecord) => {
+    setQuickAddOpen(false);
+    setAdded(task);
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    revealTimer.current = setTimeout(() => {
+      revealTimer.current = null;
+      setAdded(null);
+      setFlash({ id: task.id, key: Date.now() });
+    }, TASK_ADDED_MS);
+  };
+
+  const addTask = async (draft: QuickAddDraft) => {
+    const { task } = await create.mutateAsync({ ...draft, status: "todo", noteId });
+    handleAdded(task);
   };
 
   const openTasks = tasks.filter((task) => task.status !== "done");
@@ -185,7 +204,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
         >
           {extract.isPending ? "Looking…" : "Find tasks"}
         </Button>
-        <Button size="sm" onPress={() => setTaskDialog({ open: true, task: null })} disabled={loading}>
+        <Button size="sm" onPress={() => setQuickAddOpen(true)} disabled={loading}>
           Add a task
         </Button>
       </View>
@@ -298,6 +317,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
             <TaskCard
               task={task}
               showNoteLink={false}
+              flashKey={flash?.id === task.id ? flash.key : undefined}
               onStatusChange={(next) => changeStatus(task, next)}
               onEdit={() => setTaskDialog({ open: true, task })}
               onDelete={async () => {
@@ -339,6 +359,15 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
         </View>
       ) : null}
 
+      <QuickAddTask
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        projects={projects}
+        defaultProjectId={commonProjectId(tasks) ?? projects[0]?.id ?? null}
+        onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
+        onSubmit={addTask}
+      />
+
       <TaskSheet
         open={taskDialog.open}
         onClose={() => setTaskDialog((state) => ({ ...state, open: false }))}
@@ -355,6 +384,14 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
         }
         onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
       />
+
+      {/* Sits near the top of the section, where the add button is, rather
+          than centred in a section that may run well past the screen. */}
+      <TaskAddedOverlay
+        visible={added !== null}
+        projectName={added?.projectName ?? ""}
+        style={styles.addedOverlay}
+      />
     </View>
   );
 }
@@ -362,6 +399,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     section: { gap: spacing[3], paddingBottom: spacing[8] },
+    addedOverlay: { justifyContent: "flex-start", paddingTop: spacing[12] },
     title: { fontFamily: fonts.display, fontSize: 22 * scale, color: colors.foreground },
     subtitle: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
