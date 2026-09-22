@@ -59,6 +59,9 @@ export default function LifeCenterScreen() {
   const [added, setAdded] = useState<TaskRecord | null>(null);
   const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  // Current scroll position, kept off React state: it changes every frame
+  // and is only read when a card needs bringing into view.
+  const scrollOffset = useRef(0);
   const cardRefs = useRef(new Map<string, View>());
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -117,10 +120,17 @@ export default function LifeCenterScreen() {
   const revealTask = (id: string) => {
     const node = cardRefs.current.get(id);
     const scroller = scrollRef.current;
-    if (node && scroller) {
+    // Measured against the scroll view's own native instance: under the new
+    // renderer measureLayout accepts only a host instance, and refuses the
+    // node handle getInnerViewNode returns. The result is the card's place
+    // in the visible viewport, so the current offset is added to land on its
+    // place in the content.
+    const viewport = scroller?.getNativeScrollRef();
+    if (node && scroller && viewport) {
       node.measureLayout(
-        scroller.getInnerViewNode(),
-        (_x, y) => scroller.scrollTo({ y: Math.max(0, y - 96), animated: true }),
+        viewport,
+        (_x, y) =>
+          scroller.scrollTo({ y: Math.max(0, scrollOffset.current + y - 96), animated: true }),
         () => {},
       );
     }
@@ -168,6 +178,10 @@ export default function LifeCenterScreen() {
         ref={scrollRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        onScroll={(event) => {
+          scrollOffset.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         {!loading && !query.isError && projects.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
