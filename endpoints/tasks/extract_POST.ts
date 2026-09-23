@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { extractTasks } from "../../helpers/extractTasks";
+import { dueDayAsDate, validDate } from "../../helpers/parseExtractedTasks";
 import { normalizeProjectName } from "../../helpers/normalizeProjectName";
 import { taskContentHash } from "../../helpers/taskContentHash";
 import { taskFingerprint } from "../../helpers/taskFingerprint";
@@ -38,7 +39,7 @@ export async function handle(request: Request) {
       title: note.title,
       content: note.content,
       projectNames: projects.map((project) => project.name),
-      currentDate: new Date().toISOString().slice(0, 10),
+      currentDate: validDate(input.currentDate) ?? new Date().toISOString().slice(0, 10),
     });
 
     // Only offer what is genuinely new: not already extracted from this note
@@ -58,8 +59,10 @@ export async function handle(request: Request) {
       .map((item) => ({
         text: item.text,
         projectName: item.projectName,
-        // The parser yields YYYY-MM-DD; the client works with real dates.
-        completeBy: item.completeBy ? new Date(`${item.completeBy}T00:00:00.000Z`) : null,
+        // The parser yields YYYY-MM-DD. Midnight UTC would read as the day
+        // before anywhere west of UTC, so send noon and let the client pin
+        // it to its own local noon.
+        completeBy: item.completeBy ? dueDayAsDate(item.completeBy) : null,
       }));
 
     const now = new Date();

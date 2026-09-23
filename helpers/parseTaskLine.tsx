@@ -1,6 +1,6 @@
 import { aiChatJson, DEFAULT_MODEL } from "./ai";
 import { parseModelJson } from "./parseModelJson";
-import { validDate } from "./parseExtractedTasks";
+import { describeDay, validDate } from "./parseExtractedTasks";
 
 export type ParsedTaskLine = {
   /** The line with the due-date words removed, or the line as typed. */
@@ -21,8 +21,6 @@ Rules:
 - If there is no due date, return the line exactly as given and completeBy null.
 - "datePhrase" is the exact words you removed, or null.
 - Respond ONLY with JSON: {"text":"...","completeBy":"YYYY-MM-DD","datePhrase":"..."} using null where there is nothing.`;
-
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function words(text: string): string[] {
   return text
@@ -77,9 +75,8 @@ export async function parseTaskLine(input: {
   /** The writer's local date as YYYY-MM-DD, so "tomorrow" is their tomorrow. */
   currentDate: string;
 }): Promise<ParsedTaskLine> {
-  const weekday = WEEKDAYS[new Date(`${input.currentDate}T00:00:00.000Z`).getUTCDay()] ?? "";
   const userPrompt = [
-    `Current date: ${input.currentDate}${weekday ? ` (${weekday})` : ""}`,
+    `Current date: ${describeDay(input.currentDate)}`,
     `Line:\n"""${input.text}"""`,
   ].join("\n\n");
   const raw = await aiChatJson({

@@ -52,6 +52,15 @@ export function fromIsoDay(iso: string): Date | null {
   return localIsoDay(date) === iso ? date : null;
 }
 
+/**
+ * A due day the server sent as a Date whose UTC calendar day is the day
+ * (task extraction sends noon UTC), re-pinned to local noon. Reading it with
+ * local getters instead would slide it to the day before west of UTC.
+ */
+export function dueDayAtLocalNoon(date: Date): Date {
+  return atNoon(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
 /** "Today", "Tomorrow", else "Fri 25 Sep" — for a chip that names a due day. */
 export function dateChipLabel(date: Date, now: Date = new Date()): string {
   if (isSameDay(date, now)) return "Today";

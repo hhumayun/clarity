@@ -13,6 +13,28 @@ export function validDate(value: unknown): string | null {
     : value;
 }
 
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * "2026-09-23 (Wednesday)" — the writer's current date as a model prompt
+ * line. The weekday is spelled out so the model never has to work it out
+ * before resolving "Friday" or "next Tuesday".
+ */
+export function describeDay(isoDay: string): string {
+  if (!validDate(isoDay)) return isoDay;
+  const weekday = WEEKDAYS[new Date(`${isoDay}T12:00:00.000Z`).getUTCDay()];
+  return `${isoDay} (${weekday})`;
+}
+
+/**
+ * A YYYY-MM-DD due day as a Date at noon UTC. The UTC calendar day is the
+ * due day, and noon keeps it on that day in most timezones even for a
+ * reader that takes it as-is; clients re-pin it to their own local noon.
+ */
+export function dueDayAsDate(isoDay: string): Date {
+  return new Date(`${isoDay}T12:00:00.000Z`);
+}
+
 /** Validate and normalize the model's JSON before any database write. */
 export function parseExtractedTasks(value: Record<string, unknown>): ParsedTask[] {
   const rawTasks = Array.isArray(value.tasks) ? value.tasks : [];

@@ -2,6 +2,7 @@ import superjson from "superjson";
 import { apiFetch } from "./apiFetch";
 import { jsonHeaders, parseResponse } from "./parse";
 import type { ProjectRecord, SuggestedTask, TaskRecord, TaskStatus } from "../types";
+import { dueDayAtLocalNoon, localIsoDay } from "../lib/dates";
 
 export async function getTasksList(
   params: { noteId?: string } = {},
@@ -79,11 +80,19 @@ export async function postTasksExtract(
 ): Promise<{ suggested: SuggestedTask[]; unchanged: boolean }> {
   const result = await apiFetch("/_api/tasks/extract", {
     method: "POST",
-    body: superjson.stringify(body),
+    // The phone's own date, so "Friday" in a note means this writer's Friday.
+    body: superjson.stringify({ ...body, currentDate: localIsoDay(new Date()) }),
     ...init,
     headers: jsonHeaders(init),
   });
-  return parseResponse(result);
+  const output = await parseResponse<{ suggested: SuggestedTask[]; unchanged: boolean }>(result);
+  return {
+    ...output,
+    suggested: output.suggested.map((item) => ({
+      ...item,
+      completeBy: item.completeBy ? dueDayAtLocalNoon(item.completeBy) : null,
+    })),
+  };
 }
 
 export async function postTaskParse(
