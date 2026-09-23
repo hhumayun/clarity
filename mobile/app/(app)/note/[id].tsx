@@ -33,7 +33,8 @@ import {
 import { Button } from "../../../src/ui/Button";
 import { Sheet } from "../../../src/ui/Sheet";
 import Animated from "react-native-reanimated";
-import { fadeIn, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
+import { fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
+import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { areaColor } from "../../../src/lib/lifeCenter";
@@ -444,8 +445,9 @@ export default function NoteEditorScreen() {
         ) : null}
 
         {/* Note and Tasks cross-fade rather than cut. */}
+        <FadeSwitch switchKey={editorTab} style={styles.flex}>
         {!TASKS_ENABLED || editorTab === "note" ? (
-          <Animated.View key="note" entering={fadeIn} style={styles.flex}>
+          <View style={styles.flex}>
             <ScrollView
               style={styles.flex}
               keyboardShouldPersistTaps="handled"
@@ -535,14 +537,15 @@ export default function NoteEditorScreen() {
                 <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
               ) : null}
             </View>
-          </Animated.View>
+          </View>
         ) : (
-          <Animated.View key="tasks" entering={fadeIn} style={styles.flex}>
+          <View style={styles.flex}>
             <ScrollView contentContainerStyle={styles.notePanel} keyboardShouldPersistTaps="handled">
               <NoteTasks noteId={noteId} enabled={editorTab === "tasks"} />
             </ScrollView>
-          </Animated.View>
+          </View>
         )}
+        </FadeSwitch>
       </KeyboardAvoidingView>
 
       <AreaPickerSheet

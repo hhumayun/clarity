@@ -10,8 +10,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        // Switching tabs cross-fades; the default is a hard cut.
-        animation: "fade",
+        // No cross-fade between tabs. It animates each screen's opacity on
+        // the native thread, and a detached tab screen could come back with
+        // that opacity lost — a blank screen after navigating away and back.
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         // With Life Center hidden, Notes is the only destination — a one-tab

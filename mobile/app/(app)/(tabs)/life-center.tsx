@@ -3,7 +3,9 @@ import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
-import { fadeIn, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
+import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
+import { FadeSwitch } from "../../../src/ui/FadeSwitch";
+import { fadeInFast, fadeOut } from "../../../src/ui/motion";
 import { RotatingChevron } from "../../../src/ui/RotatingChevron";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusSummary } from "../../../src/hooks/useFocus";
@@ -55,6 +57,7 @@ export default function LifeCenterScreen() {
   const notes = useNotes({});
   const movedFrom = useMovedFrom();
   const focusSummary = useFocusSummary();
+  const motion = useFocusedMotion();
 
   // Today is the calm place to start; All tasks is one tap away.
   const [view, setView] = useState<View_>("today");
@@ -173,12 +176,7 @@ export default function LifeCenterScreen() {
   };
 
   const renderRow = (task: TaskRecord, variant: "row" | "focus" = "row") => (
-    <Animated.View
-      key={task.id}
-      layout={LinearTransition.duration(220)}
-      entering={FadeInDown.duration(180)}
-      exiting={FadeOutUp.duration(140)}
-    >
+    <Animated.View key={task.id} layout={motion.rowLayout} entering={motion.rowEnter} exiting={motion.rowExit}>
       <View collapsable={false} ref={cardRef(task.id)}>
         <TaskCard
           task={task}
@@ -204,9 +202,9 @@ export default function LifeCenterScreen() {
       <Animated.View
         key={label}
         style={styles.section}
-        entering={fadeIn}
-        exiting={fadeOut}
-        layout={layoutTransition}
+        entering={motion.enter}
+        exiting={motion.exit}
+        layout={motion.layout}
       >
         <Text style={styles.sectionLabel}>{label}</Text>
         {tasks.map((task) => renderRow(task))}
@@ -254,7 +252,7 @@ export default function LifeCenterScreen() {
         }}
         scrollEventThrottle={16}
       >
-        <Animated.View key={view} entering={fadeIn} style={styles.viewBody}>
+        <FadeSwitch switchKey={view} style={styles.viewBody}>
         {view === "all" ? (
           <>
             <View style={styles.titleRow}>
@@ -286,7 +284,7 @@ export default function LifeCenterScreen() {
               </Pressable>
             </View>
             {areaMenuOpen ? (
-              <Animated.View entering={FadeInDown.duration(180)} exiting={fadeOut} style={styles.areaMenu}>
+              <Animated.View entering={FadeInDown.duration(180)} exiting={motion.exit} style={styles.areaMenu}>
                 {[{ id: ALL, name: "All areas" }, ...projects].map((area) => {
                   const active = area.id === areaFilter;
                   return (
@@ -374,7 +372,7 @@ export default function LifeCenterScreen() {
         {!loading && !query.isError && view === "all" ? (
           <>
             {groups.overdue.length > 0 ? (
-              <Animated.View entering={fadeIn} exiting={fadeOut} layout={layoutTransition} style={styles.slipped}>
+              <Animated.View entering={motion.enter} exiting={motion.exit} layout={motion.layout} style={styles.slipped}>
                 <View style={styles.slippedHead}>
                   <View style={[styles.dot, styles.slippedDot]} />
                   <Text style={styles.slippedTitle}>{slippedLabel(groups.overdue.length)}</Text>
@@ -414,14 +412,14 @@ export default function LifeCenterScreen() {
             ) : null}
 
             {groups.done.length > 0 ? (
-              <Animated.View layout={layoutTransition} entering={fadeIn} exiting={fadeOut} style={styles.section}>
+              <Animated.View layout={motion.layout} entering={motion.enter} exiting={motion.exit} style={styles.section}>
                 <View style={styles.doneHeader}>
                   <Pressable onPress={() => setShowDone((v) => !v)} style={styles.doneToggle}>
                     <Text style={styles.sectionLabel}>DONE {groups.done.length}</Text>
                     <RotatingChevron open={showDone} color={colors.mutedForeground} />
                   </Pressable>
                   {showDone ? (
-                    <Animated.View entering={fadeInFast} exiting={fadeOut}>
+                    <Animated.View entering={fadeInFast} exiting={motion.exit}>
                       <Button variant="ghost" size="sm" onPress={() => setConfirmClear(true)}>
                         Clear completed
                       </Button>
@@ -437,7 +435,7 @@ export default function LifeCenterScreen() {
         {!loading && !query.isError && view === "today" ? (
           <>
             {focus.today.length > 0 ? (
-              <Animated.View layout={layoutTransition} style={styles.section}>
+              <Animated.View layout={motion.layout} style={styles.section}>
                 {focus.today.map((task) => renderRow(task, "focus"))}
               </Animated.View>
             ) : (
@@ -449,7 +447,7 @@ export default function LifeCenterScreen() {
             )}
 
             {overdueAll > 0 ? (
-              <Animated.View entering={fadeIn} exiting={fadeOut} layout={layoutTransition}>
+              <Animated.View entering={motion.enter} exiting={motion.exit} layout={motion.layout}>
               <Pressable
                 style={({ pressed }) => [styles.slippedRow, pressed && styles.pressed]}
                 onPress={() => router.push("/catch-up")}
@@ -465,10 +463,10 @@ export default function LifeCenterScreen() {
             ) : null}
 
             {focus.comingUp.length > 0 ? (
-              <Animated.View layout={layoutTransition} entering={fadeIn} exiting={fadeOut} style={styles.section}>
+              <Animated.View layout={motion.layout} entering={motion.enter} exiting={motion.exit} style={styles.section}>
                 <Text style={styles.sectionLabel}>COMING UP</Text>
                 {focus.comingUp.map((task) => (
-                  <Animated.View key={task.id} entering={fadeIn} exiting={fadeOut} layout={layoutTransition}>
+                  <Animated.View key={task.id} entering={motion.enter} exiting={motion.exit} layout={motion.layout}>
                   <Pressable style={styles.comingRow} onPress={() => setEditing(task)}>
                     <Text style={styles.comingText} numberOfLines={1}>
                       {task.text}
@@ -496,7 +494,7 @@ export default function LifeCenterScreen() {
             ) : null}
           </>
         ) : null}
-        </Animated.View>
+        </FadeSwitch>
       </ScrollView>
 
       <View style={styles.addBarWrap}>

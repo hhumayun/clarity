@@ -14,7 +14,9 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { fadeIn, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
+import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
+import { FadeSwitch } from "../../../src/ui/FadeSwitch";
+import { fadeOut } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
@@ -53,6 +55,7 @@ export default function NotesListScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const scrollRef = useRef<ScrollView>(null);
+  const motion = useFocusedMotion();
   const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: false });
 
   // The chosen view is remembered, so the journal people prefer stays theirs.
@@ -130,7 +133,7 @@ export default function NotesListScreen() {
   // Cards fade in and out as a search narrows the list, and the rest slide
   // into the gaps instead of jumping.
   const card = (note: NoteRecord) => (
-    <Animated.View key={note.id} entering={fadeIn} exiting={fadeOut} layout={layoutTransition}>
+    <Animated.View key={note.id} entering={motion.enter} exiting={motion.exit} layout={motion.layout}>
       <NoteCard
         note={note}
         taskCount={counts.get(note.id)}
@@ -221,9 +224,9 @@ export default function NotesListScreen() {
         <Animated.View
           key={group.key}
           style={styles.group}
-          entering={fadeIn}
-          exiting={fadeOut}
-          layout={layoutTransition}
+          entering={motion.enter}
+          exiting={motion.exit}
+          layout={motion.layout}
         >
           <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
           {group.notes.map(card)}
@@ -271,7 +274,7 @@ export default function NotesListScreen() {
         <>
           {groupedList}
           {archivedCount > 0 ? (
-            <Animated.View layout={layoutTransition}>
+            <Animated.View layout={motion.layout}>
             <Pressable
               onPress={() => {
                 toTop();
@@ -316,7 +319,7 @@ export default function NotesListScreen() {
             );
           })}
         </View>
-        <Animated.View key={selectedDay.toDateString()} entering={FadeIn.duration(200)} style={styles.dayBlock}>
+        <FadeSwitch switchKey={selectedDay.toDateString()} style={styles.dayBlock}>
           <View>
             <Text style={styles.dayTitle}>{dayHeading(selectedDay)}</Text>
             <Text style={styles.daySub}>
@@ -352,7 +355,7 @@ export default function NotesListScreen() {
               ))}
             </View>
           )}
-        </Animated.View>
+        </FadeSwitch>
       </>
     );
   }
@@ -360,20 +363,17 @@ export default function NotesListScreen() {
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Animated.View key={showArchived ? "archived" : "notes"} entering={fadeInFast}>
-          {header}
-        </Animated.View>
+        <FadeSwitch switchKey={showArchived ? "archived" : "notes"}>{header}</FadeSwitch>
         {searchField}
         {/* The body fades in whenever what it shows changes kind: list, days,
             archive, or search results. The search field stays out of this, so
             typing never loses focus. */}
-        <Animated.View
-          key={`${showArchived ? "archived" : view}-${searching ? "search" : "browse"}`}
-          entering={fadeIn}
+        <FadeSwitch
+          switchKey={`${showArchived ? "archived" : view}-${searching ? "search" : "browse"}`}
           style={styles.body}
         >
           {body}
-        </Animated.View>
+        </FadeSwitch>
       </ScrollView>
 
       {!showArchived ? (
