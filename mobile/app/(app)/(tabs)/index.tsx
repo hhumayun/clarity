@@ -13,7 +13,8 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { fadeIn, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
@@ -51,6 +52,8 @@ export default function NotesListScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(() => new Date());
+  const scrollRef = useRef<ScrollView>(null);
+  const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: false });
 
   // The chosen view is remembered, so the journal people prefer stays theirs.
   useEffect(() => {
@@ -61,6 +64,7 @@ export default function NotesListScreen() {
       .catch(() => {});
   }, []);
   const switchView = (next: NotesView) => {
+    toTop();
     setView(next);
     setSearchOpen(false);
     void AsyncStorage.setItem(VIEW_KEY, next).catch(() => {});
@@ -123,14 +127,17 @@ export default function NotesListScreen() {
   const loading = isFetching && !data;
 
   const openNote = (note: NoteRecord) => router.push(`/note/${note.id}`);
+  // Cards fade in and out as a search narrows the list, and the rest slide
+  // into the gaps instead of jumping.
   const card = (note: NoteRecord) => (
-    <NoteCard
-      key={note.id}
-      note={note}
-      taskCount={counts.get(note.id)}
-      areas={areasOf(note)}
-      onPress={() => openNote(note)}
-    />
+    <Animated.View key={note.id} entering={fadeIn} exiting={fadeOut} layout={layoutTransition}>
+      <NoteCard
+        note={note}
+        taskCount={counts.get(note.id)}
+        areas={areasOf(note)}
+        onPress={() => openNote(note)}
+      />
+    </Animated.View>
   );
 
   const groups = useMemo(() => groupNotesByDay(notes), [notes]);
@@ -142,7 +149,10 @@ export default function NotesListScreen() {
   const header = showArchived ? (
     <View style={styles.header}>
       <Pressable
-        onPress={() => setShowArchived(false)}
+        onPress={() => {
+          toTop();
+          setShowArchived(false);
+        }}
         style={styles.iconButton}
         accessibilityLabel="Back to your notes"
       >
@@ -185,7 +195,7 @@ export default function NotesListScreen() {
   // Search matches words, dates ("last week") and an area's name: "Business"
   // finds the notes tagged with it.
   const searchField = showSearchField ? (
-    <View style={styles.searchRow}>
+    <Animated.View entering={FadeInDown.duration(180)} exiting={fadeOut} style={styles.searchRow}>
       <Search size={18} color={colors.mutedForeground} />
       <TextInput
         value={search}
@@ -202,16 +212,22 @@ export default function NotesListScreen() {
           <X size={18} color={colors.mutedForeground} />
         </Pressable>
       ) : null}
-    </View>
+    </Animated.View>
   ) : null;
 
   const groupedList = (
     <>
       {groups.map((group) => (
-        <View key={group.key} style={styles.group}>
+        <Animated.View
+          key={group.key}
+          style={styles.group}
+          entering={fadeIn}
+          exiting={fadeOut}
+          layout={layoutTransition}
+        >
           <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
           {group.notes.map(card)}
-        </View>
+        </Animated.View>
       ))}
     </>
   );
@@ -255,8 +271,12 @@ export default function NotesListScreen() {
         <>
           {groupedList}
           {archivedCount > 0 ? (
+            <Animated.View layout={layoutTransition}>
             <Pressable
-              onPress={() => setShowArchived(true)}
+              onPress={() => {
+                toTop();
+                setShowArchived(true);
+              }}
               style={({ pressed }) => [styles.archivedRow, pressed && styles.pressed]}
               accessibilityRole="button"
             >
@@ -264,6 +284,7 @@ export default function NotesListScreen() {
               <Text style={styles.archivedText}>Archived notes · {archivedCount}</Text>
               <ChevronRight size={18} color={colors.mutedForeground} />
             </Pressable>
+            </Animated.View>
           ) : null}
         </>
       ) : (
@@ -295,7 +316,7 @@ export default function NotesListScreen() {
             );
           })}
         </View>
-        <Animated.View key={selectedDay.toDateString()} entering={FadeIn.duration(160)} style={styles.dayBlock}>
+        <Animated.View key={selectedDay.toDateString()} entering={FadeIn.duration(200)} style={styles.dayBlock}>
           <View>
             <Text style={styles.dayTitle}>{dayHeading(selectedDay)}</Text>
             <Text style={styles.daySub}>
@@ -338,10 +359,21 @@ export default function NotesListScreen() {
 
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {header}
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Animated.View key={showArchived ? "archived" : "notes"} entering={fadeInFast}>
+          {header}
+        </Animated.View>
         {searchField}
-        {body}
+        {/* The body fades in whenever what it shows changes kind: list, days,
+            archive, or search results. The search field stays out of this, so
+            typing never loses focus. */}
+        <Animated.View
+          key={`${showArchived ? "archived" : view}-${searching ? "search" : "browse"}`}
+          entering={fadeIn}
+          style={styles.body}
+        >
+          {body}
+        </Animated.View>
       </ScrollView>
 
       {!showArchived ? (
@@ -369,6 +401,7 @@ function makeStyles(colors: Colors, scale: number) {
     pressed: { opacity: 0.85 },
     content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
+    body: { gap: spacing[4] },
     title: { fontFamily: fonts.display, fontSize: 32 * scale, color: colors.foreground },
     iconButton: {
       width: 44,

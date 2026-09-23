@@ -15,7 +15,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePresence } from "../hooks/usePresence";
 import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -23,6 +25,7 @@ import { fonts, radius, spacing, type Colors } from "../theme";
 import type { ProjectRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
+import { fadeInFast, fadeOut, layoutTransition } from "./motion";
 
 export type QuickAddDraft = {
   text: string;
@@ -205,7 +208,20 @@ export function QuickAddTask({
     }
   };
 
-  if (!open) return null;
+  // Mounted while open and while sliding away; see usePresence for why a
+  // closed Modal must not stay in the tree.
+  const { mounted, progress } = usePresence(open);
+  const boxHeight = useSharedValue(400);
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+  const boxStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (1 - progress.value) * boxHeight.value }],
+  }));
+  // Drop the keyboard as the box leaves, not a beat after it has gone.
+  useEffect(() => {
+    if (!open) Keyboard.dismiss();
+  }, [open]);
+
+  if (!mounted) return null;
 
   const shortcuts: Array<{ label: string; value: Date | null }> = [
     { label: "No date", value: null },
@@ -215,13 +231,25 @@ export function QuickAddTask({
   ];
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
-        <View style={[styles.box, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
+        <Animated.View style={[styles.backdrop, backdropStyle]}>
+          <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Close" />
+        </Animated.View>
+        <Animated.View
+          style={boxStyle}
+          onLayout={(event) => {
+            boxHeight.value = event.nativeEvent.layout.height;
+          }}
+        >
+        {/* Grows and shrinks smoothly as a row unfolds under the line. */}
+        <Animated.View
+          layout={layoutTransition}
+          style={[styles.box, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}
+        >
           <TextInput
             value={text}
             onChangeText={setText}
@@ -236,7 +264,7 @@ export function QuickAddTask({
           />
 
           {expander === "project" ? (
-            <View style={styles.chips}>
+            <Animated.View entering={fadeInFast} exiting={fadeOut} style={styles.chips}>
               {projects.map((project) => {
                 const active = project.id === projectId;
                 return (
@@ -261,11 +289,11 @@ export function QuickAddTask({
               >
                 <Plus size={16} color={colors.mutedForeground} />
               </Pressable>
-            </View>
+            </Animated.View>
           ) : null}
 
           {expander === "newProject" ? (
-            <View style={styles.row}>
+            <Animated.View entering={fadeInFast} exiting={fadeOut} style={styles.row}>
               <Input
                 style={styles.flex}
                 value={newProject}
@@ -284,11 +312,11 @@ export function QuickAddTask({
               >
                 Add
               </Button>
-            </View>
+            </Animated.View>
           ) : null}
 
           {expander === "date" ? (
-            <View style={styles.chips}>
+            <Animated.View entering={fadeInFast} exiting={fadeOut} style={styles.chips}>
               {shortcuts.map((option) => {
                 const active =
                   option.value === null ? date === null : isSameDay(option.value, date);
@@ -308,18 +336,20 @@ export function QuickAddTask({
                 <CalendarDays size={14} color={colors.mutedForeground} />
                 <Text style={styles.chipText}>Pick…</Text>
               </Pressable>
-            </View>
+            </Animated.View>
           ) : null}
 
           {pickerOpen ? (
-            <DateTimePicker
-              value={date ?? new Date()}
-              mode="date"
-              display={Platform.OS === "ios" ? "inline" : "default"}
-              accentColor={colors.primary}
-              themeVariant={dark ? "dark" : "light"}
-              onChange={onPicked}
-            />
+            <Animated.View entering={fadeInFast} exiting={fadeOut}>
+              <DateTimePicker
+                value={date ?? new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "inline" : "default"}
+                accentColor={colors.primary}
+                themeVariant={dark ? "dark" : "light"}
+                onChange={onPicked}
+              />
+            </Animated.View>
           ) : null}
 
           <View style={styles.toolbar}>
@@ -364,7 +394,8 @@ export function QuickAddTask({
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-        </View>
+        </Animated.View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -381,6 +412,7 @@ function makeStyles(colors: Colors, scale: number) {
       bottom: 0,
       backgroundColor: "rgba(30, 28, 25, 0.4)",
     },
+    fill: { flex: 1 },
     box: {
       backgroundColor: colors.card,
       borderTopLeftRadius: radius.lg,

@@ -25,7 +25,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeOutDown } from "react-native-reanimated";
+import { fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCountdown } from "../../../src/hooks/useCountdown";
 import { useFirstSteps, useFocusPrefs, useFocusSummary, useRecordFocus } from "../../../src/hooks/useFocus";
@@ -311,6 +312,7 @@ export default function FocusScreen() {
   if (!task) {
     return (
       <SafeAreaView style={styles.page}>
+        <Animated.View key="missing" entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <View style={styles.header}>
           <Pressable onPress={close} style={styles.roundButton} accessibilityLabel="Close">
             <ChevronLeft size={20} color={colors.foreground} />
@@ -323,6 +325,7 @@ export default function FocusScreen() {
             <Text style={styles.muted}>That task could not be found. It may have been deleted.</Text>
           )}
         </View>
+              </Animated.View>
       </SafeAreaView>
     );
   }
@@ -332,6 +335,7 @@ export default function FocusScreen() {
     const steps = firstSteps.data?.steps ?? [];
     return (
       <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+        <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <View style={styles.header}>
           <Pressable onPress={close} style={styles.roundButton} accessibilityLabel="Back">
             <ChevronLeft size={20} color={colors.foreground} />
@@ -419,6 +423,7 @@ export default function FocusScreen() {
             </Pressable>
           </View>
         </KeyboardAvoidingView>
+              </Animated.View>
       </SafeAreaView>
     );
   }
@@ -429,6 +434,7 @@ export default function FocusScreen() {
     const paused = focusTimer.status === "paused";
     return (
       <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+        <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView contentContainerStyle={styles.focusBody} keyboardShouldPersistTaps="handled">
             <View style={styles.pill}>
@@ -494,7 +500,11 @@ export default function FocusScreen() {
             </View>
 
             {parking ? (
-              <Animated.View entering={FadeInDown.duration(180)} style={styles.parkPanel}>
+              <Animated.View
+                entering={FadeInDown.duration(180)}
+                exiting={FadeOutDown.duration(160)}
+                style={styles.parkPanel}
+              >
                 <Text style={styles.label}>Park a thought</Text>
                 <Text style={styles.breakHint}>It goes to Notes. The timer keeps running.</Text>
                 <TextInput
@@ -519,6 +529,7 @@ export default function FocusScreen() {
             ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
+              </Animated.View>
       </SafeAreaView>
     );
   }
@@ -542,6 +553,7 @@ export default function FocusScreen() {
         : { label: "I'm done for now", next: "done" as const };
     return (
       <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+        <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
             <Animated.View entering={FadeIn.duration(240)} style={styles.doneBadge}>
@@ -580,7 +592,7 @@ export default function FocusScreen() {
             </View>
 
             {question ? (
-              <Animated.View key={outcome} entering={FadeIn.duration(180)} style={styles.gapSm}>
+              <Animated.View entering={FadeIn.duration(180)} exiting={fadeOut} style={styles.gapSm}>
                 <Text style={styles.label}>{question}</Text>
                 <TextInput
                   value={leftOff}
@@ -623,6 +635,7 @@ export default function FocusScreen() {
             ) : null}
           </View>
         </KeyboardAvoidingView>
+              </Animated.View>
       </SafeAreaView>
     );
   }
@@ -633,6 +646,7 @@ export default function FocusScreen() {
     const note = outcome === "finished" ? "" : leftOff.trim();
     return (
       <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+        <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.focusBody}>
           <View style={[styles.pill, styles.pillRest]}>
             <View style={[styles.dot, { backgroundColor: colors.rest }]} />
@@ -701,6 +715,7 @@ export default function FocusScreen() {
             </>
           )}
         </View>
+              </Animated.View>
       </SafeAreaView>
     );
   }

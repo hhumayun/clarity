@@ -12,6 +12,8 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { fadeInFast } from "./motion";
 import { atNoon, daysFromToday, formatShortDate, isSameDay, nextWeekend } from "../lib/dates";
 import { areaColor } from "../lib/lifeCenter";
 import { formatDue } from "../lib/taskDates";
@@ -244,6 +246,9 @@ export function TaskSheet({
         }
         onClose={panel === home ? onClose : () => setPanel(panel === "move" ? "actions" : "task")}
       >
+        {/* Each face fades in as it replaces the last, while the sheet's
+            height glides between them. */}
+        <Animated.View key={panel} entering={fadeInFast} style={styles.face}>
         {panel === "actions" && task ? (
           <>
             {onStartFocus && task.status !== "done" ? (
@@ -495,6 +500,7 @@ export function TaskSheet({
             ) : null}
           </>
         )}
+        </Animated.View>
       </Sheet>
 
       <ConfirmModal
@@ -547,6 +553,7 @@ function makeStyles(colors: Colors, scale: number) {
     // The inline calendar draws its own padding; this just keeps it off the
     // sheet's edges on narrow screens.
     picker: { marginHorizontal: -spacing[2] },
+    face: { gap: spacing[4] },
     eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     eyebrowText: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
     dot: { width: 8, height: 8, borderRadius: 4 },

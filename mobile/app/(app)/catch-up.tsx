@@ -2,7 +2,8 @@ import { useRouter } from "expo-router";
 import { CalendarDays, Check, X } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInRight, FadeOutLeft } from "react-native-reanimated";
+import { layoutTransition } from "../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTasks } from "../../src/hooks/useTasks";
 import { daysFromToday, formatPlannedDateLong, nextWeekend } from "../../src/lib/dates";
@@ -108,7 +109,13 @@ export default function CatchUpScreen() {
       ) : current ? (
         <ScrollView contentContainerStyle={styles.body} bounces={false}>
           <View style={styles.spacer} />
-          <Animated.View key={current.id} entering={FadeInRight.duration(220)} style={styles.card}>
+          <Animated.View
+            key={current.id}
+            entering={FadeInRight.duration(240)}
+            exiting={FadeOutLeft.duration(180)}
+            layout={layoutTransition}
+            style={styles.card}
+          >
             <View style={styles.area}>
               <View style={[styles.dot, { backgroundColor: areaColor(current.projectId) }]} />
               <Text style={styles.areaText}>{current.projectName}</Text>

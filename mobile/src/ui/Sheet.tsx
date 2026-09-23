@@ -8,10 +8,14 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
+import { layoutTransition } from "./motion";
 
 type Props = {
   open: boolean;
@@ -25,33 +29,59 @@ type Props = {
 
 export function Sheet({ open, title, description, eyebrow, onClose, children }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
-  // Unmount when closed rather than leaving a hidden Modal in the tree. RN
-  // only clears a Modal's internal isRendered flag from the native
-  // "modalDismissed" event, which its own source notes is "for the old
-  // renderer in iOS only" — so under the new renderer a Modal that has been
-  // opened once keeps rendering a transparent full-screen window, which
-  // silently swallows every touch on the screen behind it.
-  if (!open) return null;
+  // Mounted only while open or animating out: a Modal left in the tree after
+  // closing keeps a transparent window that swallows every touch under the
+  // new renderer (RN clears it only from an old-renderer event).
+  const { mounted, progress } = usePresence(open);
+  // Keep showing what was there while it slides away.
+  const shown = useHeldWhileOpen(open, { title, description, eyebrow, children });
+
+  // Slide by the sheet's own height once known; until then, off the screen.
+  const sheetHeight = useSharedValue(windowHeight);
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (1 - progress.value) * sheetHeight.value }],
+  }));
+
+  if (!mounted) return null;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    // The Modal itself does not animate: its built-in "slide" moved the dim
+    // backdrop up with the sheet, like a dark wall rising. Here the backdrop
+    // fades while the sheet slides.
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
-          <View style={styles.handle} />
-          {eyebrow ? <View style={styles.eyebrow}>{eyebrow}</View> : null}
-          <Text style={styles.title}>{title}</Text>
-          {description ? <Text style={styles.description}>{description}</Text> : null}
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
-            {children}
-          </ScrollView>
-        </View>
+        <Animated.View style={[styles.backdrop, backdropStyle]}>
+          <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Close" />
+        </Animated.View>
+        <Animated.View
+          style={sheetStyle}
+          onLayout={(event) => {
+            sheetHeight.value = event.nativeEvent.layout.height;
+          }}
+        >
+          {/* Its own layer, so a change of height between faces glides
+              rather than jumps, without fighting the slide above. */}
+          <Animated.View
+            layout={layoutTransition}
+            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}
+          >
+            <View style={styles.handle} />
+            {shown.eyebrow ? <View style={styles.eyebrow}>{shown.eyebrow}</View> : null}
+            <Text style={styles.title}>{shown.title}</Text>
+            {shown.description ? <Text style={styles.description}>{shown.description}</Text> : null}
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+              {shown.children}
+            </ScrollView>
+          </Animated.View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -68,6 +98,7 @@ function makeStyles(colors: Colors, scale: number) {
       left: 0,
       backgroundColor: "rgba(30, 28, 25, 0.4)",
     },
+    fill: { flex: 1 },
     sheet: {
       backgroundColor: colors.card,
       borderTopLeftRadius: radius.lg,

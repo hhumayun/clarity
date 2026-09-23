@@ -10,6 +10,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Switching tabs cross-fades; the default is a hard cut.
+        animation: "fade",
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         // With Life Center hidden, Notes is the only destination — a one-tab

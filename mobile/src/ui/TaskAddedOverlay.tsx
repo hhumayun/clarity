@@ -1,7 +1,7 @@
 import { Check } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import Animated, { FadeOut, ZoomIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../theme";
 
@@ -25,10 +25,14 @@ export function TaskAddedOverlay({ visible, projectName, style }: Props) {
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   if (!visible) return null;
   return (
-    <View pointerEvents="none" style={[styles.fill, style]}>
+    <Animated.View
+      pointerEvents="none"
+      entering={FadeIn.duration(120)}
+      exiting={FadeOut.duration(200)}
+      style={[styles.fill, style]}
+    >
       <Animated.View
         entering={ZoomIn.springify().damping(14).stiffness(220).mass(0.7)}
-        exiting={FadeOut.duration(160)}
         style={styles.card}
         accessibilityLiveRegion="polite"
         accessibilityLabel={`Task added to ${projectName}`}
@@ -42,7 +46,7 @@ export function TaskAddedOverlay({ visible, projectName, style }: Props) {
           Task added to <Text style={styles.project}>{projectName}</Text>
         </Text>
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }
 

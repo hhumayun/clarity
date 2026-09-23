@@ -32,6 +32,8 @@ import {
 } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { Sheet } from "../../../src/ui/Sheet";
+import Animated from "react-native-reanimated";
+import { fadeIn, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
 import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { areaColor } from "../../../src/lib/lifeCenter";
@@ -391,21 +393,23 @@ export default function NoteEditorScreen() {
         </View>
 
         {TASKS_ENABLED && loaded ? (
-          <View style={styles.areaRow}>
+          <Animated.View layout={layoutTransition} style={styles.areaRow}>
             {tagIds
               .map((id) => allProjects.find((project) => project.id === id))
               .filter((project): project is NonNullable<typeof project> => Boolean(project))
               .map((project) => (
-                <Pressable
-                  key={project.id}
-                  onPress={() => setAreasOpen(true)}
-                  style={styles.areaChip}
-                  accessibilityLabel={`Area: ${project.name}. Change areas`}
-                >
-                  <View style={[styles.areaDot, { backgroundColor: areaColor(project.id) }]} />
-                  <Text style={styles.areaChipText}>{project.name}</Text>
-                </Pressable>
+                <Animated.View key={project.id} entering={fadeInFast} exiting={fadeOut} layout={layoutTransition}>
+                  <Pressable
+                    onPress={() => setAreasOpen(true)}
+                    style={styles.areaChip}
+                    accessibilityLabel={`Area: ${project.name}. Change areas`}
+                  >
+                    <View style={[styles.areaDot, { backgroundColor: areaColor(project.id) }]} />
+                    <Text style={styles.areaChipText}>{project.name}</Text>
+                  </Pressable>
+                </Animated.View>
               ))}
+            <Animated.View layout={layoutTransition}>
             <Pressable
               onPress={() => setAreasOpen(true)}
               style={[styles.areaChip, styles.areaChipAdd]}
@@ -414,7 +418,8 @@ export default function NoteEditorScreen() {
               <Plus size={14} color={colors.mutedForeground} />
               {tagIds.length === 0 ? <Text style={styles.areaChipMuted}>Area</Text> : null}
             </Pressable>
-          </View>
+            </Animated.View>
+          </Animated.View>
         ) : null}
 
         {TASKS_ENABLED ? (
@@ -438,8 +443,9 @@ export default function NoteEditorScreen() {
         </View>
         ) : null}
 
+        {/* Note and Tasks cross-fade rather than cut. */}
         {!TASKS_ENABLED || editorTab === "note" ? (
-          <>
+          <Animated.View key="note" entering={fadeIn} style={styles.flex}>
             <ScrollView
               style={styles.flex}
               keyboardShouldPersistTaps="handled"
@@ -529,11 +535,13 @@ export default function NoteEditorScreen() {
                 <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
               ) : null}
             </View>
-          </>
+          </Animated.View>
         ) : (
-          <ScrollView contentContainerStyle={styles.notePanel} keyboardShouldPersistTaps="handled">
-            <NoteTasks noteId={noteId} enabled={editorTab === "tasks"} />
-          </ScrollView>
+          <Animated.View key="tasks" entering={fadeIn} style={styles.flex}>
+            <ScrollView contentContainerStyle={styles.notePanel} keyboardShouldPersistTaps="handled">
+              <NoteTasks noteId={noteId} enabled={editorTab === "tasks"} />
+            </ScrollView>
+          </Animated.View>
         )}
       </KeyboardAvoidingView>
 

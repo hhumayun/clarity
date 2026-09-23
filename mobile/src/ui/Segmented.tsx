@@ -1,5 +1,7 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { EASE_OUT, MOTION } from "./motion";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
@@ -29,12 +31,44 @@ export function Segmented<T extends string>({
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
+  // One pill that slides to the chosen option, instead of the highlight
+  // jumping from one to the next. Positions come from each option's layout.
+  const [frames, setFrames] = useState<Record<string, { x: number; y: number; width: number; height: number }>>({});
+  const x = useSharedValue(0);
+  const width = useSharedValue(0);
+  const y = useSharedValue(0);
+  const height = useSharedValue(0);
+  const placed = useRef(false);
+  useEffect(() => {
+    const frame = frames[value];
+    if (!frame) return;
+    if (!placed.current) {
+      // First placement lands directly; only later changes glide.
+      placed.current = true;
+      x.value = frame.x;
+      width.value = frame.width;
+    } else {
+      x.value = withTiming(frame.x, { duration: MOTION.base, easing: EASE_OUT });
+      width.value = withTiming(frame.width, { duration: MOTION.base, easing: EASE_OUT });
+    }
+    y.value = frame.y;
+    height.value = frame.height;
+  }, [value, frames, x, width, y, height]);
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: width.value > 0 ? 1 : 0,
+    top: y.value,
+    height: height.value,
+    width: width.value,
+    transform: [{ translateX: x.value }],
+  }));
+
   return (
     <View
       style={[styles.row, small && styles.rowSm]}
       accessibilityRole="tablist"
       accessibilityLabel={accessibilityLabel}
     >
+      <Animated.View pointerEvents="none" style={[styles.pill, small && styles.pillSm, pillStyle]} />
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -43,7 +77,15 @@ export function Segmented<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(option.value)}
-            style={[styles.item, small && styles.itemSm, active && styles.itemActive]}
+            onLayout={(event) => {
+              const { x: fx, y: fy, width: fw, height: fh } = event.nativeEvent.layout;
+              setFrames((prev) => {
+                const old = prev[option.value];
+                if (old && old.x === fx && old.width === fw && old.y === fy && old.height === fh) return prev;
+                return { ...prev, [option.value]: { x: fx, y: fy, width: fw, height: fh } };
+              });
+            }}
+            style={[styles.item, small && styles.itemSm]}
           >
             <Text style={[styles.label, small && styles.labelSm, active && styles.labelActive]}>
               {option.label}
@@ -77,7 +119,8 @@ function makeStyles(colors: Colors, scale: number) {
       gap: 6,
       paddingHorizontal: spacing[2],
     },
-    itemActive: { backgroundColor: colors.card },
+    pill: { position: "absolute", left: 0, borderRadius: radius.sm, backgroundColor: colors.card },
+    pillSm: { borderRadius: radius.full },
     rowSm: { alignSelf: "center", padding: 3, gap: 3 },
     itemSm: {
       flex: 0,

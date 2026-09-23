@@ -3,6 +3,8 @@ import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
+import { fadeIn, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
+import { RotatingChevron } from "../../../src/ui/RotatingChevron";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusSummary } from "../../../src/hooks/useFocus";
 import { useNotes } from "../../../src/hooks/useNotes";
@@ -199,10 +201,16 @@ export default function LifeCenterScreen() {
 
   const section = (label: string, tasks: TaskRecord[]) =>
     tasks.length > 0 ? (
-      <View style={styles.section}>
+      <Animated.View
+        key={label}
+        style={styles.section}
+        entering={fadeIn}
+        exiting={fadeOut}
+        layout={layoutTransition}
+      >
         <Text style={styles.sectionLabel}>{label}</Text>
         {tasks.map((task) => renderRow(task))}
-      </View>
+      </Animated.View>
     ) : null;
 
   const viewSwitch = (
@@ -211,6 +219,7 @@ export default function LifeCenterScreen() {
       accessibilityLabel="Which tasks to show"
       value={view}
       onChange={(next) => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
         setView(next);
         setAreaMenuOpen(false);
       }}
@@ -245,6 +254,7 @@ export default function LifeCenterScreen() {
         }}
         scrollEventThrottle={16}
       >
+        <Animated.View key={view} entering={fadeIn} style={styles.viewBody}>
         {view === "all" ? (
           <>
             <View style={styles.titleRow}>
@@ -276,7 +286,7 @@ export default function LifeCenterScreen() {
               </Pressable>
             </View>
             {areaMenuOpen ? (
-              <View style={styles.areaMenu}>
+              <Animated.View entering={FadeInDown.duration(180)} exiting={fadeOut} style={styles.areaMenu}>
                 {[{ id: ALL, name: "All areas" }, ...projects].map((area) => {
                   const active = area.id === areaFilter;
                   return (
@@ -307,7 +317,7 @@ export default function LifeCenterScreen() {
                 >
                   <Text style={styles.areaManageText}>Manage areas…</Text>
                 </Pressable>
-              </View>
+              </Animated.View>
             ) : null}
           </>
         ) : (
@@ -364,7 +374,7 @@ export default function LifeCenterScreen() {
         {!loading && !query.isError && view === "all" ? (
           <>
             {groups.overdue.length > 0 ? (
-              <View style={styles.slipped}>
+              <Animated.View entering={fadeIn} exiting={fadeOut} layout={layoutTransition} style={styles.slipped}>
                 <View style={styles.slippedHead}>
                   <View style={[styles.dot, styles.slippedDot]} />
                   <Text style={styles.slippedTitle}>{slippedLabel(groups.overdue.length)}</Text>
@@ -380,7 +390,7 @@ export default function LifeCenterScreen() {
                   <Text style={styles.reviewText}>Review them</Text>
                   <ArrowRight size={18} color={colors.accentForeground} />
                 </Pressable>
-              </View>
+              </Animated.View>
             ) : null}
 
             {section("TODAY", groups.today)}
@@ -404,24 +414,22 @@ export default function LifeCenterScreen() {
             ) : null}
 
             {groups.done.length > 0 ? (
-              <View style={styles.section}>
+              <Animated.View layout={layoutTransition} entering={fadeIn} exiting={fadeOut} style={styles.section}>
                 <View style={styles.doneHeader}>
                   <Pressable onPress={() => setShowDone((v) => !v)} style={styles.doneToggle}>
                     <Text style={styles.sectionLabel}>DONE {groups.done.length}</Text>
-                    <ChevronDown
-                      size={14}
-                      color={colors.mutedForeground}
-                      style={showDone ? styles.chevronUp : undefined}
-                    />
+                    <RotatingChevron open={showDone} color={colors.mutedForeground} />
                   </Pressable>
                   {showDone ? (
-                    <Button variant="ghost" size="sm" onPress={() => setConfirmClear(true)}>
-                      Clear completed
-                    </Button>
+                    <Animated.View entering={fadeInFast} exiting={fadeOut}>
+                      <Button variant="ghost" size="sm" onPress={() => setConfirmClear(true)}>
+                        Clear completed
+                      </Button>
+                    </Animated.View>
                   ) : null}
                 </View>
                 {showDone ? groups.done.map((task) => renderRow(task)) : null}
-              </View>
+              </Animated.View>
             ) : null}
           </>
         ) : null}
@@ -429,7 +437,9 @@ export default function LifeCenterScreen() {
         {!loading && !query.isError && view === "today" ? (
           <>
             {focus.today.length > 0 ? (
-              <View style={styles.section}>{focus.today.map((task) => renderRow(task, "focus"))}</View>
+              <Animated.View layout={layoutTransition} style={styles.section}>
+                {focus.today.map((task) => renderRow(task, "focus"))}
+              </Animated.View>
             ) : (
               <View style={styles.todayEmpty}>
                 <Text style={styles.emptyText}>
@@ -439,6 +449,7 @@ export default function LifeCenterScreen() {
             )}
 
             {overdueAll > 0 ? (
+              <Animated.View entering={fadeIn} exiting={fadeOut} layout={layoutTransition}>
               <Pressable
                 style={({ pressed }) => [styles.slippedRow, pressed && styles.pressed]}
                 onPress={() => router.push("/catch-up")}
@@ -450,13 +461,15 @@ export default function LifeCenterScreen() {
                 </Text>
                 <Text style={styles.slippedRowAction}>Review</Text>
               </Pressable>
+              </Animated.View>
             ) : null}
 
             {focus.comingUp.length > 0 ? (
-              <View style={styles.section}>
+              <Animated.View layout={layoutTransition} entering={fadeIn} exiting={fadeOut} style={styles.section}>
                 <Text style={styles.sectionLabel}>COMING UP</Text>
                 {focus.comingUp.map((task) => (
-                  <Pressable key={task.id} style={styles.comingRow} onPress={() => setEditing(task)}>
+                  <Animated.View key={task.id} entering={fadeIn} exiting={fadeOut} layout={layoutTransition}>
+                  <Pressable style={styles.comingRow} onPress={() => setEditing(task)}>
                     <Text style={styles.comingText} numberOfLines={1}>
                       {task.text}
                     </Text>
@@ -468,14 +481,22 @@ export default function LifeCenterScreen() {
                         : ""}
                     </Text>
                   </Pressable>
+                  </Animated.View>
                 ))}
-                <Pressable onPress={() => setView("all")} style={styles.seeAll}>
+                <Pressable
+                  onPress={() => {
+                    scrollRef.current?.scrollTo({ y: 0, animated: false });
+                    setView("all");
+                  }}
+                  style={styles.seeAll}
+                >
                   <Text style={styles.seeAllText}>See all tasks</Text>
                 </Pressable>
-              </View>
+              </Animated.View>
             ) : null}
           </>
         ) : null}
+        </Animated.View>
       </ScrollView>
 
       <View style={styles.addBarWrap}>
@@ -577,7 +598,8 @@ function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },
-    content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
+    content: { padding: spacing[4], paddingBottom: spacing[8] },
+    viewBody: { gap: spacing[4] },
     pressed: { opacity: 0.8 },
     titleRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
     title: { fontFamily: fonts.display, fontSize: 32 * scale, color: colors.foreground },

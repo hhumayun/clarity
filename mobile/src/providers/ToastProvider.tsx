@@ -17,26 +17,36 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const current = useRef(0);
 
   const show = useCallback(
     (next: string) => {
+      const id = ++current.current;
       setMessage(next);
-      Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }).start();
+      opacity.stopAnimation();
+      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }).start();
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(
-          () => setMessage(null),
+        Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(
+          ({ finished }) => {
+            // Only clear if no newer toast arrived while this one faded.
+            if (finished && id === current.current) setMessage(null);
+          },
         );
       }, 2600);
     },
     [opacity],
   );
+  const rise = opacity.interpolate({ inputRange: [0, 1], outputRange: [8, 0] });
 
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
       {message ? (
-        <Animated.View style={[styles.toast, { bottom: insets.bottom + 88, opacity }]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.toast, { bottom: insets.bottom + 88, opacity, transform: [{ translateY: rise }] }]}
+        >
           <Text style={styles.text}>{message}</Text>
         </Animated.View>
       ) : null}
