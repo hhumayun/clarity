@@ -13,6 +13,8 @@ export async function handle(request: Request) {
     const input = schema.parse({
       q: url.searchParams.get("q") ?? undefined,
       archived: url.searchParams.get("archived") === "true" ? true : undefined,
+      from: url.searchParams.get("from") ?? undefined,
+      to: url.searchParams.get("to") ?? undefined,
     });
 
     let query = db
@@ -20,6 +22,11 @@ export async function handle(request: Request) {
       .select([...NOTE_RECORD_COLUMNS])
       .where("userId", "=", user.id)
       .where("archived", "=", input.archived === true);
+
+    // A date range reaches back past the newest-200 cap below, so the journal
+    // can show a week from any time, not just recent ones.
+    if (input.from) query = query.where("createdAt", ">=", input.from);
+    if (input.to) query = query.where("createdAt", "<", input.to);
 
     const term = input.q?.trim();
     if (term) {

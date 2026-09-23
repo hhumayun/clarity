@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { useQueryClient } from "@tanstack/react-query";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   Archive,
   CalendarDays,
@@ -11,15 +13,15 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { fadeOut } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
-import { useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
+import { NOTES_QUERY_KEY, useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
 import {
@@ -28,6 +30,9 @@ import {
   inRange,
   notesOnDay,
   parseNoteSearch,
+  stripRange,
+  stripRangeLabel,
+  weeksBackFor,
   weekStrip,
 } from "../../../src/lib/notesList";
 import { taskCountByNote } from "../../../src/lib/taskSort";
@@ -37,6 +42,7 @@ import type { NoteRecord } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { NoteCard } from "../../../src/ui/NoteCard";
 import { Skeleton } from "../../../src/ui/Skeleton";
+import { Sheet } from "../../../src/ui/Sheet";
 
 const BACKFILL_FLAG = "clarity:backfilled";
 const VIEW_KEY = "clarity:notes-view";
@@ -45,7 +51,7 @@ type NotesView = "list" | "days";
 
 export default function NotesListScreen() {
   const router = useRouter();
-  const { colors, scale } = useAppTheme();
+  const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const [view, setView] = useState<NotesView>("list");
@@ -54,6 +60,11 @@ export default function NotesListScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(() => new Date());
+  // Which seven days the journal shows: 0 is the last seven, 1 the seven
+  // before that, and so on back.
+  const [weeksBack, setWeeksBack] = useState(0);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const autoPick = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const motion = useFocusedMotion();
   const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -91,6 +102,17 @@ export default function NotesListScreen() {
   const { data, isFetching, isError, refetch } = useNotes(params);
   const archivedList = useNotes({ archived: true });
   const tasks = useTasks(undefined, TASKS_ENABLED);
+  const queryClient = useQueryClient();
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
+    }, [queryClient]),
+  );
 
   const reindex = useReindexNotes();
   const reindexRef = useRef(reindex.mutate);
@@ -144,8 +166,44 @@ export default function NotesListScreen() {
   );
 
   const groups = useMemo(() => groupNotesByDay(notes), [notes]);
-  const strip = useMemo(() => weekStrip(), []);
-  const dayNotes = useMemo(() => notesOnDay(notes, selectedDay), [notes, selectedDay]);
+  const strip = useMemo(() => weekStrip(new Date(), weeksBack), [weeksBack]);
+  // The journal asks for its own week by date, so any week can be shown, not
+  // just those inside the newest-200 the list loads.
+  const weekParams = useMemo(() => stripRange(strip), [strip]);
+  const weekQuery = useNotes(weekParams, { enabled: view === "days" && !showArchived });
+  // While a new week loads, the previous week's notes are still held as a
+  // placeholder; they must not paint dots onto the new days.
+  const weekNotes = weekQuery.isPlaceholderData ? [] : (weekQuery.data?.notes ?? []);
+  const dayNotes = useMemo(() => notesOnDay(weekNotes, selectedDay), [weekNotes, selectedDay]);
+
+  // After paging, land on the most recent day of that week that has notes,
+  // rather than an empty last day. Only once per page, when its notes arrive.
+  useEffect(() => {
+    if (!autoPick.current || weekQuery.isPlaceholderData || !weekQuery.data) return;
+    autoPick.current = false;
+    if (notesOnDay(weekNotes, selectedDay).length > 0) return;
+    const withNotes = [...strip].reverse().find((day) => notesOnDay(weekNotes, day.date).length > 0);
+    if (withNotes) setSelectedDay(withNotes.date);
+  }, [weekQuery.data, weekQuery.isPlaceholderData, weekNotes, strip, selectedDay]);
+
+  const goToWeek = (next: number) => {
+    const clamped = Math.max(0, next);
+    const page = weekStrip(new Date(), clamped);
+    setWeeksBack(clamped);
+    setSelectedDay(page[page.length - 1].date);
+    autoPick.current = true;
+  };
+  const jumpTo = (day: Date) => {
+    setWeeksBack(weeksBackFor(day));
+    setSelectedDay(day);
+    autoPick.current = false;
+  };
+  const onJumpPicked = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== "ios") setJumpOpen(false);
+    if (event.type === "dismissed" || !date) return;
+    jumpTo(new Date(date.getFullYear(), date.getMonth(), date.getDate()));
+    if (Platform.OS === "ios") setJumpOpen(false);
+  };
 
   const showSearchField = showArchived || view === "list" || searchOpen;
 
@@ -296,9 +354,44 @@ export default function NotesListScreen() {
         </View>
       );
   } else {
-    const hasNote = (day: Date) => notes.some((note) => isSameDay(note.createdAt, day));
+    const hasNote = (day: Date) => weekNotes.some((note) => isSameDay(note.createdAt, day));
     body = (
       <>
+        {/* Step back a week at a time, or tap the dates to jump anywhere. */}
+        <View style={styles.weekNav}>
+          <Pressable
+            onPress={() => goToWeek(weeksBack + 1)}
+            style={styles.weekArrow}
+            accessibilityRole="button"
+            accessibilityLabel="Previous seven days"
+          >
+            <ChevronLeft size={20} color={colors.foreground} />
+          </Pressable>
+          <Pressable
+            onPress={() => setJumpOpen(true)}
+            style={styles.weekLabelButton}
+            accessibilityRole="button"
+            accessibilityLabel={`${stripRangeLabel(strip)}. Pick a date`}
+          >
+            <CalendarDays size={16} color={colors.mutedForeground} />
+            <Text style={styles.weekLabel}>{stripRangeLabel(strip)}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => goToWeek(weeksBack - 1)}
+            disabled={weeksBack === 0}
+            style={[styles.weekArrow, weeksBack === 0 && styles.weekArrowOff]}
+            accessibilityRole="button"
+            accessibilityLabel="Next seven days"
+            accessibilityState={{ disabled: weeksBack === 0 }}
+          >
+            <ChevronRight size={20} color={colors.foreground} />
+          </Pressable>
+        </View>
+        {weeksBack > 0 ? (
+          <Pressable onPress={() => jumpTo(new Date())} style={styles.backToToday} accessibilityRole="button">
+            <Text style={styles.backToTodayText}>Back to today</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.strip}>
           {strip.map((day) => {
             const active = isSameDay(day.date, selectedDay);
@@ -375,6 +468,22 @@ export default function NotesListScreen() {
           {body}
         </FadeSwitch>
       </ScrollView>
+
+      {Platform.OS === "ios" ? (
+        <Sheet open={jumpOpen} title="Go to a day" onClose={() => setJumpOpen(false)}>
+          <DateTimePicker
+            value={selectedDay}
+            mode="date"
+            display="inline"
+            maximumDate={new Date()}
+            accentColor={colors.primary}
+            themeVariant={dark ? "dark" : "light"}
+            onChange={onJumpPicked}
+          />
+        </Sheet>
+      ) : jumpOpen ? (
+        <DateTimePicker value={selectedDay} mode="date" display="default" maximumDate={new Date()} onChange={onJumpPicked} />
+      ) : null}
 
       {!showArchived ? (
         <View style={styles.writeWrap}>
@@ -453,6 +562,28 @@ function makeStyles(colors: Colors, scale: number) {
     archivedText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[12] },
     emptyText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground, textAlign: "center" },
+    weekNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing[2] },
+    weekArrow: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    weekArrowOff: { opacity: 0.35 },
+    weekLabelButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[2],
+      paddingHorizontal: spacing[3],
+      paddingVertical: spacing[2],
+      borderRadius: radius.full,
+    },
+    weekLabel: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
+    backToToday: { alignSelf: "center", marginTop: -spacing[2] },
+    backToTodayText: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
     strip: { flexDirection: "row", gap: 6 },
     stripDay: {
       flex: 1,

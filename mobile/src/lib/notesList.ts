@@ -154,11 +154,15 @@ export function inRange(date: Date, range: DateRange | null): boolean {
 
 export type StripDay = { key: string; date: Date; letter: string; day: number };
 
-/** The last seven days, oldest first, ending today. */
-export function weekStrip(now: Date = new Date()): StripDay[] {
+/**
+ * Seven days, oldest first. `weeksBack` 0 ends today; 1 is the seven days
+ * before that, and so on, so paging back never skips or repeats a day.
+ */
+export function weekStrip(now: Date = new Date(), weeksBack = 0): StripDay[] {
   const today = startOfDay(now);
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7 * weeksBack);
   return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i));
+    const date = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (6 - i));
     return {
       key: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
       date,
@@ -181,4 +185,30 @@ export function dayHeading(day: Date, now: Date = new Date()): string {
   if (ago === 0) return "Today";
   if (ago === 1) return "Yesterday";
   return WEEKDAYS[day.getDay()];
+}
+
+/** Which page of the journal a day is on: 0 for the last seven days. */
+export function weeksBackFor(day: Date, now: Date = new Date()): number {
+  return Math.max(0, Math.floor(daysAgo(day, now) / 7));
+}
+
+/** "Sep 16 – 22", or "Aug 30 – Sep 5" across a month, with the year if not this one. */
+export function stripRangeLabel(strip: StripDay[], now: Date = new Date()): string {
+  const first = strip[0].date;
+  const last = strip[strip.length - 1].date;
+  const month = (d: Date) => MONTHS[d.getMonth()].slice(0, 3);
+  const year = last.getFullYear() !== now.getFullYear() ? `, ${last.getFullYear()}` : "";
+  return first.getMonth() === last.getMonth()
+    ? `${month(first)} ${first.getDate()} – ${last.getDate()}${year}`
+    : `${month(first)} ${first.getDate()} – ${month(last)} ${last.getDate()}${year}`;
+}
+
+/** The half-open range [start, end) covering a strip, for asking the server. */
+export function stripRange(strip: StripDay[]): { from: Date; to: Date } {
+  const first = strip[0].date;
+  const last = strip[strip.length - 1].date;
+  return {
+    from: new Date(first.getFullYear(), first.getMonth(), first.getDate()),
+    to: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1),
+  };
 }

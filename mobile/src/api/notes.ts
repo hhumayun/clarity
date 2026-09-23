@@ -7,6 +7,10 @@ import type { NoteRecord } from "../types";
 export const listNotesSchema = z.object({
   q: z.string().max(200).optional(),
   archived: z.boolean().optional(),
+  /** Notes written from this moment... */
+  from: z.date().optional(),
+  /** ...until (not including) this one. */
+  to: z.date().optional(),
 });
 export type ListNotesInput = z.infer<typeof listNotesSchema>;
 
@@ -18,6 +22,8 @@ export async function getNotesList(
   const search = new URLSearchParams();
   if (validated.q) search.set("q", validated.q);
   if (validated.archived) search.set("archived", "true");
+  if (validated.from) search.set("from", validated.from.toISOString());
+  if (validated.to) search.set("to", validated.to.toISOString());
   const query = search.toString();
   const result = await apiFetch(`/_api/notes/list${query ? `?${query}` : ""}`, {
     method: "GET",

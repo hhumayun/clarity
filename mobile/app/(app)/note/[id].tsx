@@ -19,7 +19,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate } from "../../../src/api/notes";
-import { useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
+import { upsertNoteInLists, useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSuggestions } from "../../../src/hooks/useSuggestions";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts } from "../../../src/lib/localDrafts";
@@ -74,6 +75,7 @@ export default function NoteEditorScreen() {
   const [menu, setMenu] = useState<"closed" | "open" | "confirmDelete">("closed");
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  const queryClient = useQueryClient();
   // Areas this note is tagged with. For a note not yet saved they wait here
   // and go in with its creation.
   const [tagIds, setTagIds] = useState<string[]>([]);
@@ -209,6 +211,8 @@ export default function NoteEditorScreen() {
             });
             setNoteId(note.id);
             noteIdRef.current = note.id;
+            // Show it in the notes list straight away.
+            upsertNoteInLists(queryClient, note);
             // Deliberately no navigation here. Replacing /note/new with
             // /note/<id> swapped the top of the stack, which animates: the
             // editor slid away and an identical one slid back a beat after
@@ -219,11 +223,12 @@ export default function NoteEditorScreen() {
             creatingRef.current = false;
           }
         } else {
-          await postNoteUpdate({
+          const { note } = await postNoteUpdate({
             id: noteIdRef.current,
             title: nextTitle,
             content: nextContent,
           });
+          upsertNoteInLists(queryClient, note);
         }
         await localDrafts.clear(draftKey);
         setStatus("saved");
@@ -231,7 +236,7 @@ export default function NoteEditorScreen() {
         setStatus("offline");
       }
     },
-    [draftKey],
+    [draftKey, queryClient],
   );
 
   useEffect(() => {
