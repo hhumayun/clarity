@@ -16,6 +16,8 @@ export type NoteRecord = {
   title: string;
   content: string;
   archived: boolean;
+  /** null for a note written in the editor; "focus" for a thought parked during focus time. */
+  source: "focus" | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -92,4 +94,14 @@ export type SuggestedTask = {
   text: string;
   projectName: string;
   completeBy: Date | null;
+};
+
+export type TaskFocusSummary = {
+  taskId: string;
+  sessions: number;
+  totalSeconds: number;
+  lastLeftOff: string;
+  lastOutcome: "finished" | "progress" | "stuck";
+  lastPlannedMinutes: number;
+  lastEndedAt: Date;
 };

@@ -17,11 +17,13 @@ type Props = {
   open: boolean;
   title: string;
   description?: string;
+  /** A small line above the title, e.g. a task's area and date. */
+  eyebrow?: React.ReactNode;
   onClose: () => void;
   children: React.ReactNode;
 };
 
-export function Sheet({ open, title, description, onClose, children }: Props) {
+export function Sheet({ open, title, description, eyebrow, onClose, children }: Props) {
   const insets = useSafeAreaInsets();
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
@@ -43,6 +45,7 @@ export function Sheet({ open, title, description, onClose, children }: Props) {
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
           <View style={styles.handle} />
+          {eyebrow ? <View style={styles.eyebrow}>{eyebrow}</View> : null}
           <Text style={styles.title}>{title}</Text>
           {description ? <Text style={styles.description}>{description}</Text> : null}
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
@@ -81,6 +84,7 @@ function makeStyles(colors: Colors, scale: number) {
       backgroundColor: colors.border,
       marginBottom: spacing[3],
     },
+    eyebrow: { marginBottom: spacing[2] },
     title: {
       fontFamily: fonts.display,
       fontSize: 22 * scale,

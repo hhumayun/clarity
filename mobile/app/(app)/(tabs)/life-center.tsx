@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
-import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal } from "lucide-react-native";
+import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusSummary } from "../../../src/hooks/useFocus";
 import { useNotes } from "../../../src/hooks/useNotes";
 import { useTasks } from "../../../src/hooks/useTasks";
 import {
@@ -20,6 +21,7 @@ import {
   slippedLabel,
   todayFocus,
 } from "../../../src/lib/lifeCenter";
+import { todayFocusLabel } from "../../../src/lib/focus";
 import { useMovedFrom } from "../../../src/lib/movedFrom";
 import { dueState } from "../../../src/lib/taskDates";
 import { sortProjects } from "../../../src/lib/taskSort";
@@ -50,6 +52,7 @@ export default function LifeCenterScreen() {
     useTasks();
   const notes = useNotes({});
   const movedFrom = useMovedFrom();
+  const focusSummary = useFocusSummary();
 
   // Today is the calm place to start; All tasks is one tap away.
   const [view, setView] = useState<View_>("today");
@@ -81,6 +84,12 @@ export default function LifeCenterScreen() {
   const loading = query.isFetching && !query.data;
   const activeArea: ProjectRecord | null =
     areaFilter === ALL ? null : projects.find((project) => project.id === areaFilter) ?? null;
+
+  const focusByTask = useMemo(
+    () => new Map((focusSummary.data?.tasks ?? []).map((row) => [row.taskId, row])),
+    [focusSummary.data?.tasks],
+  );
+  const focusToday = todayFocusLabel(focusSummary.data?.todaySeconds ?? 0);
 
   const noteTitles = useMemo(
     () => new Map((notes.data?.notes ?? []).map((note) => [note.id, note.title])),
@@ -172,16 +181,17 @@ export default function LifeCenterScreen() {
         <TaskCard
           task={task}
           variant={variant}
-          showMenu={false}
           showProject={variant === "focus" || !activeArea}
           noteTitle={task.noteId ? noteTitles.get(task.noteId) : undefined}
           movedFrom={variant === "focus" ? movedFrom(task.id) : null}
+          focusSummary={variant === "focus" ? focusByTask.get(task.id) : undefined}
           flashKey={flash?.id === task.id ? flash.key : undefined}
           onStatusChange={(next) => changeStatus(task, next)}
-          onEdit={() => setEditing(task)}
-          onDelete={async () => {
-            await remove.mutateAsync({ id: task.id });
-          }}
+          onOpen={() => setEditing(task)}
+          onStartFocus={variant === "focus" ? () => router.push(`/focus/${task.id}`) : undefined}
+          onContinueFocus={
+            variant === "focus" ? () => router.push(`/focus/${task.id}?continue=1`) : undefined
+          }
         />
       </View>
     </Animated.View>
@@ -307,8 +317,17 @@ export default function LifeCenterScreen() {
               {settingsButton}
             </View>
             <View style={styles.greetingBlock}>
-              <Text style={styles.greeting}>{greeting(now)}</Text>
-              <Text style={styles.subtitle}>{formatLongDate(now)}</Text>
+              {/* After some focus today, the screen greets you as someone
+                  coming back to their work, not arriving at it. */}
+              <Text style={styles.greeting}>{focusToday ? "Welcome back" : greeting(now)}</Text>
+              {focusToday ? (
+                <View style={styles.focusLine}>
+                  <Timer size={16} color={colors.primary} />
+                  <Text style={styles.subtitle}>{focusToday}</Text>
+                </View>
+              ) : (
+                <Text style={styles.subtitle}>{formatLongDate(now)}</Text>
+              )}
             </View>
             {focus.today.length > 0 ? (
               <View style={styles.progress}>
@@ -501,6 +520,16 @@ export default function LifeCenterScreen() {
             : undefined
         }
         onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
+        startPanel="actions"
+        onStartFocus={
+          editing
+            ? () => {
+                const id = editing.id;
+                setEditing(null);
+                router.push(`/focus/${id}`);
+              }
+            : undefined
+        }
       />
 
       <ProjectSheet
@@ -598,6 +627,7 @@ function makeStyles(colors: Colors, scale: number) {
     areaManageText: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.primary },
     dot: { width: 8, height: 8, borderRadius: 4 },
     greetingBlock: { gap: 2 },
+    focusLine: { flexDirection: "row", alignItems: "center", gap: spacing[1], marginTop: 2 },
     greeting: { fontFamily: fonts.display, fontSize: 36 * scale, color: colors.foreground },
     progress: { gap: spacing[2] },
     progressText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },

@@ -31,7 +31,8 @@ export const useNotes = (params: ListNotesInput) => {
 export const useCreateNote = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { title?: string; content?: string }) => postNoteCreate(body),
+    mutationFn: (body: { title?: string; content?: string; source?: "focus" }) =>
+      postNoteCreate(body),
     onSuccess: () => invalidateNotes(queryClient),
   });
 };

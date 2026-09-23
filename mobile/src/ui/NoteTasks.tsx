@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CalendarDays, Sparkles } from "lucide-react-native";
@@ -40,6 +41,7 @@ function commonProjectId(tasks: TaskRecord[]): string | null {
 
 export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled: boolean }) {
   const toast = useToast();
+  const router = useRouter();
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { query, extract, addSuggested, create, update, remove, createProject } = useTasks(
@@ -319,10 +321,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
               showNoteLink={false}
               flashKey={flash?.id === task.id ? flash.key : undefined}
               onStatusChange={(next) => changeStatus(task, next)}
-              onEdit={() => setTaskDialog({ open: true, task })}
-              onDelete={async () => {
-                await remove.mutateAsync({ id: task.id });
-              }}
+              onOpen={() => setTaskDialog({ open: true, task })}
             />
             </Animated.View>
           ))}
@@ -349,10 +348,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
                   task={task}
                   showNoteLink={false}
                   onStatusChange={(next) => changeStatus(task, next)}
-                  onEdit={() => setTaskDialog({ open: true, task })}
-                  onDelete={async () => {
-                    await remove.mutateAsync({ id: task.id });
-                  }}
+                  onOpen={() => setTaskDialog({ open: true, task })}
                 />
               </Animated.View>
             ))}
@@ -383,6 +379,16 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
             : undefined
         }
         onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
+        startPanel="actions"
+        onStartFocus={
+          taskDialog.task
+            ? () => {
+                const id = taskDialog.task!.id;
+                setTaskDialog((state) => ({ ...state, open: false }));
+                router.push(`/focus/${id}`);
+              }
+            : undefined
+        }
       />
 
       {/* Sits near the top of the section, where the add button is, rather

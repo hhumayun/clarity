@@ -39,7 +39,7 @@ export async function getNote(
 }
 
 export async function postNoteCreate(
-  body: { title?: string; content?: string },
+  body: { title?: string; content?: string; source?: "focus" },
   init?: RequestInit,
 ): Promise<{ note: NoteRecord }> {
   const result = await apiFetch("/_api/notes/create", {

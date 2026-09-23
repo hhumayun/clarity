@@ -1,10 +1,20 @@
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { CalendarDays, ChevronLeft, Plus } from "lucide-react-native";
+import {
+  CalendarDays,
+  ChevronLeft,
+  CircleCheck,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Timer,
+} from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { atNoon, formatShortDate, isSameDay } from "../lib/dates";
+import { atNoon, daysFromToday, formatShortDate, isSameDay, nextWeekend } from "../lib/dates";
+import { areaColor } from "../lib/lifeCenter";
+import { formatDue } from "../lib/taskDates";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import {
@@ -34,6 +44,14 @@ type Props = {
   onSave: (draft: TaskDraft) => Promise<void>;
   onDelete?: () => Promise<void>;
   onCreateProject: (name: string) => Promise<ProjectRecord>;
+  /**
+   * "actions" opens an existing task on its action panel (Start focus time,
+   * Mark done, Move to another day, Edit task), which replaces the old "…"
+   * menu. "task" opens straight on the edit form.
+   */
+  startPanel?: "task" | "actions";
+  /** Shows Start focus time on the action panel. */
+  onStartFocus?: () => void;
 };
 
 /**
@@ -42,7 +60,7 @@ type Props = {
  * Modal presented over a first is fragile, and the failure mode is a screen
  * that still looks right but answers no touches.
  */
-type Panel = "task" | "project" | "date";
+type Panel = "actions" | "move" | "task" | "project" | "date";
 
 function draftFrom(
   task: TaskRecord | null | undefined,
@@ -81,6 +99,8 @@ export function TaskSheet({
   onSave,
   onDelete,
   onCreateProject,
+  startPanel = "task",
+  onStartFocus,
 }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
@@ -94,16 +114,20 @@ export function TaskSheet({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [panel, setPanel] = useState<Panel>("task");
+  const [movePickerOpen, setMovePickerOpen] = useState(false);
   const editing = Boolean(task);
+  // Where "back" goes from a sub-face: the panel the sheet opened on.
+  const home: Panel = task && startPanel === "actions" ? "actions" : "task";
 
   useEffect(() => {
     if (open) {
       setDraft(draftFrom(task, defaultProjectId, projects));
       setError("");
       setNewProject("");
-      setPanel("task");
+      setPanel(task && startPanel === "actions" ? "actions" : "task");
+      setMovePickerOpen(false);
     }
-  }, [open, task?.id, defaultProjectId, projects]);
+  }, [open, task?.id, defaultProjectId, projects, startPanel]);
 
   // The quick options, and whether completeBy is a day none of them covers.
   const shortcuts = [
@@ -153,6 +177,27 @@ export function TaskSheet({
 
   const setDate = (date: Date | null) => setDraft((current) => ({ ...current, completeBy: date }));
 
+  // Save one change straight from the action panel, without the edit form.
+  const commit = async (change: Partial<TaskDraft>) => {
+    if (!task || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onSave({ ...draftFrom(task, defaultProjectId, projects), ...change });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That change could not be saved. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMovePicked = (event: DateTimePickerEvent, date?: Date) => {
+    setMovePickerOpen(false);
+    if (event.type === "dismissed" || !date) return;
+    void commit({ completeBy: atNoon(date.getFullYear(), date.getMonth(), date.getDate()) });
+  };
+
   const handlePicked = (event: DateTimePickerEvent, date?: Date) => {
     if (event.type === "dismissed") {
       setPanel("task");
@@ -167,6 +212,8 @@ export function TaskSheet({
   };
 
   const titles: Record<Panel, { title: string; description?: string }> = {
+    actions: { title: task?.text ?? "" },
+    move: { title: "Move to another day" },
     task: {
       title: editing ? "Edit task" : "Add a task",
       description: "Keep it short. You can always change it later.",
@@ -184,9 +231,127 @@ export function TaskSheet({
         open={open}
         title={titles[panel].title}
         description={titles[panel].description}
-        onClose={panel === "task" ? onClose : () => setPanel("task")}
+        eyebrow={
+          panel === "actions" && task ? (
+            <View style={styles.eyebrowRow}>
+              <View style={[styles.dot, { backgroundColor: areaColor(task.projectId) }]} />
+              <Text style={styles.eyebrowText}>
+                {task.projectName}
+                {task.completeBy ? ` · ${formatDue(task.completeBy)}` : ""}
+              </Text>
+            </View>
+          ) : undefined
+        }
+        onClose={panel === home ? onClose : () => setPanel(panel === "move" ? "actions" : "task")}
       >
-        {panel === "task" ? (
+        {panel === "actions" && task ? (
+          <>
+            {onStartFocus && task.status !== "done" ? (
+              <Pressable
+                style={({ pressed }) => [styles.focusButton, pressed && styles.pressed]}
+                onPress={onStartFocus}
+                accessibilityRole="button"
+                accessibilityLabel="Start focus time. Set aside a few minutes for just this"
+              >
+                <View style={styles.focusIcon}>
+                  <Timer size={22} color={colors.primaryForeground} />
+                </View>
+                <View style={styles.flexShrink}>
+                  <Text style={styles.focusTitle}>Start focus time</Text>
+                  <Text style={styles.focusHint}>Set aside a few minutes for just this</Text>
+                </View>
+              </Pressable>
+            ) : null}
+            <View>
+              <Pressable
+                style={styles.actionRow}
+                onPress={() => void commit({ status: task.status === "done" ? "todo" : "done" })}
+                disabled={saving}
+                accessibilityRole="button"
+              >
+                {task.status === "done" ? (
+                  <RotateCcw size={20} color={colors.foreground} />
+                ) : (
+                  <CircleCheck size={20} color={colors.foreground} />
+                )}
+                <Text style={styles.actionText}>
+                  {task.status === "done" ? "Mark not done" : "Mark done"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionRow, styles.actionDivider]}
+                onPress={() => setPanel("move")}
+                accessibilityRole="button"
+              >
+                <CalendarDays size={20} color={colors.foreground} />
+                <Text style={styles.actionText}>Move to another day</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionRow, styles.actionDivider]}
+                onPress={() => setPanel("task")}
+                accessibilityRole="button"
+              >
+                <Pencil size={20} color={colors.foreground} />
+                <Text style={styles.actionText}>Edit task</Text>
+              </Pressable>
+            </View>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+          </>
+        ) : panel === "move" && task ? (
+          <>
+            <View style={styles.chips}>
+              {[
+                { label: "Today", value: daysFromToday(0) as Date | null },
+                { label: "Tomorrow", value: daysFromToday(1) },
+                { label: "Weekend", value: nextWeekend() },
+                { label: "Next week", value: daysFromToday(7) },
+                { label: "No date", value: null },
+              ].map((option) => {
+                const active =
+                  option.value === null
+                    ? task.completeBy === null
+                    : isSameDay(option.value, task.completeBy);
+                return (
+                  <Pressable
+                    key={option.label}
+                    onPress={() => void commit({ completeBy: option.value })}
+                    disabled={saving}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                onPress={() => setMovePickerOpen(true)}
+                style={[styles.chip, styles.chipWithIcon]}
+                accessibilityLabel="Pick a date"
+              >
+                <CalendarDays size={14} color={colors.mutedForeground} />
+                <Text style={styles.chipText}>Pick a date</Text>
+              </Pressable>
+            </View>
+            {movePickerOpen ? (
+              <View style={styles.picker}>
+                <DateTimePicker
+                  value={task.completeBy ?? new Date()}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  accentColor={colors.primary}
+                  themeVariant={dark ? "dark" : "light"}
+                  onChange={handleMovePicked}
+                />
+              </View>
+            ) : null}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Button variant="ghost" onPress={() => setPanel("actions")}>
+              <ChevronLeft size={18} color={colors.foreground} />
+              <Text style={styles.backText}>Back</Text>
+            </Button>
+          </>
+        ) : panel === "task" ? (
           <>
             <Text style={styles.label}>What needs doing?</Text>
             <TextArea
@@ -382,6 +547,38 @@ function makeStyles(colors: Colors, scale: number) {
     // The inline calendar draws its own padding; this just keeps it off the
     // sheet's edges on narrow screens.
     picker: { marginHorizontal: -spacing[2] },
+    eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
+    eyebrowText: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    pressed: { opacity: 0.85 },
+    flexShrink: { flexShrink: 1 },
+    focusButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[3],
+      borderRadius: radius.md,
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing[4],
+      paddingVertical: spacing[4],
+    },
+    focusIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(0,0,0,0.12)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    focusTitle: { fontFamily: fonts.baseBold, fontSize: 18 * scale, color: colors.primaryForeground },
+    focusHint: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.primaryForeground, opacity: 0.85 },
+    actionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[3],
+      paddingVertical: spacing[4],
+    },
+    actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+    actionText: { fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
     backText: {
       fontFamily: fonts.baseSemi,
       fontSize: 15 * scale,

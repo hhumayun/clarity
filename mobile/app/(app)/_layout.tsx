@@ -16,6 +16,10 @@ export default function AppLayout() {
       <Stack.Screen name="privacy" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen
+        name="focus/[taskId]"
+        options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", gestureEnabled: false }}
+      />
+      <Stack.Screen
         name="catch-up"
         options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }}
       />
