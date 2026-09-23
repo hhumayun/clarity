@@ -18,6 +18,8 @@ export type NoteRecord = {
   archived: boolean;
   /** null for a note written in the editor; "focus" for a thought parked during focus time. */
   source: "focus" | null;
+  /** The projects ("areas") this note is tagged with. */
+  projectIds: string[];
   createdAt: Date;
   updatedAt: Date;
 };

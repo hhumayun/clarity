@@ -3,13 +3,14 @@ import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
+import { attachProjectIds } from "../../helpers/noteProjects";
 import type { OutputType } from "./export_GET.schema";
 
 export async function handle(request: Request) {
   try {
     const user = await requireUser(request);
 
-    const [notes, entities, projects, tasks, focusSessions] = await Promise.all([
+    const [noteRows, entities, projects, tasks, focusSessions] = await Promise.all([
       db
         .selectFrom("notes")
         .select([...NOTE_RECORD_COLUMNS])
@@ -50,6 +51,8 @@ export async function handle(request: Request) {
         .orderBy("endedAt", "desc")
         .execute(),
     ]);
+
+    const notes = await attachProjectIds(db, noteRows, user.id);
 
     return new Response(
       superjson.stringify({

@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
+import { attachProjectIds } from "../../helpers/noteProjects";
 import { schema, type OutputType } from "./list_GET.schema";
 
 export async function handle(request: Request) {
@@ -24,11 +25,24 @@ export async function handle(request: Request) {
     if (term) {
       const pattern = `%${term.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
       query = query.where((eb) =>
-        eb.or([eb("title", "ilike", pattern), eb("content", "ilike", pattern)]),
+        eb.or([
+          eb("title", "ilike", pattern),
+          eb("content", "ilike", pattern),
+          // Searching an area's name finds the notes tagged with it.
+          eb.exists(
+            eb
+              .selectFrom("noteProjects")
+              .innerJoin("projects", "projects.id", "noteProjects.projectId")
+              .select("noteProjects.noteId")
+              .whereRef("noteProjects.noteId", "=", "notes.id")
+              .where("projects.name", "ilike", pattern),
+          ),
+        ]),
       );
     }
 
-    const notes = await query.orderBy("updatedAt", "desc").limit(200).execute();
+    const rows = await query.orderBy("updatedAt", "desc").limit(200).execute();
+    const notes = await attachProjectIds(db, rows, user.id);
 
     return new Response(superjson.stringify({ notes } satisfies OutputType));
   } catch (error) {

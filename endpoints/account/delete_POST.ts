@@ -42,6 +42,7 @@ export async function handle(request: Request) {
         .deleteFrom("suggestionEvents")
         .where("userId", "=", user.id)
         .execute();
+      await trx.deleteFrom("noteProjects").where("userId", "=", user.id).execute();
       await trx.deleteFrom("notes").where("userId", "=", user.id).execute();
       await trx
         .deleteFrom("userPreferences")

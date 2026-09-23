@@ -1,6 +1,7 @@
 import { CircleCheck, Timer } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { areaColor } from "../lib/lifeCenter";
 import { displayTitle, noteTimeLabel } from "../lib/notesList";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../theme";
@@ -10,6 +11,8 @@ type Props = {
   note: NoteRecord;
   /** Open tasks in Life Center that came from this note. */
   taskCount?: number;
+  /** The areas the note is tagged with, already resolved to names. */
+  areas?: Array<{ id: string; name: string }>;
   onPress: () => void;
   /** "card" is the list; "timeline" is the journal, drawn without a box. */
   variant?: "card" | "timeline";
@@ -40,11 +43,22 @@ export function NoteTags({ note, taskCount = 0, compact = false }: { note: NoteR
   );
 }
 
-export function NoteCard({ note, taskCount = 0, onPress, variant = "card" }: Props) {
+export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "card" }: Props) {
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { title, preview } = displayTitle(note);
   const when = noteTimeLabel(note.createdAt);
+  const areaLine =
+    areas.length > 0 ? (
+      <View style={styles.areas}>
+        {areas.map((area) => (
+          <View key={area.id} style={styles.area}>
+            <View style={[styles.areaDot, { backgroundColor: areaColor(area.id) }]} />
+            <Text style={styles.areaText}>{area.name}</Text>
+          </View>
+        ))}
+      </View>
+    ) : null;
 
   if (variant === "timeline") {
     return (
@@ -55,6 +69,7 @@ export function NoteCard({ note, taskCount = 0, onPress, variant = "card" }: Pro
             {preview}
           </Text>
         ) : null}
+        {areaLine}
         <NoteTags note={note} taskCount={taskCount} compact />
       </Pressable>
     );
@@ -73,6 +88,7 @@ export function NoteCard({ note, taskCount = 0, onPress, variant = "card" }: Pro
           {preview}
         </Text>
       ) : null}
+      {areaLine}
       <View style={styles.footer}>
         <Text style={styles.when}>{when}</Text>
         <NoteTags note={note} taskCount={taskCount} />
@@ -103,6 +119,10 @@ function makeStyles(colors: Colors, scale: number) {
       marginTop: spacing[1],
     },
     when: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    areas: { flexDirection: "row", flexWrap: "wrap", columnGap: spacing[3], rowGap: 2 },
+    area: { flexDirection: "row", alignItems: "center", gap: 5 },
+    areaDot: { width: 7, height: 7, borderRadius: 4 },
+    areaText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
     tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
     tag: {
       flexDirection: "row",

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Sparkles, Trash2 } from "lucide-react-native";
+import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Plus, Sparkles, Trash2 } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -32,6 +32,9 @@ import {
 } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { Sheet } from "../../../src/ui/Sheet";
+import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
+import { useTasks } from "../../../src/hooks/useTasks";
+import { areaColor } from "../../../src/lib/lifeCenter";
 import { InlineSuggestions } from "../../../src/ui/InlineSuggestions";
 import { NoteTasks } from "../../../src/ui/NoteTasks";
 import { ReflectionStrip } from "../../../src/ui/ReflectionStrip";
@@ -68,6 +71,14 @@ export default function NoteEditorScreen() {
   const [menu, setMenu] = useState<"closed" | "open" | "confirmDelete">("closed");
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  // Areas this note is tagged with. For a note not yet saved they wait here
+  // and go in with its creation.
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const tagIdsRef = useRef(tagIds);
+  tagIdsRef.current = tagIds;
+  const [areasOpen, setAreasOpen] = useState(false);
+  const { query: tasksQuery, createProject } = useTasks(undefined, TASKS_ENABLED);
+  const allProjects = tasksQuery.data?.projects ?? [];
   const [cursorPos, setCursorPos] = useState(0);
   const [editorTab, setEditorTab] = useState<"note" | "tasks">("note");
   const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
@@ -149,6 +160,7 @@ export default function NoteEditorScreen() {
         setNoteId(note.id);
         noteIdRef.current = note.id;
         setArchived(note.archived);
+        setTagIds(note.projectIds ?? []);
         loadedKeyRef.current = draftKey;
         setLoaded(true);
       } catch {
@@ -190,6 +202,7 @@ export default function NoteEditorScreen() {
             const { note } = await postNoteCreate({
               title: nextTitle,
               content: nextContent,
+              ...(tagIdsRef.current.length ? { projectIds: tagIdsRef.current } : {}),
             });
             setNoteId(note.id);
             noteIdRef.current = note.id;
@@ -377,6 +390,33 @@ export default function NoteEditorScreen() {
           )}
         </View>
 
+        {TASKS_ENABLED && loaded ? (
+          <View style={styles.areaRow}>
+            {tagIds
+              .map((id) => allProjects.find((project) => project.id === id))
+              .filter((project): project is NonNullable<typeof project> => Boolean(project))
+              .map((project) => (
+                <Pressable
+                  key={project.id}
+                  onPress={() => setAreasOpen(true)}
+                  style={styles.areaChip}
+                  accessibilityLabel={`Area: ${project.name}. Change areas`}
+                >
+                  <View style={[styles.areaDot, { backgroundColor: areaColor(project.id) }]} />
+                  <Text style={styles.areaChipText}>{project.name}</Text>
+                </Pressable>
+              ))}
+            <Pressable
+              onPress={() => setAreasOpen(true)}
+              style={[styles.areaChip, styles.areaChipAdd]}
+              accessibilityLabel={tagIds.length ? "Change areas" : "Tag this note with an area"}
+            >
+              <Plus size={14} color={colors.mutedForeground} />
+              {tagIds.length === 0 ? <Text style={styles.areaChipMuted}>Area</Text> : null}
+            </Pressable>
+          </View>
+        ) : null}
+
         {TASKS_ENABLED ? (
         <View style={styles.tabs}>
         <Segmented
@@ -496,6 +536,41 @@ export default function NoteEditorScreen() {
           </ScrollView>
         )}
       </KeyboardAvoidingView>
+
+      <AreaPickerSheet
+        open={areasOpen}
+        onClose={() => setAreasOpen(false)}
+        projects={allProjects}
+        selected={tagIds}
+        onToggle={(projectId) => {
+          const previous = tagIdsRef.current;
+          const next = previous.includes(projectId)
+            ? previous.filter((id) => id !== projectId)
+            : [...previous, projectId];
+          setTagIds(next);
+          tagIdsRef.current = next;
+          const id = noteIdRef.current;
+          if (!id) return;
+          updateNote.mutate(
+            { id, projectIds: next },
+            {
+              onError: () => {
+                setTagIds(previous);
+                tagIdsRef.current = previous;
+                toast.show("That area could not be saved. Please try again.");
+              },
+            },
+          );
+        }}
+        onCreate={async (name) => {
+          const { project } = await createProject.mutateAsync({ name });
+          const next = [...tagIdsRef.current, project.id];
+          setTagIds(next);
+          tagIdsRef.current = next;
+          const id = noteIdRef.current;
+          if (id) await updateNote.mutateAsync({ id, projectIds: next });
+        }}
+      />
 
       <Sheet
         open={menu !== "closed"}
@@ -617,6 +692,28 @@ function makeStyles(colors: Colors, scale: number) {
     },
     tabs: { alignSelf: "center", marginBottom: spacing[2] },
     headerSpacer: { width: 48, height: 48 },
+    areaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: spacing[2],
+      paddingHorizontal: spacing[4],
+      marginBottom: spacing[2],
+    },
+    areaChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing[3],
+      paddingVertical: 5,
+    },
+    areaChipAdd: { borderStyle: "dashed", paddingHorizontal: spacing[2] },
+    areaDot: { width: 8, height: 8, borderRadius: 4 },
+    areaChipText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.foreground },
+    areaChipMuted: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
     menuRow: { flexDirection: "row", alignItems: "center", gap: spacing[3], paddingVertical: spacing[4] },
     menuDivider: { borderTopWidth: 1, borderTopColor: colors.border },
     menuText: { fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },

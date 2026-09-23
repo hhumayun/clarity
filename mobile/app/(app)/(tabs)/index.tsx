@@ -108,12 +108,29 @@ export default function NotesListScreen() {
     () => (TASKS_ENABLED ? taskCountByNote(tasks.query.data?.tasks ?? []) : new Map<string, number>()),
     [tasks.query.data?.tasks],
   );
+  const projectNames = useMemo(
+    () => new Map((tasks.query.data?.projects ?? []).map((project) => [project.id, project.name])),
+    [tasks.query.data?.projects],
+  );
+  // A tag whose area was since deleted has already gone from the note on the
+  // server; filtering here only covers the moment before the list refetches.
+  const areasOf = (note: NoteRecord) =>
+    (note.projectIds ?? []).flatMap((id) => {
+      const name = projectNames.get(id);
+      return name ? [{ id, name }] : [];
+    });
   const archivedCount = archivedList.data?.notes.length ?? 0;
   const loading = isFetching && !data;
 
   const openNote = (note: NoteRecord) => router.push(`/note/${note.id}`);
   const card = (note: NoteRecord) => (
-    <NoteCard key={note.id} note={note} taskCount={counts.get(note.id)} onPress={() => openNote(note)} />
+    <NoteCard
+      key={note.id}
+      note={note}
+      taskCount={counts.get(note.id)}
+      areas={areasOf(note)}
+      onPress={() => openNote(note)}
+    />
   );
 
   const groups = useMemo(() => groupNotesByDay(notes), [notes]);
@@ -165,6 +182,8 @@ export default function NotesListScreen() {
     </View>
   );
 
+  // Search matches words, dates ("last week") and an area's name: "Business"
+  // finds the notes tagged with it.
   const searchField = showSearchField ? (
     <View style={styles.searchRow}>
       <Search size={18} color={colors.mutedForeground} />
@@ -304,6 +323,7 @@ export default function NotesListScreen() {
                       note={note}
                       variant="timeline"
                       taskCount={counts.get(note.id)}
+                      areas={areasOf(note)}
                       onPress={() => openNote(note)}
                     />
                   </View>

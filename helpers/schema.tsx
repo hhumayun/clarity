@@ -32,6 +32,13 @@ export interface NoteEntities {
   userId: number;
 }
 
+export interface NoteProjects {
+  createdAt: Generated<Timestamp>;
+  noteId: string;
+  projectId: string;
+  userId: number;
+}
+
 export interface Notes {
   archived: Generated<boolean>;
   content: Generated<string>;
@@ -123,6 +130,7 @@ export interface Users {
 export interface DB {
   focusSessions: FocusSessions;
   noteEntities: NoteEntities;
+  noteProjects: NoteProjects;
   notes: Notes;
   projects: Projects;
   suggestionEvents: SuggestionEvents;
