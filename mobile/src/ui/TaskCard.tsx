@@ -18,12 +18,14 @@ import { useRouter } from "expo-router";
 import {
   CalendarDays,
   Check,
+  FileText,
   MoreHorizontal,
-  NotebookPen,
 } from "lucide-react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { useToast } from "../providers/ToastProvider";
+import { formatClockTime, formatPlannedDate } from "../lib/dates";
+import { areaColor } from "../lib/lifeCenter";
 import { dueState, formatDue } from "../lib/taskDates";
 import {
   TASK_STATUS_LABELS,
@@ -77,6 +79,17 @@ type Props = {
   showNoteLink?: boolean;
   /** Change this value to make the card pulse twice — used to point at a task just added. */
   flashKey?: number;
+  /**
+   * "row" is the list card. "focus" is the larger card on Today: bigger text,
+   * no due date (it is today), and a finished task shows when it was done.
+   */
+  variant?: "row" | "focus";
+  /** The note's title, when the task came from one; falls back to "From your note". */
+  noteTitle?: string;
+  /** Where Catch up moved this task from, shown on the Today card. */
+  movedFrom?: Date | null;
+  /** The "…" menu. Off where tapping the card to edit is enough. */
+  showMenu?: boolean;
   onStatusChange: (status: TaskStatus) => void;
   onEdit: () => void;
   onDelete: () => Promise<void>;
@@ -87,6 +100,10 @@ export function TaskCard({
   showProject = true,
   showNoteLink = true,
   flashKey,
+  variant = "row",
+  noteTitle,
+  movedFrom,
+  showMenu = true,
   onStatusChange,
   onEdit,
   onDelete,
@@ -99,6 +116,7 @@ export function TaskCard({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const done = task.status === "done";
+  const focus = variant === "focus";
   const due = task.completeBy ? dueState(task.completeBy) : null;
 
   // Both lists group cards by status, so changing the status moves the card
@@ -178,7 +196,13 @@ export function TaskCard({
   }));
 
   return (
-    <View style={[styles.card, shownDone && styles.done]}>
+    <View
+      style={[
+        styles.card,
+        focus && styles.cardFocus,
+        shownDone && (focus ? styles.doneFocus : styles.done),
+      ]}
+    >
       <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
       <Pressable
         accessibilityRole="button"
@@ -196,7 +220,7 @@ export function TaskCard({
         <View>
           <Pressable onPress={onEdit}>
             <Text
-              style={[styles.text, shownDone && styles.textDone]}
+              style={[styles.text, focus && styles.textFocus, shownDone && styles.textDone]}
               onTextLayout={(event) =>
                 setTextLines(
                   event.nativeEvent.lines.map((line: TextLayoutLine) => ({
@@ -221,24 +245,51 @@ export function TaskCard({
           ))}
         </View>
         <View style={styles.meta}>
-          {showProject ? <Text style={styles.chip}>{task.projectName}</Text> : null}
-          {task.completeBy && due ? (
-            <View style={[styles.chipWrap, due === "overdue" && !done && styles.overdue]}>
-              <CalendarDays size={14} color={due === "overdue" && !done ? colors.error : colors.mutedForeground} />
-              <Text style={[styles.chip, due === "overdue" && !done && styles.overdueText]}>
-                {due === "overdue" && !done ? "Overdue · " : ""}
-                {formatDue(task.completeBy)}
-              </Text>
+          {showProject ? (
+            <View style={styles.metaItem}>
+              <View style={[styles.dot, { backgroundColor: areaColor(task.projectId) }]} />
+              <Text style={styles.chip}>{task.projectName}</Text>
             </View>
           ) : null}
-          {showNoteLink && task.noteId ? (
-            <Pressable
-              style={styles.chipWrap}
-              onPress={() => router.push(`/note/${task.noteId}`)}
-            >
-              <NotebookPen size={14} color={colors.mutedForeground} />
-              <Text style={styles.chip}>From your note</Text>
-            </Pressable>
+          {focus && shownDone ? (
+            <>
+              {showProject ? <Text style={styles.sep}>·</Text> : null}
+              <Text style={styles.chip}>Done at {formatClockTime(task.updatedAt)}</Text>
+            </>
+          ) : null}
+          {focus && !shownDone && movedFrom ? (
+            <>
+              {showProject ? <Text style={styles.sep}>·</Text> : null}
+              <Text style={styles.chip}>Moved here from {formatPlannedDate(movedFrom)}</Text>
+            </>
+          ) : null}
+          {!focus && task.completeBy && due ? (
+            <>
+              {showProject ? <Text style={styles.sep}>·</Text> : null}
+              <View style={styles.metaItem}>
+                {due === "overdue" && !done ? (
+                  <CalendarDays size={13} color={colors.warning} />
+                ) : null}
+                <Text style={[styles.chip, due === "overdue" && !done && styles.overdueText]}>
+                  {formatDue(task.completeBy)}
+                </Text>
+              </View>
+            </>
+          ) : null}
+          {showNoteLink && task.noteId && !(focus && shownDone) ? (
+            <>
+              <Text style={styles.sep}>·</Text>
+              <Pressable
+                style={styles.metaItem}
+                onPress={() => router.push(`/note/${task.noteId}`)}
+                accessibilityLabel={`Open the note${noteTitle ? `: ${noteTitle}` : ""}`}
+              >
+                <FileText size={13} color={colors.primary} />
+                <Text style={[styles.chip, styles.noteLink]} numberOfLines={1}>
+                  {noteTitle?.trim() ? noteTitle.trim() : "From your note"}
+                </Text>
+              </Pressable>
+            </>
           ) : null}
         </View>
         {menuOpen ? (
@@ -288,13 +339,15 @@ export function TaskCard({
         ) : null}
       </View>
 
-      <Pressable
-        accessibilityLabel="More actions"
-        onPress={() => setMenuOpen((open) => !open)}
-        style={styles.more}
-      >
-        <MoreHorizontal size={22} color={colors.mutedForeground} />
-      </Pressable>
+      {showMenu ? (
+        <Pressable
+          accessibilityLabel="More actions"
+          onPress={() => setMenuOpen((open) => !open)}
+          style={styles.more}
+        >
+          <MoreHorizontal size={22} color={colors.mutedForeground} />
+        </Pressable>
+      ) : null}
 
       <ConfirmModal
         open={confirmingDelete}
@@ -328,7 +381,15 @@ function makeStyles(colors: Colors, scale: number) {
       borderColor: colors.border,
       padding: spacing[3],
     },
+    cardFocus: {
+      alignItems: "center",
+      paddingVertical: spacing[4],
+      paddingHorizontal: spacing[4],
+      borderRadius: radius.lg,
+    },
     done: { opacity: 0.72 },
+    // Finished on Today: dashed and set back, so it reads as put down, not gone.
+    doneFocus: { borderStyle: "dashed", backgroundColor: "transparent" },
     flash: {
       position: "absolute",
       top: -1,
@@ -364,8 +425,13 @@ function makeStyles(colors: Colors, scale: number) {
       fontSize: 16 * scale,
       color: colors.foreground,
     },
+    textFocus: { fontSize: 18 * scale },
     textDone: { color: colors.mutedForeground },
-    meta: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
+    meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: spacing[2], rowGap: 2 },
+    metaItem: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 },
+    dot: { width: 7, height: 7, borderRadius: 4 },
+    sep: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    noteLink: { color: colors.primary },
     chipWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
     chip: {
       fontFamily: fonts.base,
@@ -373,7 +439,7 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.mutedForeground,
     },
     overdue: {},
-    overdueText: { color: colors.error },
+    overdueText: { color: colors.warning },
     more: { padding: spacing[1] },
     menu: {
       backgroundColor: colors.surface,

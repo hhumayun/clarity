@@ -15,6 +15,10 @@ export default function AppLayout() {
       <Stack.Screen name="settings" />
       <Stack.Screen name="privacy" />
       <Stack.Screen name="onboarding" />
+      <Stack.Screen
+        name="catch-up"
+        options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }}
+      />
     </Stack>
   );
 }

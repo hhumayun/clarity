@@ -35,6 +35,12 @@ type Props = {
   onClose: () => void;
   projects: ProjectRecord[];
   defaultProjectId?: string | null;
+  /**
+   * A date the box opens with, e.g. today when adding from the Today screen.
+   * A date typed into the line still wins over it.
+   */
+  defaultDate?: Date | null;
+  placeholder?: string;
   onCreateProject: (name: string) => Promise<ProjectRecord>;
   /** Creates the task. The parent closes the box once this resolves. */
   onSubmit: (draft: QuickAddDraft) => Promise<void>;
@@ -46,7 +52,7 @@ type Expander = "project" | "newProject" | "date" | null;
  * Who set the date. The model's reading follows the text until the writer
  * chooses for themselves, after which it is left alone.
  */
-type DateSource = "none" | "ai" | "manual";
+type DateSource = "none" | "default" | "ai" | "manual";
 
 function addDays(days: number): Date {
   const now = new Date();
@@ -65,6 +71,8 @@ export function QuickAddTask({
   onClose,
   projects,
   defaultProjectId,
+  defaultDate = null,
+  placeholder = "e.g., Call Dr. Lee tomorrow",
   onCreateProject,
   onSubmit,
 }: Props) {
@@ -87,15 +95,15 @@ export function QuickAddTask({
 
   // Reset on open only. Reading the defaults through a ref keeps a project
   // created mid-session from wiping the line the writer is typing.
-  const defaultsRef = useRef({ defaultProjectId, projects });
-  defaultsRef.current = { defaultProjectId, projects };
+  const defaultsRef = useRef({ defaultProjectId, projects, defaultDate });
+  defaultsRef.current = { defaultProjectId, projects, defaultDate };
   useEffect(() => {
     if (!open) return;
     const defaults = defaultsRef.current;
     setText("");
     setProjectId(defaults.defaultProjectId ?? defaults.projects[0]?.id ?? null);
-    setDate(null);
-    setDateSource("none");
+    setDate(defaults.defaultDate);
+    setDateSource(defaults.defaultDate ? "default" : "none");
     setExpander(null);
     setPickerOpen(false);
     setNewProject("");
@@ -118,8 +126,10 @@ export function QuickAddTask({
       return;
     }
     if (dateSource === "ai") {
-      setDate(null);
-      setDateSource("none");
+      // The date words were deleted: fall back to what the box opened with.
+      const fallback = defaultsRef.current.defaultDate;
+      setDate(fallback);
+      setDateSource(fallback ? "default" : "none");
     }
   }, [parsed, dateSource, date]);
 
@@ -139,7 +149,7 @@ export function QuickAddTask({
         // saw while typing. Bounded, so a slow model cannot stall the add.
         const line = await settle(raw);
         const found = line.completeBy ? fromIsoDay(line.completeBy) : null;
-        completeBy = found;
+        completeBy = found ?? defaultsRef.current.defaultDate;
         if (found && line.text.trim()) finalText = line.text.trim();
       }
       Keyboard.dismiss();
@@ -216,7 +226,7 @@ export function QuickAddTask({
             value={text}
             onChangeText={setText}
             autoFocus
-            placeholder="e.g., Call Dr. Lee tomorrow"
+            placeholder={placeholder}
             placeholderTextColor={colors.mutedForeground}
             style={styles.input}
             maxLength={500}

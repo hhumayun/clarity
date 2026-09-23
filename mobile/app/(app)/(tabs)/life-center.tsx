@@ -1,66 +1,70 @@
 import { useRouter } from "expo-router";
-import { FolderOpen, LayoutDashboard, Plus, Settings } from "lucide-react-native";
+import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNotes } from "../../../src/hooks/useNotes";
 import { useTasks } from "../../../src/hooks/useTasks";
-import { summarizeTasks } from "../../../src/lib/taskDates";
-import { openCountByProject, sortProjects, sortTasks } from "../../../src/lib/taskSort";
+import {
+  daysFromToday,
+  dateChipLabel,
+  formatLongDate,
+  formatWeekdayShort,
+  isSameDay,
+} from "../../../src/lib/dates";
+import {
+  areaColor,
+  greeting,
+  groupAllTasks,
+  slippedLabel,
+  todayFocus,
+} from "../../../src/lib/lifeCenter";
+import { useMovedFrom } from "../../../src/lib/movedFrom";
+import { dueState } from "../../../src/lib/taskDates";
+import { sortProjects } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { fonts, radius, spacing, type Colors } from "../../../src/theme";
-import {
-  TASK_STATUS_LABELS,
-  TASK_STATUS_VALUES,
-  type ProjectRecord,
-  type TaskRecord,
-  type TaskStatus,
-} from "../../../src/types";
+import type { ProjectRecord, TaskRecord, TaskStatus } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { ConfirmModal } from "../../../src/ui/ConfirmModal";
 import { ProjectSheet } from "../../../src/ui/ProjectSheet";
-import { Segmented } from "../../../src/ui/Segmented";
-import { Skeleton } from "../../../src/ui/Skeleton";
-import { TaskCard } from "../../../src/ui/TaskCard";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
+import { Segmented } from "../../../src/ui/Segmented";
+import { SegmentBar } from "../../../src/ui/SegmentBar";
+import { Skeleton } from "../../../src/ui/Skeleton";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
+import { TaskCard } from "../../../src/ui/TaskCard";
 import { TaskSheet, type TaskDraft } from "../../../src/ui/TaskSheet";
 
+type View_ = "today" | "all";
 const ALL = "__all__";
 
 export default function LifeCenterScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { width } = useWindowDimensions();
-  const isWide = width >= 720;
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { query, create, update, remove, clearDone, createProject, renameProject, deleteProject } =
     useTasks();
+  const notes = useNotes({});
+  const movedFrom = useMovedFrom();
 
-  const [projectFilter, setProjectFilter] = useState<string>(ALL);
-  const [mobileStatus, setMobileStatus] = useState<TaskStatus>("todo");
-  const [taskDialog, setTaskDialog] = useState<{ open: boolean; task: TaskRecord | null }>({
-    open: false,
-    task: null,
-  });
+  // Today is the calm place to start; All tasks is one tap away.
+  const [view, setView] = useState<View_>("today");
+  const [areaFilter, setAreaFilter] = useState<string>(ALL);
+  const [areaMenuOpen, setAreaMenuOpen] = useState(false);
+  const [showDone, setShowDone] = useState(false);
+  const [editing, setEditing] = useState<TaskRecord | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // After an add: the confirmation, then which card to scroll to and flash.
   const [added, setAdded] = useState<TaskRecord | null>(null);
   const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
+
   const scrollRef = useRef<ScrollView>(null);
-  // Current scroll position, kept off React state: it changes every frame
-  // and is only read when a card needs bringing into view.
   const scrollOffset = useRef(0);
   const cardRefs = useRef(new Map<string, View>());
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,30 +75,27 @@ export default function LifeCenterScreen() {
     [],
   );
 
+  const now = new Date();
   const projects = useMemo(() => sortProjects(query.data?.projects ?? []), [query.data?.projects]);
-  const allTasks = query.data?.tasks ?? [];
+  const allTasks = useMemo(() => query.data?.tasks ?? [], [query.data?.tasks]);
   const loading = query.isFetching && !query.data;
-  const activeProject: ProjectRecord | null =
-    projectFilter === ALL ? null : projects.find((project) => project.id === projectFilter) ?? null;
-  const effectiveFilter = activeProject ? activeProject.id : ALL;
-  const openCounts = useMemo(() => openCountByProject(allTasks), [allTasks]);
-  const visibleTasks = useMemo(
-    () =>
-      sortTasks(
-        effectiveFilter === ALL
-          ? allTasks
-          : allTasks.filter((task) => task.projectId === effectiveFilter),
-      ),
-    [allTasks, effectiveFilter],
+  const activeArea: ProjectRecord | null =
+    areaFilter === ALL ? null : projects.find((project) => project.id === areaFilter) ?? null;
+
+  const noteTitles = useMemo(
+    () => new Map((notes.data?.notes ?? []).map((note) => [note.id, note.title])),
+    [notes.data?.notes],
   );
-  const byStatus = useMemo(() => {
-    const groups: Record<TaskStatus, TaskRecord[]> = { todo: [], in_progress: [], done: [] };
-    for (const task of visibleTasks) groups[task.status].push(task);
-    return groups;
-  }, [visibleTasks]);
-  const summary = summarizeTasks(visibleTasks);
-  const totalOpen = visibleTasks.filter((task) => task.status !== "done").length;
-  const columns = (isWide ? TASK_STATUS_VALUES : [mobileStatus]) as readonly TaskStatus[];
+
+  // The All view honours the area filter; Today always shows the whole day.
+  const filtered = useMemo(
+    () => (activeArea ? allTasks.filter((task) => task.projectId === activeArea.id) : allTasks),
+    [allTasks, activeArea],
+  );
+  const groups = useMemo(() => groupAllTasks(filtered), [filtered]);
+  const focus = useMemo(() => todayFocus(allTasks), [allTasks]);
+  const todayOpen = groupAllTasks(allTasks).today.length;
+  const overdueAll = focus.overdueCount;
 
   const changeStatus = (task: TaskRecord, status: TaskStatus) => {
     update.mutate(
@@ -104,10 +105,10 @@ export default function LifeCenterScreen() {
   };
 
   const saveTask = async (draft: TaskDraft) => {
-    if (!draft.projectId) throw new Error("Choose a project for this task.");
-    if (!taskDialog.task) return;
+    if (!draft.projectId) throw new Error("Choose an area for this task.");
+    if (!editing) return;
     await update.mutateAsync({
-      id: taskDialog.task.id,
+      id: editing.id,
       text: draft.text,
       projectId: draft.projectId,
       completeBy: draft.completeBy,
@@ -115,22 +116,19 @@ export default function LifeCenterScreen() {
     });
   };
 
-  // Bring the new card into view and pulse it, so the eye lands on what was
-  // just added rather than on the top of the list.
+  // Bring the new card into view and pulse it. Measured against the scroll
+  // view's own native instance: under the new renderer measureLayout accepts
+  // only a host instance. That gives a place in the viewport, so the current
+  // offset is added to land on its place in the content.
   const revealTask = (id: string) => {
     const node = cardRefs.current.get(id);
     const scroller = scrollRef.current;
-    // Measured against the scroll view's own native instance: under the new
-    // renderer measureLayout accepts only a host instance, and refuses the
-    // node handle getInnerViewNode returns. The result is the card's place
-    // in the visible viewport, so the current offset is added to land on its
-    // place in the content.
     const viewport = scroller?.getNativeScrollRef();
     if (node && scroller && viewport) {
       node.measureLayout(
         viewport,
         (_x, y) =>
-          scroller.scrollTo({ y: Math.max(0, scrollOffset.current + y - 96), animated: true }),
+          scroller.scrollTo({ y: Math.max(0, scrollOffset.current + y - 120), animated: true }),
         () => {},
       );
     }
@@ -139,10 +137,11 @@ export default function LifeCenterScreen() {
 
   const handleAdded = (task: TaskRecord) => {
     setQuickAddOpen(false);
-    // The card must actually be on screen to be scrolled to: new tasks land
-    // in To do, and behind a different project filter they would be hidden.
-    setMobileStatus("todo");
-    if (projectFilter !== ALL && projectFilter !== task.projectId) setProjectFilter(task.projectId);
+    // The card must be on screen to be pointed at: stay on Today only if the
+    // task is for today, and drop an area filter that would hide it.
+    const dueToday = Boolean(task.completeBy && isSameDay(task.completeBy, new Date()));
+    if (view === "today" && !dueToday) setView("all");
+    if (areaFilter !== ALL && areaFilter !== task.projectId) setAreaFilter(ALL);
     setAdded(task);
     if (revealTimer.current) clearTimeout(revealTimer.current);
     revealTimer.current = setTimeout(() => {
@@ -157,23 +156,76 @@ export default function LifeCenterScreen() {
     handleAdded(task);
   };
 
+  const cardRef = (id: string) => (node: View | null) => {
+    if (node) cardRefs.current.set(id, node);
+    else cardRefs.current.delete(id);
+  };
+
+  const renderRow = (task: TaskRecord, variant: "row" | "focus" = "row") => (
+    <Animated.View
+      key={task.id}
+      layout={LinearTransition.duration(220)}
+      entering={FadeInDown.duration(180)}
+      exiting={FadeOutUp.duration(140)}
+    >
+      <View collapsable={false} ref={cardRef(task.id)}>
+        <TaskCard
+          task={task}
+          variant={variant}
+          showMenu={false}
+          showProject={variant === "focus" || !activeArea}
+          noteTitle={task.noteId ? noteTitles.get(task.noteId) : undefined}
+          movedFrom={variant === "focus" ? movedFrom(task.id) : null}
+          flashKey={flash?.id === task.id ? flash.key : undefined}
+          onStatusChange={(next) => changeStatus(task, next)}
+          onEdit={() => setEditing(task)}
+          onDelete={async () => {
+            await remove.mutateAsync({ id: task.id });
+          }}
+        />
+      </View>
+    </Animated.View>
+  );
+
+  const section = (label: string, tasks: TaskRecord[]) =>
+    tasks.length > 0 ? (
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{label}</Text>
+        {tasks.map((task) => renderRow(task))}
+      </View>
+    ) : null;
+
+  const viewSwitch = (
+    <Segmented
+      size="sm"
+      accessibilityLabel="Which tasks to show"
+      value={view}
+      onChange={(next) => {
+        setView(next);
+        setAreaMenuOpen(false);
+      }}
+      options={[
+        { label: "Today", value: "today" },
+        { label: "All tasks", value: "all" },
+      ]}
+    />
+  );
+
+  const settingsButton = (
+    <Pressable
+      onPress={() => router.push("/settings")}
+      style={styles.iconButton}
+      accessibilityLabel="Settings"
+    >
+      <SlidersHorizontal size={20} color={colors.foreground} />
+    </Pressable>
+  );
+
+  const hasOpen =
+    groups.today.length + groups.thisWeek.length + groups.later.length + groups.noDate.length > 0;
+
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
-      <View style={styles.header}>
-        <View style={styles.heading}>
-          <Text style={styles.title}>Life Center</Text>
-          <Text style={styles.summary}>{loading ? "Gathering your tasks…" : summary}</Text>
-        </View>
-        <Button
-          variant="ghost"
-          size="icon"
-          accessibilityLabel="Settings"
-          onPress={() => router.push("/settings")}
-        >
-          <Settings size={24} color={colors.foreground} />
-        </Button>
-      </View>
-
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
@@ -183,47 +235,100 @@ export default function LifeCenterScreen() {
         }}
         scrollEventThrottle={16}
       >
-        {!loading && !query.isError && projects.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-            <Pressable
-              onPress={() => setProjectFilter(ALL)}
-              style={[styles.filterChip, effectiveFilter === ALL && styles.filterActive]}
-            >
-              <Text style={styles.filterText}>
-                All {allTasks.filter((task) => task.status !== "done").length}
-              </Text>
-            </Pressable>
-            {projects.map((project) => (
-              <Pressable
-                key={project.id}
-                onPress={() => setProjectFilter(project.id)}
-                style={[styles.filterChip, effectiveFilter === project.id && styles.filterActive]}
-              >
-                <Text style={styles.filterText}>
-                  {project.name} {openCounts.get(project.id) ?? 0}
+        {view === "all" ? (
+          <>
+            <View style={styles.titleRow}>
+              <View style={styles.flex}>
+                <Text style={styles.title}>Life Center</Text>
+                <Text style={styles.subtitle}>
+                  {formatLongDate(now)} ·{" "}
+                  {todayOpen === 0
+                    ? "nothing today"
+                    : `${todayOpen} ${todayOpen === 1 ? "thing" : "things"} today`}
                 </Text>
+              </View>
+              {settingsButton}
+            </View>
+            <View style={styles.controls}>
+              {viewSwitch}
+              <Pressable
+                onPress={() => setAreaMenuOpen((open) => !open)}
+                style={[styles.areaPill, areaMenuOpen && styles.areaPillOpen]}
+                accessibilityLabel={`Area: ${activeArea?.name ?? "All areas"}. Change area`}
+              >
+                {activeArea ? (
+                  <View style={[styles.dot, { backgroundColor: areaColor(activeArea.id) }]} />
+                ) : null}
+                <Text style={styles.areaPillText} numberOfLines={1}>
+                  {activeArea?.name ?? "All areas"}
+                </Text>
+                <ChevronDown size={16} color={colors.mutedForeground} />
               </Pressable>
-            ))}
-            <Button variant="ghost" size="sm" onPress={() => setProjectsOpen(true)}>
-              <FolderOpen size={16} color={colors.foreground} />
-              <Text style={styles.projectsLabel}>Projects</Text>
-            </Button>
-          </ScrollView>
-        ) : null}
-
-        <Button
-          size="lg"
-          onPress={() => setQuickAddOpen(true)}
-          disabled={loading}
-        >
-          <Plus size={18} color={colors.primaryForeground} />
-          <Text style={styles.addLabel}>Add a task</Text>
-        </Button>
+            </View>
+            {areaMenuOpen ? (
+              <View style={styles.areaMenu}>
+                {[{ id: ALL, name: "All areas" }, ...projects].map((area) => {
+                  const active = area.id === areaFilter;
+                  return (
+                    <Pressable
+                      key={area.id}
+                      style={styles.areaItem}
+                      onPress={() => {
+                        setAreaFilter(area.id);
+                        setAreaMenuOpen(false);
+                      }}
+                    >
+                      {area.id !== ALL ? (
+                        <View style={[styles.dot, { backgroundColor: areaColor(area.id) }]} />
+                      ) : null}
+                      <Text style={[styles.areaItemText, active && styles.areaItemActive]}>
+                        {area.name}
+                      </Text>
+                      {active ? <Check size={16} color={colors.primary} /> : null}
+                    </Pressable>
+                  );
+                })}
+                <Pressable
+                  style={[styles.areaItem, styles.areaManage]}
+                  onPress={() => {
+                    setAreaMenuOpen(false);
+                    setProjectsOpen(true);
+                  }}
+                >
+                  <Text style={styles.areaManageText}>Manage areas…</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <View style={styles.controlsTop}>
+              {viewSwitch}
+              {settingsButton}
+            </View>
+            <View style={styles.greetingBlock}>
+              <Text style={styles.greeting}>{greeting(now)}</Text>
+              <Text style={styles.subtitle}>{formatLongDate(now)}</Text>
+            </View>
+            {focus.today.length > 0 ? (
+              <View style={styles.progress}>
+                <SegmentBar
+                  total={focus.today.length}
+                  filled={focus.doneCount}
+                  accessibilityLabel={`${focus.doneCount} of ${focus.today.length} done today`}
+                />
+                <Text style={styles.progressText}>
+                  {focus.doneCount} of {focus.today.length} done today
+                </Text>
+              </View>
+            ) : null}
+          </>
+        )}
 
         {loading ? (
-          <View style={styles.board}>
+          <View style={styles.section}>
             {[0, 1, 2].map((item) => (
-              <Skeleton key={item} style={styles.columnSkeleton} />
+              <Skeleton key={item} style={styles.skeleton} />
             ))}
           </View>
         ) : null}
@@ -237,110 +342,161 @@ export default function LifeCenterScreen() {
           </View>
         ) : null}
 
-        {!loading && !query.isError && allTasks.length === 0 ? (
-          <View style={styles.empty}>
-            <LayoutDashboard size={36} color={colors.mutedForeground} />
-            <Text style={styles.emptyTitle}>Your Life Center is ready</Text>
-            <Text style={styles.emptyText}>
-              Tasks you add here, or that are found in your notes, will gather in one calm place.
-            </Text>
-            <Button size="lg" onPress={() => setQuickAddOpen(true)}>
-              Add your first task
-            </Button>
-          </View>
+        {!loading && !query.isError && view === "all" ? (
+          <>
+            {groups.overdue.length > 0 ? (
+              <View style={styles.slipped}>
+                <View style={styles.slippedHead}>
+                  <View style={[styles.dot, styles.slippedDot]} />
+                  <Text style={styles.slippedTitle}>{slippedLabel(groups.overdue.length)}</Text>
+                </View>
+                <Text style={styles.slippedBody}>
+                  No rush. Sort them one at a time: do it today, pick a new day, or let it go.
+                </Text>
+                <Pressable
+                  style={({ pressed }) => [styles.reviewButton, pressed && styles.pressed]}
+                  onPress={() => router.push("/catch-up")}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.reviewText}>Review them</Text>
+                  <ArrowRight size={18} color={colors.accentForeground} />
+                </Pressable>
+              </View>
+            ) : null}
+
+            {section("TODAY", groups.today)}
+            {section("THIS WEEK", groups.thisWeek)}
+            {section("LATER", groups.later)}
+            {section("NO DATE", groups.noDate)}
+
+            {!hasOpen && groups.overdue.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>
+                  {allTasks.length === 0 ? "Your Life Center is ready" : "Nothing open"}
+                </Text>
+                <Text style={styles.emptyText}>
+                  {allTasks.length === 0
+                    ? "Tasks you add here, or that are found in your notes, gather in one calm place."
+                    : activeArea
+                      ? `Nothing is waiting in ${activeArea.name}.`
+                      : "Everything is done. Enjoy the quiet."}
+                </Text>
+              </View>
+            ) : null}
+
+            {groups.done.length > 0 ? (
+              <View style={styles.section}>
+                <View style={styles.doneHeader}>
+                  <Pressable onPress={() => setShowDone((v) => !v)} style={styles.doneToggle}>
+                    <Text style={styles.sectionLabel}>DONE {groups.done.length}</Text>
+                    <ChevronDown
+                      size={14}
+                      color={colors.mutedForeground}
+                      style={showDone ? styles.chevronUp : undefined}
+                    />
+                  </Pressable>
+                  {showDone ? (
+                    <Button variant="ghost" size="sm" onPress={() => setConfirmClear(true)}>
+                      Clear completed
+                    </Button>
+                  ) : null}
+                </View>
+                {showDone ? groups.done.map((task) => renderRow(task)) : null}
+              </View>
+            ) : null}
+          </>
         ) : null}
 
-        {!loading && !query.isError && allTasks.length > 0 ? (
+        {!loading && !query.isError && view === "today" ? (
           <>
-            {!isWide ? (
-              <Segmented
-                accessibilityLabel="Which tasks to show"
-                value={mobileStatus}
-                onChange={setMobileStatus}
-                options={TASK_STATUS_VALUES.map((status) => ({
-                  label: TASK_STATUS_LABELS[status],
-                  value: status,
-                  count: byStatus[status].length,
-                }))}
-              />
+            {focus.today.length > 0 ? (
+              <View style={styles.section}>{focus.today.map((task) => renderRow(task, "focus"))}</View>
+            ) : (
+              <View style={styles.todayEmpty}>
+                <Text style={styles.emptyText}>
+                  Nothing planned for today. Add something below, or look at what is coming up.
+                </Text>
+              </View>
+            )}
+
+            {overdueAll > 0 ? (
+              <Pressable
+                style={({ pressed }) => [styles.slippedRow, pressed && styles.pressed]}
+                onPress={() => router.push("/catch-up")}
+                accessibilityRole="button"
+              >
+                <View style={[styles.dot, styles.slippedDot]} />
+                <Text style={styles.slippedRowText}>
+                  {slippedLabel(overdueAll, focus.today.length > 0)}
+                </Text>
+                <Text style={styles.slippedRowAction}>Review</Text>
+              </Pressable>
             ) : null}
-            <View style={[styles.board, isWide && styles.boardWide]}>
-              {columns.map((status) => {
-                const tasks = byStatus[status];
-                return (
-                  <View key={status} style={[styles.column, isWide && styles.columnWide]}>
-                    <View style={styles.columnHeader}>
-                      <Text style={styles.columnTitle}>
-                        {TASK_STATUS_LABELS[status]} {tasks.length}
-                      </Text>
-                      {status === "done" && tasks.length > 0 ? (
-                        <Button variant="ghost" size="sm" onPress={() => setConfirmClear(true)}>
-                          Clear completed
-                        </Button>
-                      ) : null}
-                    </View>
-                    {tasks.map((task) => (
-                      <Animated.View
-                        key={task.id}
-                        layout={LinearTransition.duration(220)}
-                        entering={FadeInDown.duration(180)}
-                        exiting={FadeOutUp.duration(140)}
-                      >
-                      <View
-                        collapsable={false}
-                        ref={(node) => {
-                          if (node) cardRefs.current.set(task.id, node);
-                          else cardRefs.current.delete(task.id);
-                        }}
-                      >
-                        <TaskCard
-                          task={task}
-                          showProject={effectiveFilter === ALL}
-                          flashKey={flash?.id === task.id ? flash.key : undefined}
-                          onStatusChange={(next) => changeStatus(task, next)}
-                          onEdit={() => setTaskDialog({ open: true, task })}
-                          onDelete={async () => {
-                            await remove.mutateAsync({ id: task.id });
-                          }}
-                        />
-                      </View>
-                      </Animated.View>
-                    ))}
-                    {tasks.length === 0 ? (
-                      <Text style={styles.noTasks}>
-                        {status === "todo" && totalOpen === 0
-                          ? "Nothing to do right now."
-                          : "Nothing here right now."}
-                      </Text>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </View>
+
+            {focus.comingUp.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>COMING UP</Text>
+                {focus.comingUp.map((task) => (
+                  <Pressable key={task.id} style={styles.comingRow} onPress={() => setEditing(task)}>
+                    <Text style={styles.comingText} numberOfLines={1}>
+                      {task.text}
+                    </Text>
+                    <Text style={styles.comingWhen}>
+                      {task.completeBy
+                        ? dueState(task.completeBy) === "week"
+                          ? formatWeekdayShort(task.completeBy)
+                          : dateChipLabel(task.completeBy)
+                        : ""}
+                    </Text>
+                  </Pressable>
+                ))}
+                <Pressable onPress={() => setView("all")} style={styles.seeAll}>
+                  <Text style={styles.seeAllText}>See all tasks</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </>
         ) : null}
       </ScrollView>
+
+      <View style={styles.addBarWrap}>
+        <Pressable
+          style={({ pressed }) => [styles.addBar, pressed && styles.pressed]}
+          onPress={() => setQuickAddOpen(true)}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel={view === "today" ? "Add something for today" : "Add a task"}
+        >
+          <View style={styles.addCircle}>
+            <Plus size={18} color={colors.primaryForeground} strokeWidth={2.5} />
+          </View>
+          <Text style={styles.addText}>
+            {view === "today" ? "Add something for today…" : "Add a task…"}
+          </Text>
+        </Pressable>
+      </View>
 
       <QuickAddTask
         open={quickAddOpen}
         onClose={() => setQuickAddOpen(false)}
         projects={projects}
-        defaultProjectId={activeProject?.id ?? projects[0]?.id ?? null}
+        defaultProjectId={activeArea?.id ?? projects[0]?.id ?? null}
+        defaultDate={view === "today" ? daysFromToday(0) : null}
+        placeholder={view === "today" ? "e.g., Call Dr. Lee" : "e.g., Call Dr. Lee tomorrow"}
         onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
         onSubmit={addTask}
       />
 
       <TaskSheet
-        open={taskDialog.open}
-        onClose={() => setTaskDialog((state) => ({ ...state, open: false }))}
-        task={taskDialog.task}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        task={editing}
         projects={projects}
-        defaultProjectId={activeProject?.id ?? null}
         onSave={saveTask}
         onDelete={
-          taskDialog.task
+          editing
             ? async () => {
-                await remove.mutateAsync({ id: taskDialog.task!.id });
+                await remove.mutateAsync({ id: editing.id });
               }
             : undefined
         }
@@ -358,24 +514,22 @@ export default function LifeCenterScreen() {
         }}
         onDelete={async (id, moveTasksTo) => {
           await deleteProject.mutateAsync({ id, moveTasksTo });
-          if (projectFilter === id) setProjectFilter(ALL);
+          if (areaFilter === id) setAreaFilter(ALL);
         }}
       />
 
       <ConfirmModal
         open={confirmClear}
         title={
-          activeProject
-            ? `Clear completed tasks in ${activeProject.name}?`
-            : "Clear all completed tasks?"
+          activeArea ? `Clear completed tasks in ${activeArea.name}?` : "Clear all completed tasks?"
         }
-        description={`${byStatus.done.length} finished ${byStatus.done.length === 1 ? "task" : "tasks"} will be removed from the board. Your notes are not affected.`}
+        description={`${groups.done.length} finished ${groups.done.length === 1 ? "task" : "tasks"} will be removed from the board. Your notes are not affected.`}
         confirmLabel="Clear"
         destructive
         loading={clearDone.isPending}
         onClose={() => setConfirmClear(false)}
         onConfirm={() => {
-          clearDone.mutate(activeProject ? { projectId: activeProject.id } : {}, {
+          clearDone.mutate(activeArea ? { projectId: activeArea.id } : {}, {
             onSuccess: ({ cleared }) => {
               setConfirmClear(false);
               toast.show(`${cleared} ${cleared === 1 ? "task" : "tasks"} cleared`);
@@ -393,45 +547,146 @@ export default function LifeCenterScreen() {
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
-    header: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      paddingHorizontal: spacing[4],
-      paddingTop: spacing[2],
-    },
-    heading: { flex: 1, gap: 4 },
+    flex: { flex: 1 },
+    content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
+    pressed: { opacity: 0.8 },
+    titleRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
     title: { fontFamily: fonts.display, fontSize: 32 * scale, color: colors.foreground },
-    summary: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
-    content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[12] },
-    filters: { gap: spacing[2], alignItems: "center" },
-    filterChip: {
-      borderRadius: radius.full,
+    subtitle: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground, marginTop: 2 },
+    // Plain outline: a quiet circle, not a filled button competing with the tasks.
+    iconButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    controls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing[2] },
+    controlsTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    areaPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[1],
+      maxWidth: 170,
+      borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       paddingHorizontal: spacing[3],
       paddingVertical: spacing[2],
-      backgroundColor: colors.surface,
     },
-    filterActive: { backgroundColor: colors.accent, borderColor: colors.primary },
-    filterText: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.foreground },
-    projectsLabel: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.foreground },
-    addLabel: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.primaryForeground },
-    board: { gap: spacing[4] },
-    boardWide: { flexDirection: "row", alignItems: "flex-start" },
-    column: { gap: spacing[2] },
-    columnWide: { flex: 1 },
-    columnHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    columnTitle: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
-    columnSkeleton: { height: 180 },
-    noTasks: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    areaPillOpen: { borderColor: colors.primary },
+    areaPillText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.foreground },
+    areaMenu: {
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      overflow: "hidden",
+    },
+    areaItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[2],
+      paddingHorizontal: spacing[4],
+      paddingVertical: spacing[3],
+    },
+    areaItemText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.foreground },
+    areaItemActive: { fontFamily: fonts.baseSemi },
+    areaManage: { borderTopWidth: 1, borderTopColor: colors.border },
+    areaManageText: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.primary },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    greetingBlock: { gap: 2 },
+    greeting: { fontFamily: fonts.display, fontSize: 36 * scale, color: colors.foreground },
+    progress: { gap: spacing[2] },
+    progressText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    section: { gap: spacing[2] },
+    sectionLabel: {
+      fontFamily: fonts.baseSemi,
+      fontSize: 12 * scale,
+      letterSpacing: 1,
+      color: colors.mutedForeground,
+    },
+    skeleton: { height: 72, borderRadius: radius.md },
+    slipped: {
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      padding: spacing[4],
+      gap: spacing[3],
+    },
+    slippedHead: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
+    slippedDot: { backgroundColor: colors.warning },
+    slippedTitle: { flex: 1, fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
+    slippedBody: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 22 * scale, color: colors.mutedForeground },
+    reviewButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing[2],
+      minHeight: 48,
+      borderRadius: radius.md,
+      backgroundColor: colors.accent,
+    },
+    reviewText: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.accentForeground },
+    slippedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[2],
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing[4],
+      paddingVertical: spacing[3],
+    },
+    slippedRowText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.foreground },
+    slippedRowAction: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.primary },
+    comingRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing[3],
+      paddingVertical: spacing[2],
+    },
+    comingText: { flex: 1, fontFamily: fonts.base, fontSize: 16 * scale, color: colors.foreground },
+    comingWhen: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    seeAll: { paddingVertical: spacing[1] },
+    seeAllText: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
+    doneHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    doneToggle: { flexDirection: "row", alignItems: "center", gap: spacing[1], paddingVertical: spacing[1] },
+    chevronUp: { transform: [{ rotate: "180deg" }] },
+    todayEmpty: { paddingVertical: spacing[4] },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[8] },
     emptyTitle: { fontFamily: fonts.display, fontSize: 24 * scale, color: colors.foreground },
-    emptyText: {
-      fontFamily: fonts.base,
-      fontSize: 16 * scale,
-      color: colors.mutedForeground,
-      textAlign: "center",
+    emptyText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground, textAlign: "center" },
+    // Pinned above the tab bar, the way the design puts adding at the bottom.
+    addBarWrap: {
+      paddingHorizontal: spacing[4],
+      paddingTop: spacing[2],
+      paddingBottom: spacing[3],
+      backgroundColor: colors.background,
     },
+    addBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[3],
+      minHeight: 54,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      paddingHorizontal: spacing[3],
+    },
+    addCircle: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    addText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground },
   });
 }
