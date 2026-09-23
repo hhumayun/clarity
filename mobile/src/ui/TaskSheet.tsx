@@ -8,7 +8,6 @@ import {
   Pencil,
   Plus,
   RotateCcw,
-  Timer,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -28,6 +27,7 @@ import {
 import { Button } from "./Button";
 import { ConfirmModal } from "./ConfirmModal";
 import { Input } from "./Input";
+import { PomodoroBadge } from "./PomodoroBadge";
 import { Sheet } from "./Sheet";
 import { TextArea } from "./TextArea";
 
@@ -263,14 +263,12 @@ export function TaskSheet({
           <>
             {onStartFocus && task.status !== "done" ? (
               <Pressable
-                style={({ pressed }) => [styles.focusButton, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.focusButton, pressed && styles.focusPressed]}
                 onPress={onStartFocus}
                 accessibilityRole="button"
                 accessibilityLabel="Start focus time. Set aside a few minutes for just this"
               >
-                <View style={styles.focusIcon}>
-                  <Timer size={22} color={colors.primaryForeground} />
-                </View>
+                <PomodoroBadge size={44} />
                 <View style={styles.flexShrink}>
                   <Text style={styles.focusTitle}>Start focus time</Text>
                   <Text style={styles.focusHint}>Set aside a few minutes for just this</Text>
@@ -572,22 +570,29 @@ function makeStyles(colors: Colors, scale: number) {
     focusButton: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing[3],
-      borderRadius: radius.md,
+      gap: 14,
+      borderRadius: 19,
       backgroundColor: colors.primary,
-      paddingHorizontal: spacing[4],
-      paddingVertical: spacing[4],
+      paddingTop: 18,
+      paddingBottom: 18,
+      paddingLeft: 16,
+      paddingRight: 20,
     },
-    focusIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: "rgba(0,0,0,0.12)",
-      alignItems: "center",
-      justifyContent: "center",
+    focusPressed: { transform: [{ scale: 0.98 }] },
+    focusTitle: {
+      fontFamily: fonts.baseBold,
+      fontSize: 20 * scale,
+      lineHeight: 24 * scale,
+      color: colors.primaryForeground,
     },
-    focusTitle: { fontFamily: fonts.baseBold, fontSize: 18 * scale, color: colors.primaryForeground },
-    focusHint: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.primaryForeground, opacity: 0.85 },
+    focusHint: {
+      fontFamily: fonts.base,
+      fontSize: 16.5 * scale,
+      lineHeight: 22 * scale,
+      marginTop: 2,
+      color: colors.primaryForeground,
+      opacity: 0.85,
+    },
     actionRow: {
       flexDirection: "row",
       alignItems: "center",
