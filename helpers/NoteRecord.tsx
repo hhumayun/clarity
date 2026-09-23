@@ -12,6 +12,7 @@ export const NOTE_RECORD_COLUMNS = [
   "title",
   "content",
   "archived",
+  "source",
   "createdAt",
   "updatedAt",
 ] as const;

@@ -29,6 +29,9 @@ export async function handle(request: Request) {
 
     await db.transaction().execute(async (trx) => {
       await trx.deleteFrom("taskExtractions").where("userId", "=", user.id).execute();
+      // Also removed by the cascade from tasks; named here so the list of
+      // what an account deletion erases stays complete in one place.
+      await trx.deleteFrom("focusSessions").where("userId", "=", user.id).execute();
       await trx.deleteFrom("tasks").where("userId", "=", user.id).execute();
       await trx.deleteFrom("projects").where("userId", "=", user.id).execute();
       await trx

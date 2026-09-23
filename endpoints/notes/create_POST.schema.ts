@@ -2,10 +2,13 @@ import { z } from "zod";
 import superjson from "superjson";
 import type { NoteRecord } from "../../helpers/NoteRecord";
 import { apiFetch } from "../../helpers/apiFetch";
+import { NoteSourceArrayValues } from "../../helpers/schema";
 
 export const schema = z.object({
   title: z.string().max(300).default(""),
   content: z.string().max(100_000).default(""),
+  /** Omitted for notes written in the editor; "focus" for a parked thought. */
+  source: z.enum(NoteSourceArrayValues).optional(),
 });
 
 export type InputType = z.infer<typeof schema>;

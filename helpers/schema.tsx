@@ -38,8 +38,27 @@ export interface Notes {
   createdAt: Generated<Timestamp>;
   entitiesHash: string | null;
   id: Generated<string>;
+  source: NoteSource | null;
   title: Generated<string>;
   updatedAt: Generated<Timestamp>;
+  userId: number;
+}
+
+export type NoteSource = "focus";
+
+export type FocusOutcome = "finished" | "progress" | "stuck";
+
+export interface FocusSessions {
+  createdAt: Generated<Timestamp>;
+  endedAt: Generated<Timestamp>;
+  firstStep: Generated<string>;
+  focusedSeconds: number;
+  id: Generated<string>;
+  leftOff: Generated<string>;
+  outcome: FocusOutcome;
+  plannedMinutes: number;
+  startedAt: Timestamp;
+  taskId: string;
   userId: number;
 }
 
@@ -102,6 +121,7 @@ export interface Users {
 }
 
 export interface DB {
+  focusSessions: FocusSessions;
   noteEntities: NoteEntities;
   notes: Notes;
   projects: Projects;
@@ -118,6 +138,8 @@ export const UserRoleArrayValues: [UserRole, ...UserRole[]] = ["admin","user"];
 export const EntityTypeArrayValues: [EntityType, ...EntityType[]] = ["activity","event","person","place","topic"];
 export const SuggestionSourceArrayValues: [SuggestionSource, ...SuggestionSource[]] = ["ai","history","offline","prompt"];
 export const SuggestionActionArrayValues: [SuggestionAction, ...SuggestionAction[]] = ["accepted","dismissed","edited","shown"];
+export const NoteSourceArrayValues: [NoteSource, ...NoteSource[]] = ["focus"];
+export const FocusOutcomeArrayValues: [FocusOutcome, ...FocusOutcome[]] = ["finished","progress","stuck"];
 export const TaskStatusArrayValues: [TaskStatus, ...TaskStatus[]] = ["done","in_progress","todo"];
 // Table/column names whose snake_case spelling kysely's default CamelCasePlugin
 // cannot recover from the camelCase name used in code (an underscore directly

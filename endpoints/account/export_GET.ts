@@ -9,7 +9,7 @@ export async function handle(request: Request) {
   try {
     const user = await requireUser(request);
 
-    const [notes, entities, projects, tasks] = await Promise.all([
+    const [notes, entities, projects, tasks, focusSessions] = await Promise.all([
       db
         .selectFrom("notes")
         .select([...NOTE_RECORD_COLUMNS])
@@ -40,6 +40,15 @@ export async function handle(request: Request) {
         .where("tasks.deletedAt", "is", null)
         .orderBy("tasks.updatedAt", "desc")
         .execute(),
+      db
+        .selectFrom("focusSessions")
+        .select([
+          "id", "taskId", "plannedMinutes", "focusedSeconds", "firstStep",
+          "outcome", "leftOff", "startedAt", "endedAt",
+        ])
+        .where("userId", "=", user.id)
+        .orderBy("endedAt", "desc")
+        .execute(),
     ]);
 
     return new Response(
@@ -49,6 +58,7 @@ export async function handle(request: Request) {
         entities,
         projects,
         tasks,
+        focusSessions,
       } satisfies OutputType),
     );
   } catch (error) {

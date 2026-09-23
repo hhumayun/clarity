@@ -16,6 +16,7 @@ export async function handle(request: Request) {
         userId: user.id,
         title: input.title,
         content: input.content,
+        source: input.source ?? null,
       })
       .returning([...NOTE_RECORD_COLUMNS])
       .executeTakeFirstOrThrow();
