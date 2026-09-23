@@ -6,6 +6,69 @@ evidence is the point, not the status.
 
 ---
 
+## Suggested tasks disappear if you leave a note without deciding
+
+**Reported:** 2026-09-23 · **Status:** open, fix recommended but not started
+
+### Symptom
+
+"Find tasks" suggested tasks in a note. After leaving the note without adding
+or dismissing them, reopening it showed no suggestions, though no decision had
+been made. Seen on the uncle note: "Ask about test results in 6 months" was
+suggested, never added, and could not be brought back.
+
+### Cause
+
+Suggestions are never stored. They live only in the `suggestions` state of
+`mobile/src/ui/NoteTasks.tsx`, and of `components/NoteTasks.tsx` on the web.
+
+- `endpoints/tasks/extract_POST.ts` writes the note's content hash to
+  `task_extractions` as soon as it returns suggestions, before the writer has
+  decided anything.
+- On reopening, `tasks/list` reports `hasExtracted: true`, so the automatic
+  first look does not run again.
+- Tapping "Find tasks" takes the unchanged-content shortcut in `extract_POST.ts`
+  and returns `{ suggested: [], unchanged: true }`, shown as "Nothing new".
+- The suggestions only come back once the note is edited and its hash changes.
+
+Confirmed against the database on 2026-09-23. The stored hash for the uncle
+note matched its current content, and only the Friday task had been saved
+from it.
+
+### Related gap
+
+"Dismiss" only clears local state. Re-extraction filters out suggestions that
+are already tasks, by `source_fingerprint` or identical text, but nothing
+records a dismissal. Any edit to the note brings dismissed suggestions back.
+
+### Recommended fix
+
+Store suggestions on the server, each marked pending or dismissed.
+
+- A new `task_suggestions` table: `id`, `user_id`, `note_id`, `fingerprint`
+  (from `taskFingerprint`), `text`, `project_name`, `complete_by`, `status`
+  (`pending` or `dismissed`) and `created_at`, unique on
+  `(note_id, fingerprint)`. This is migration 006 and must be approved before
+  it is applied to Neon.
+- `extract_POST` replaces the note's pending rows with the new result, skipping
+  fingerprints that are dismissed or already tasks, so a line deleted from the
+  note stops being suggested.
+- `tasks/list` for a note returns its pending suggestions, so reopening shows
+  them without another AI call.
+- `tasks/add` removes the pending rows it turns into tasks. A new dismiss
+  endpoint marks rows dismissed.
+- Both clients render suggestions from the server instead of local state.
+- Keep `complete_by` as a calendar day and send it at noon UTC through
+  `dueDayAsDate`, so the day-shift fix in `4ed7749` carries over.
+
+### Lighter alternative
+
+Keep pending suggestions on the phone in AsyncStorage, keyed by note. No
+database change, but the web app would not see them, and dismissals would
+still not survive an edit.
+
+---
+
 ## Sentence completions often do not appear
 
 **Reported:** 2026-09-15 · **Status:** open, fix agreed but not written
