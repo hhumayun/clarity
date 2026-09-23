@@ -14,11 +14,26 @@ import {
   X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
-import { fadeOut } from "../../../src/ui/motion";
+import { EASE_IN, EASE_OUT, fadeOut } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { NOTES_QUERY_KEY, useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
@@ -186,18 +201,66 @@ export default function NotesListScreen() {
     if (withNotes) setSelectedDay(withNotes.date);
   }, [weekQuery.data, weekQuery.isPlaceholderData, weekNotes, strip, selectedDay]);
 
-  const goToWeek = (next: number) => {
-    const clamped = Math.max(0, next);
-    const page = weekStrip(new Date(), clamped);
-    setWeeksBack(clamped);
-    setSelectedDay(page[page.length - 1].date);
-    autoPick.current = true;
+  // Changing week slides the strip and the day's notes sideways: earlier
+  // dates live to the left, so going back pushes this week off to the right
+  // and brings the earlier one in from the left; going forward, the reverse.
+  // A plain animated offset, not a layout animation: out, swap, back in.
+  const { width: screenWidth } = useWindowDimensions();
+  const slideX = useSharedValue(0);
+  const slideWidth = useSharedValue(screenWidth);
+  useEffect(() => {
+    slideWidth.value = screenWidth;
+  }, [screenWidth, slideWidth]);
+  const weeksBackRef = useRef(weeksBack);
+  weeksBackRef.current = weeksBack;
+  // Where a slide in progress is heading, so a second quick tap counts from
+  // there and moves on a further week rather than repeating the first.
+  const pendingWeek = useRef<number | null>(null);
+  const slideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (slideTimer.current) clearTimeout(slideTimer.current);
+    },
+    [],
+  );
+  const slideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slideX.value }],
+    opacity: 1 - 0.7 * Math.min(1, Math.abs(slideX.value) / Math.max(1, slideWidth.value)),
+  }));
+
+  const SLIDE_OUT_MS = 140;
+  const SLIDE_IN_MS = 240;
+  const changeWeek = (next: number, day: Date, pickDayWithNotes: boolean) => {
+    const target = Math.max(0, next);
+    const current = weeksBackRef.current;
+    if (target === current) {
+      setSelectedDay(day);
+      autoPick.current = pickDayWithNotes;
+      return;
+    }
+    // +1 = content moves right (going back to earlier dates).
+    const dir = target > current ? 1 : -1;
+    const distance = slideWidth.value * 0.6;
+    pendingWeek.current = target;
+    if (slideTimer.current) clearTimeout(slideTimer.current);
+    slideX.value = withTiming(dir * distance, { duration: SLIDE_OUT_MS, easing: EASE_IN });
+    slideTimer.current = setTimeout(() => {
+      slideTimer.current = null;
+      pendingWeek.current = null;
+      weeksBackRef.current = target;
+      setWeeksBack(target);
+      setSelectedDay(day);
+      autoPick.current = pickDayWithNotes;
+      slideX.value = -dir * distance;
+      slideX.value = withTiming(0, { duration: SLIDE_IN_MS, easing: EASE_OUT });
+    }, SLIDE_OUT_MS);
   };
-  const jumpTo = (day: Date) => {
-    setWeeksBack(weeksBackFor(day));
-    setSelectedDay(day);
-    autoPick.current = false;
+  const stepWeek = (delta: number) => {
+    const target = Math.max(0, (pendingWeek.current ?? weeksBackRef.current) + delta);
+    const page = weekStrip(new Date(), target);
+    changeWeek(target, page[page.length - 1].date, true);
   };
+  const jumpTo = (day: Date) => changeWeek(weeksBackFor(day), day, false);
   const onJumpPicked = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS !== "ios") setJumpOpen(false);
     if (event.type === "dismissed" || !date) return;
@@ -360,7 +423,7 @@ export default function NotesListScreen() {
         {/* Step back a week at a time, or tap the dates to jump anywhere. */}
         <View style={styles.weekNav}>
           <Pressable
-            onPress={() => goToWeek(weeksBack + 1)}
+            onPress={() => stepWeek(1)}
             style={styles.weekArrow}
             accessibilityRole="button"
             accessibilityLabel="Previous seven days"
@@ -377,7 +440,7 @@ export default function NotesListScreen() {
             <Text style={styles.weekLabel}>{stripRangeLabel(strip)}</Text>
           </Pressable>
           <Pressable
-            onPress={() => goToWeek(weeksBack - 1)}
+            onPress={() => stepWeek(-1)}
             disabled={weeksBack === 0}
             style={[styles.weekArrow, weeksBack === 0 && styles.weekArrowOff]}
             accessibilityRole="button"
@@ -392,6 +455,7 @@ export default function NotesListScreen() {
             <Text style={styles.backToTodayText}>Back to today</Text>
           </Pressable>
         ) : null}
+        <Animated.View style={[styles.slide, slideStyle]}>
         <View style={styles.strip}>
           {strip.map((day) => {
             const active = isSameDay(day.date, selectedDay);
@@ -449,6 +513,7 @@ export default function NotesListScreen() {
             </View>
           )}
         </FadeSwitch>
+        </Animated.View>
       </>
     );
   }
@@ -584,6 +649,7 @@ function makeStyles(colors: Colors, scale: number) {
     weekLabel: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
     backToToday: { alignSelf: "center", marginTop: -spacing[2] },
     backToTodayText: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
+    slide: { gap: spacing[4] },
     strip: { flexDirection: "row", gap: 6 },
     stripDay: {
       flex: 1,
