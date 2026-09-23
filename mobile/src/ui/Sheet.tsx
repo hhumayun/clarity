@@ -60,25 +60,29 @@ export function Sheet({ open, title, description, eyebrow, onClose, children }: 
         <Animated.View style={[styles.backdrop, backdropStyle]}>
           <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
+        {/* The sliding view is the sheet itself, a direct child of the
+            keyboard-avoiding view, so its 88% limit is measured against the
+            space the keyboard leaves. Wrapped in another view, the limit was
+            88% of the sheet's own height: every sheet lost its last eighth
+            and stopped short of the bottom of the screen.
+
+            No layout animation on the sheet itself: it is pinned to the
+            bottom, and animating its frame let the screen behind show
+            through while its contents had already moved. A new face fades
+            in instead. */}
         <Animated.View
-          style={sheetStyle}
+          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }, sheetStyle]}
           onLayout={(event) => {
             sheetHeight.value = event.nativeEvent.layout.height;
           }}
         >
-          {/* No layout animation on the sheet itself: it is pinned to the
-              bottom, and animating its frame let the screen behind show
-              through while its contents had already moved. A new face fades
-              in instead. */}
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
-            <View style={styles.handle} />
-            {shown.eyebrow ? <View style={styles.eyebrow}>{shown.eyebrow}</View> : null}
-            <Text style={styles.title}>{shown.title}</Text>
-            {shown.description ? <Text style={styles.description}>{shown.description}</Text> : null}
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
-              {shown.children}
-            </ScrollView>
-          </View>
+          <View style={styles.handle} />
+          {shown.eyebrow ? <View style={styles.eyebrow}>{shown.eyebrow}</View> : null}
+          <Text style={styles.title}>{shown.title}</Text>
+          {shown.description ? <Text style={styles.description}>{shown.description}</Text> : null}
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+            {shown.children}
+          </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
