@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Eye, EyeOff, Mic, Sparkles } from "lucide-react-native";
+import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Sparkles, Trash2 } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -10,6 +10,7 @@ import React, {
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,7 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate } from "../../../src/api/notes";
-import { useReindexNotes } from "../../../src/hooks/useNotes";
+import { useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
 import { useSuggestions } from "../../../src/hooks/useSuggestions";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts } from "../../../src/lib/localDrafts";
@@ -30,6 +31,7 @@ import {
   type BubbleSuggestion,
 } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
+import { Sheet } from "../../../src/ui/Sheet";
 import { InlineSuggestions } from "../../../src/ui/InlineSuggestions";
 import { NoteTasks } from "../../../src/ui/NoteTasks";
 import { ReflectionStrip } from "../../../src/ui/ReflectionStrip";
@@ -61,6 +63,11 @@ export default function NoteEditorScreen() {
   const [content, setContent] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<SaveStatus>("idle");
+  // Archive and delete live here now that the notes list has no "…" menu.
+  const [archived, setArchived] = useState(false);
+  const [menu, setMenu] = useState<"closed" | "open" | "confirmDelete">("closed");
+  const updateNote = useUpdateNote();
+  const deleteNote = useDeleteNote();
   const [cursorPos, setCursorPos] = useState(0);
   const [editorTab, setEditorTab] = useState<"note" | "tasks">("note");
   const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
@@ -141,6 +148,7 @@ export default function NoteEditorScreen() {
         }
         setNoteId(note.id);
         noteIdRef.current = note.id;
+        setArchived(note.archived);
         loadedKeyRef.current = draftKey;
         setLoaded(true);
       } catch {
@@ -354,16 +362,19 @@ export default function NoteEditorScreen() {
               {statusLabel}
             </Text>
           </View>
-          <Button
-            variant="ghost"
-            size="icon"
-            accessibilityLabel="Voice typing (coming soon)"
-            onPress={() =>
-              toast.show("Voice typing is coming soon. For now, type and use the word bubbles below.")
-            }
-          >
-            <Mic size={22} color={colors.foreground} />
-          </Button>
+          {noteId ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              accessibilityLabel="More: archive or delete this note"
+              onPress={() => setMenu("open")}
+            >
+              <MoreHorizontal size={22} color={colors.foreground} />
+            </Button>
+          ) : (
+            // Keeps the title centred until the note exists and can be archived.
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         {TASKS_ENABLED ? (
@@ -485,6 +496,92 @@ export default function NoteEditorScreen() {
           </ScrollView>
         )}
       </KeyboardAvoidingView>
+
+      <Sheet
+        open={menu !== "closed"}
+        title={menu === "confirmDelete" ? "Delete this note?" : title.trim() || "This note"}
+        description={
+          menu === "confirmDelete" ? "The note will be gone for good. This cannot be undone." : undefined
+        }
+        onClose={() => setMenu("closed")}
+      >
+        {menu === "confirmDelete" ? (
+          <>
+            <Button
+              variant="destructive"
+              size="lg"
+              loading={deleteNote.isPending}
+              onPress={() => {
+                const id = noteIdRef.current;
+                if (!id) return;
+                deleteNote.mutate(
+                  { id },
+                  {
+                    onSuccess: () => {
+                      // Stop autosave from writing the deleted note back.
+                      loadedKeyRef.current = null;
+                      void localDrafts.clear(draftKey);
+                      setMenu("closed");
+                      if (router.canGoBack()) router.back();
+                      else router.replace("/");
+                    },
+                    onError: () => toast.show("That note could not be deleted. Please try again."),
+                  },
+                );
+              }}
+            >
+              Delete
+            </Button>
+            <Button variant="ghost" onPress={() => setMenu("open")}>
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <View>
+            <Pressable
+              style={styles.menuRow}
+              accessibilityRole="button"
+              onPress={() => {
+                const id = noteIdRef.current;
+                if (!id) return;
+                const next = !archived;
+                void persist(titleRef.current, contentRef.current).then(() =>
+                  updateNote.mutate(
+                    { id, archived: next },
+                    {
+                      onSuccess: () => {
+                        setArchived(next);
+                        setMenu("closed");
+                        toast.show(next ? "Note archived" : "Note restored");
+                        if (next) {
+                          if (router.canGoBack()) router.back();
+                          else router.replace("/");
+                        }
+                      },
+                      onError: () => toast.show("That change could not be saved. Please try again."),
+                    },
+                  ),
+                );
+              }}
+            >
+              {archived ? (
+                <ArchiveRestore size={20} color={colors.foreground} />
+              ) : (
+                <Archive size={20} color={colors.foreground} />
+              )}
+              <Text style={styles.menuText}>{archived ? "Restore to your notes" : "Archive"}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.menuRow, styles.menuDivider]}
+              accessibilityRole="button"
+              onPress={() => setMenu("confirmDelete")}
+            >
+              <Trash2 size={20} color={colors.error} />
+              <Text style={[styles.menuText, styles.menuDanger]}>Delete</Text>
+            </Pressable>
+          </View>
+        )}
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -519,6 +616,11 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.mutedForeground,
     },
     tabs: { alignSelf: "center", marginBottom: spacing[2] },
+    headerSpacer: { width: 48, height: 48 },
+    menuRow: { flexDirection: "row", alignItems: "center", gap: spacing[3], paddingVertical: spacing[4] },
+    menuDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+    menuText: { fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
+    menuDanger: { color: colors.error },
     // Bottom padding clears the pinned reflection strip, so the last row of
     // chips can always be scrolled out from behind it.
     notePanel: {

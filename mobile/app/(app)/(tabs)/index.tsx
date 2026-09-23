@@ -1,67 +1,93 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import {
-  ChevronUp,
-  Feather,
-  MoreHorizontal,
-  Plus,
+  Archive,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  Pencil,
   Search,
-  Settings,
+  SlidersHorizontal,
   X,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
-import { useDeleteNote, useNotes, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
-import { formatNoteDate } from "../../../src/lib/formatNoteDate";
+import { TASKS_ENABLED } from "../../../src/featureFlags";
+import { useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
+import { useTasks } from "../../../src/hooks/useTasks";
+import { formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
+import {
+  dayHeading,
+  groupNotesByDay,
+  inRange,
+  notesOnDay,
+  parseNoteSearch,
+  weekStrip,
+} from "../../../src/lib/notesList";
+import { taskCountByNote } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../../../src/theme";
 import type { NoteRecord } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
-import { ConfirmModal } from "../../../src/ui/ConfirmModal";
-import { Input } from "../../../src/ui/Input";
-import { Segmented } from "../../../src/ui/Segmented";
+import { NoteCard } from "../../../src/ui/NoteCard";
 import { Skeleton } from "../../../src/ui/Skeleton";
 
 const BACKFILL_FLAG = "clarity:backfilled";
+const VIEW_KEY = "clarity:notes-view";
+
+type NotesView = "list" | "days";
 
 export default function NotesListScreen() {
   const router = useRouter();
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+
+  const [view, setView] = useState<NotesView>("list");
+  const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<NoteRecord | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(() => new Date());
+
+  // The chosen view is remembered, so the journal people prefer stays theirs.
+  useEffect(() => {
+    void AsyncStorage.getItem(VIEW_KEY)
+      .then((saved) => {
+        if (saved === "list" || saved === "days") setView(saved);
+      })
+      .catch(() => {});
+  }, []);
+  const switchView = (next: NotesView) => {
+    setView(next);
+    setSearchOpen(false);
+    void AsyncStorage.setItem(VIEW_KEY, next).catch(() => {});
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 250);
     return () => clearTimeout(timer);
   }, [search]);
 
+  // "receipts last week": the words go to the server, the dates stay here.
+  const parsed = useMemo(() => parseNoteSearch(debouncedSearch), [debouncedSearch]);
+  const searching = debouncedSearch.length > 0;
   const params = useMemo(
     () => ({
-      ...(debouncedSearch ? { q: debouncedSearch } : {}),
+      ...(parsed.text ? { q: parsed.text } : {}),
       ...(showArchived ? { archived: true } : {}),
     }),
-    [debouncedSearch, showArchived],
+    [parsed.text, showArchived],
   );
-
   const { data, isFetching, isError, refetch } = useNotes(params);
-  const updateNote = useUpdateNote();
-  const deleteNote = useDeleteNote();
+  const archivedList = useNotes({ archived: true });
+  const tasks = useTasks(undefined, TASKS_ENABLED);
+
   const reindex = useReindexNotes();
   const reindexRef = useRef(reindex.mutate);
   reindexRef.current = reindex.mutate;
-
   useEffect(() => {
     void (async () => {
       try {
@@ -74,170 +100,266 @@ export default function NotesListScreen() {
     })();
   }, []);
 
-  const notes = data?.notes ?? [];
+  const notes = useMemo(
+    () => (data?.notes ?? []).filter((note) => inRange(note.createdAt, parsed.range)),
+    [data?.notes, parsed.range],
+  );
+  const counts = useMemo(
+    () => (TASKS_ENABLED ? taskCountByNote(tasks.query.data?.tasks ?? []) : new Map<string, number>()),
+    [tasks.query.data?.tasks],
+  );
+  const archivedCount = archivedList.data?.notes.length ?? 0;
   const loading = isFetching && !data;
+
+  const openNote = (note: NoteRecord) => router.push(`/note/${note.id}`);
+  const card = (note: NoteRecord) => (
+    <NoteCard key={note.id} note={note} taskCount={counts.get(note.id)} onPress={() => openNote(note)} />
+  );
+
+  const groups = useMemo(() => groupNotesByDay(notes), [notes]);
+  const strip = useMemo(() => weekStrip(), []);
+  const dayNotes = useMemo(() => notesOnDay(notes, selectedDay), [notes, selectedDay]);
+
+  const showSearchField = showArchived || view === "list" || searchOpen;
+
+  const header = showArchived ? (
+    <View style={styles.header}>
+      <Pressable
+        onPress={() => setShowArchived(false)}
+        style={styles.iconButton}
+        accessibilityLabel="Back to your notes"
+      >
+        <ChevronLeft size={20} color={colors.foreground} />
+      </Pressable>
+      <Text style={[styles.title, styles.flex]}>Archived</Text>
+    </View>
+  ) : (
+    <View style={styles.header}>
+      <Text style={[styles.title, styles.flex]}>Your notes</Text>
+      {view === "days" ? (
+        <Pressable
+          onPress={() => {
+            setSearchOpen((open) => !open);
+            if (searchOpen) setSearch("");
+          }}
+          style={[styles.iconButton, searchOpen && styles.iconButtonOn]}
+          accessibilityLabel={searchOpen ? "Close search" : "Search your notes"}
+        >
+          <Search size={20} color={colors.foreground} />
+        </Pressable>
+      ) : null}
+      <Pressable
+        onPress={() => switchView(view === "list" ? "days" : "list")}
+        style={styles.iconButton}
+        accessibilityLabel={view === "list" ? "Show notes day by day" : "Show notes as a list"}
+      >
+        {view === "list" ? (
+          <CalendarDays size={20} color={colors.foreground} />
+        ) : (
+          <List size={20} color={colors.foreground} />
+        )}
+      </Pressable>
+      <Pressable onPress={() => router.push("/settings")} style={styles.iconButton} accessibilityLabel="Settings">
+        <SlidersHorizontal size={20} color={colors.foreground} />
+      </Pressable>
+    </View>
+  );
+
+  const searchField = showSearchField ? (
+    <View style={styles.searchRow}>
+      <Search size={18} color={colors.mutedForeground} />
+      <TextInput
+        value={search}
+        onChangeText={setSearch}
+        placeholder={'Search, like "receipts" or "last week"'}
+        placeholderTextColor={colors.mutedForeground}
+        style={styles.searchInput}
+        autoFocus={searchOpen && view === "days"}
+        returnKeyType="search"
+        accessibilityLabel="Search your notes"
+      />
+      {search ? (
+        <Pressable onPress={() => setSearch("")} accessibilityLabel="Clear search" hitSlop={8}>
+          <X size={18} color={colors.mutedForeground} />
+        </Pressable>
+      ) : null}
+    </View>
+  ) : null;
+
+  const groupedList = (
+    <>
+      {groups.map((group) => (
+        <View key={group.key} style={styles.group}>
+          <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
+          {group.notes.map(card)}
+        </View>
+      ))}
+    </>
+  );
+
+  let body: React.ReactNode;
+  if (loading) {
+    body = (
+      <View style={styles.group}>
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} style={styles.cardSkeleton} />
+        ))}
+      </View>
+    );
+  } else if (isError) {
+    body = (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>We could not load your notes.</Text>
+        <Button variant="secondary" onPress={() => void refetch()}>
+          Try again
+        </Button>
+      </View>
+    );
+  } else if (searching || showArchived) {
+    body =
+      notes.length > 0 ? (
+        groupedList
+      ) : (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>
+            {showArchived && !searching
+              ? "No archived notes."
+              : parsed.range && !parsed.text
+                ? `No notes from ${parsed.range.label}.`
+                : `No notes match "${debouncedSearch}".`}
+          </Text>
+        </View>
+      );
+  } else if (view === "list") {
+    body =
+      notes.length > 0 || archivedCount > 0 ? (
+        <>
+          {groupedList}
+          {archivedCount > 0 ? (
+            <Pressable
+              onPress={() => setShowArchived(true)}
+              style={({ pressed }) => [styles.archivedRow, pressed && styles.pressed]}
+              accessibilityRole="button"
+            >
+              <Archive size={18} color={colors.mutedForeground} />
+              <Text style={styles.archivedText}>Archived notes · {archivedCount}</Text>
+              <ChevronRight size={18} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
+        </>
+      ) : (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No notes yet. Tap "Write a note…" below to start.</Text>
+        </View>
+      );
+  } else {
+    const hasNote = (day: Date) => notes.some((note) => isSameDay(note.createdAt, day));
+    body = (
+      <>
+        <View style={styles.strip}>
+          {strip.map((day) => {
+            const active = isSameDay(day.date, selectedDay);
+            const dot = hasNote(day.date);
+            return (
+              <Pressable
+                key={day.key}
+                onPress={() => setSelectedDay(day.date)}
+                style={[styles.stripDay, active && styles.stripDayActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${formatLongDate(day.date)}${dot ? ", has notes" : ""}`}
+              >
+                <Text style={[styles.stripLetter, active && styles.stripTextActive]}>{day.letter}</Text>
+                <Text style={[styles.stripNumber, active && styles.stripTextActive]}>{day.day}</Text>
+                <View style={[styles.stripDot, dot && (active ? styles.stripDotActive : styles.stripDotOn)]} />
+              </Pressable>
+            );
+          })}
+        </View>
+        <Animated.View key={selectedDay.toDateString()} entering={FadeIn.duration(160)} style={styles.dayBlock}>
+          <View>
+            <Text style={styles.dayTitle}>{dayHeading(selectedDay)}</Text>
+            <Text style={styles.daySub}>
+              {formatLongDate(selectedDay)} · {dayNotes.length} {dayNotes.length === 1 ? "note" : "notes"}
+            </Text>
+          </View>
+          {dayNotes.length === 0 ? (
+            <Text style={styles.emptyText}>No notes on this day.</Text>
+          ) : (
+            <View>
+              {dayNotes.map((note, i) => (
+                <View key={note.id} style={styles.timelineRow}>
+                  <View style={styles.rail}>
+                    <View
+                      style={[
+                        styles.railDot,
+                        { backgroundColor: note.source === "focus" ? colors.rest : colors.primary },
+                      ]}
+                    />
+                    {i < dayNotes.length - 1 ? <View style={styles.railLine} /> : null}
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={styles.timelineTime}>{formatClockTime(note.createdAt)}</Text>
+                    <NoteCard
+                      note={note}
+                      variant="timeline"
+                      taskCount={counts.get(note.id)}
+                      onPress={() => openNote(note)}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </Animated.View>
+      </>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Your notes</Text>
-        <Button
-          variant="ghost"
-          size="icon"
-          accessibilityLabel="Settings"
-          onPress={() => router.push("/settings")}
-        >
-          <Settings size={24} color={colors.foreground} />
-        </Button>
-      </View>
-
-      <View style={styles.searchRow}>
-        <Search size={18} color={colors.mutedForeground} />
-        <Input
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search your notes"
-          accessibilityLabel="Search your notes"
-          style={styles.searchInput}
-        />
-        {search ? (
-          <Pressable onPress={() => setSearch("")} accessibilityLabel="Clear search">
-            <X size={18} color={colors.mutedForeground} />
-          </Pressable>
-        ) : null}
-      </View>
-
-      <Segmented
-        accessibilityLabel="Which notes to show"
-        value={showArchived ? "archived" : "current"}
-        onChange={(value) => {
-          setShowArchived(value === "archived");
-          setExpandedId(null);
-        }}
-        options={[
-          { label: "Current", value: "current" },
-          { label: "Archived", value: "archived" },
-        ]}
-      />
-
-      <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
-        {loading
-          ? [0, 1, 2].map((item) => <Skeleton key={item} style={styles.cardSkeleton} />)
-          : notes.map((note) => {
-              const expanded = expandedId === note.id;
-              return (
-                <Animated.View
-                  key={note.id}
-                  style={styles.card}
-                  layout={LinearTransition.duration(220)}
-                  entering={FadeInDown.duration(180)}
-                  exiting={FadeOutUp.duration(140)}
-                >
-                  <View style={styles.cardMain}>
-                    <Pressable
-                      style={styles.cardOpen}
-                      onPress={() => router.push(`/note/${note.id}`)}
-                      accessibilityLabel={`Open note: ${note.title || "Untitled note"}`}
-                    >
-                      <Text style={styles.cardTitle}>{note.title || "Untitled note"}</Text>
-                      {note.content ? (
-                        <Text style={styles.cardPreview} numberOfLines={2}>
-                          {note.content.replace(/\s+/g, " ")}
-                        </Text>
-                      ) : null}
-                      <Text style={styles.cardWhen}>{formatNoteDate(note.updatedAt)}</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setExpandedId(expanded ? null : note.id)}
-                      accessibilityLabel={`More options for ${note.title || "this note"}`}
-                      style={styles.cardMore}
-                    >
-                      {expanded ? (
-                        <ChevronUp size={22} color={colors.mutedForeground} />
-                      ) : (
-                        <MoreHorizontal size={22} color={colors.mutedForeground} />
-                      )}
-                    </Pressable>
-                  </View>
-                  {expanded ? (
-                    <View style={styles.cardActions}>
-                      <Button
-                        variant="secondary"
-                        disabled={updateNote.isPending}
-                        onPress={() => {
-                          setExpandedId(null);
-                          updateNote.mutate({ id: note.id, archived: !note.archived });
-                        }}
-                      >
-                        {note.archived ? "Restore" : "Archive"}
-                      </Button>
-                      <Button variant="destructive" onPress={() => setPendingDelete(note)}>
-                        Delete
-                      </Button>
-                    </View>
-                  ) : null}
-                </Animated.View>
-              );
-            })}
-
-        {!loading && notes.length === 0 ? (
-          <View style={styles.empty}>
-            {isError ? (
-              <>
-                <Text style={styles.emptyText}>We couldn't load your notes right now.</Text>
-                <Button variant="secondary" onPress={() => void refetch()}>
-                  Try again
-                </Button>
-              </>
-            ) : debouncedSearch ? (
-              <Text style={styles.emptyText}>No notes match “{debouncedSearch}”.</Text>
-            ) : showArchived ? (
-              <Text style={styles.emptyText}>No archived notes.</Text>
-            ) : (
-              <>
-                <Feather size={36} color={colors.mutedForeground} />
-                <Text style={styles.emptyText}>
-                  No notes yet. Tap “New note” below to start writing.
-                </Text>
-              </>
-            )}
-          </View>
-        ) : null}
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {header}
+        {searchField}
+        {body}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <Button size="lg" onPress={() => router.push("/note/new")}>
-          <Plus size={20} color={colors.primaryForeground} />
-          <Text style={styles.newNoteLabel}>New note</Text>
-        </Button>
-      </View>
-
-      <ConfirmModal
-        open={pendingDelete !== null}
-        title="Delete this note?"
-        description="The note will be gone for good. This cannot be undone."
-        confirmLabel="Delete"
-        destructive
-        loading={deleteNote.isPending}
-        onClose={() => setPendingDelete(null)}
-        onConfirm={() => {
-          if (!pendingDelete) return;
-          deleteNote.mutate(
-            { id: pendingDelete.id },
-            { onSettled: () => setPendingDelete(null) },
-          );
-          setExpandedId(null);
-        }}
-      />
+      {!showArchived ? (
+        <View style={styles.writeWrap}>
+          {/* The microphone joins this bar with voice writing (N3). */}
+          <Pressable
+            style={({ pressed }) => [styles.writeBar, pressed && styles.pressed]}
+            onPress={() => router.push("/note/new")}
+            accessibilityRole="button"
+            accessibilityLabel="Write a note"
+          >
+            <Pencil size={18} color={colors.mutedForeground} />
+            <Text style={styles.writeText}>Write a note…</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing[4], gap: spacing[3] },
-    header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    page: { flex: 1, backgroundColor: colors.background },
+    flex: { flex: 1 },
+    pressed: { opacity: 0.85 },
+    content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
+    header: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     title: { fontFamily: fonts.display, fontSize: 32 * scale, color: colors.foreground },
+    iconButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconButtonOn: { borderColor: colors.primary },
     searchRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -248,35 +370,79 @@ function makeStyles(colors: Colors, scale: number) {
       borderColor: colors.border,
       paddingHorizontal: spacing[3],
     },
-    searchInput: { flex: 1, borderWidth: 0, backgroundColor: "transparent", minHeight: 48 },
-    list: { gap: spacing[3], paddingBottom: spacing[6] },
-    cardSkeleton: { height: 110 },
-    card: {
-      backgroundColor: colors.card,
+    searchInput: {
+      flex: 1,
+      minHeight: 48,
+      fontFamily: fonts.base,
+      fontSize: 16 * scale,
+      color: colors.foreground,
+    },
+    group: { gap: spacing[2] },
+    groupLabel: {
+      fontFamily: fonts.baseSemi,
+      fontSize: 12 * scale,
+      letterSpacing: 1,
+      color: colors.mutedForeground,
+      marginTop: spacing[1],
+    },
+    cardSkeleton: { height: 110, borderRadius: radius.lg },
+    archivedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[3],
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
-      padding: spacing[4],
+      paddingHorizontal: spacing[4],
+      paddingVertical: spacing[3],
+      marginTop: spacing[2],
     },
-    cardMain: { flexDirection: "row", gap: spacing[2] },
-    cardOpen: { flex: 1, gap: 6 },
-    cardTitle: { fontFamily: fonts.baseSemi, fontSize: 18 * scale, color: colors.foreground },
-    cardPreview: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
-    cardWhen: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
-    cardMore: { padding: spacing[1] },
-    cardActions: { flexDirection: "row", gap: spacing[2], marginTop: spacing[3] },
+    archivedText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[12] },
-    emptyText: {
-      fontFamily: fonts.base,
-      fontSize: 16 * scale,
-      color: colors.mutedForeground,
-      textAlign: "center",
+    emptyText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground, textAlign: "center" },
+    strip: { flexDirection: "row", gap: 6 },
+    stripDay: {
+      flex: 1,
+      alignItems: "center",
+      gap: 2,
+      paddingVertical: spacing[2],
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
     },
-    footer: { paddingBottom: spacing[3] },
-    newNoteLabel: {
-      fontFamily: fonts.baseSemi,
-      fontSize: 16 * scale,
-      color: colors.primaryForeground,
+    stripDayActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    stripLetter: { fontFamily: fonts.base, fontSize: 12 * scale, color: colors.mutedForeground },
+    stripNumber: { fontFamily: fonts.baseSemi, fontSize: 18 * scale, color: colors.foreground },
+    stripTextActive: { color: colors.primaryForeground },
+    stripDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "transparent", marginTop: 2 },
+    stripDotOn: { backgroundColor: colors.primary },
+    stripDotActive: { backgroundColor: colors.primaryForeground },
+    dayBlock: { gap: spacing[4] },
+    dayTitle: { fontFamily: fonts.display, fontSize: 26 * scale, color: colors.foreground },
+    daySub: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground, marginTop: 2 },
+    timelineRow: { flexDirection: "row", gap: spacing[3] },
+    rail: { width: 12, alignItems: "center" },
+    railDot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
+    railLine: { flex: 1, width: 2, backgroundColor: colors.border, marginTop: 4 },
+    timelineTime: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground, marginBottom: 2 },
+    writeWrap: {
+      paddingHorizontal: spacing[4],
+      paddingTop: spacing[2],
+      paddingBottom: spacing[3],
+      backgroundColor: colors.background,
     },
+    writeBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[3],
+      minHeight: 54,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      paddingHorizontal: spacing[4],
+    },
+    writeText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground },
   });
 }

@@ -28,3 +28,13 @@ export function openCountByProject(tasks: TaskRecord[]): Map<string, number> {
   }
   return counts;
 }
+
+/** Open tasks per source note, for the "1 task in Life Center" tag. */
+export function taskCountByNote(tasks: TaskRecord[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const task of tasks) {
+    if (task.status === "done" || !task.noteId) continue;
+    counts.set(task.noteId, (counts.get(task.noteId) ?? 0) + 1);
+  }
+  return counts;
+}
