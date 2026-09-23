@@ -15,8 +15,6 @@ import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
 import { atNoon, daysFromToday, formatShortDate, isSameDay, nextWeekend } from "../lib/dates";
 import { hapticDone, hapticUndone } from "../lib/haptics";
-import { areaColor } from "../lib/lifeCenter";
-import { formatDue } from "../lib/taskDates";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import {
@@ -243,17 +241,6 @@ export function TaskSheet({
         open={open}
         title={titles[panel].title}
         description={titles[panel].description}
-        eyebrow={
-          panel === "actions" && task ? (
-            <View style={styles.eyebrowRow}>
-              <View style={[styles.dot, { backgroundColor: areaColor(task.projectId) }]} />
-              <Text style={styles.eyebrowText}>
-                {task.projectName}
-                {task.completeBy ? ` · ${formatDue(task.completeBy)}` : ""}
-              </Text>
-            </View>
-          ) : undefined
-        }
         onClose={panel === home ? onClose : () => setPanel(panel === "move" ? "actions" : "task")}
       >
         {/* Each face fades in as it replaces the last, while the sheet's
@@ -268,10 +255,15 @@ export function TaskSheet({
                 accessibilityRole="button"
                 accessibilityLabel="Start focus time. Set aside a few minutes for just this"
               >
-                <PomodoroBadge size={44} />
+                {/* Grows with the text size, so it stays in proportion. */}
+                <PomodoroBadge size={Math.round(44 * scale)} />
                 <View style={styles.flexShrink}>
-                  <Text style={styles.focusTitle}>Start focus time</Text>
-                  <Text style={styles.focusHint}>Set aside a few minutes for just this</Text>
+                  <Text style={styles.focusTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                    Start focus time
+                  </Text>
+                  <Text style={styles.focusHint} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                    Set aside a few minutes for just this
+                  </Text>
                 </View>
               </Pressable>
             ) : null}
@@ -562,9 +554,6 @@ function makeStyles(colors: Colors, scale: number) {
     // sheet's edges on narrow screens.
     picker: { marginHorizontal: -spacing[2] },
     face: { gap: spacing[4] },
-    eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
-    eyebrowText: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
-    dot: { width: 8, height: 8, borderRadius: 4 },
     pressed: { opacity: 0.85 },
     flexShrink: { flexShrink: 1 },
     focusButton: {
@@ -581,14 +570,14 @@ function makeStyles(colors: Colors, scale: number) {
     focusPressed: { transform: [{ scale: 0.98 }] },
     focusTitle: {
       fontFamily: fonts.baseBold,
-      fontSize: 20 * scale,
-      lineHeight: 24 * scale,
+      fontSize: 18 * scale,
+      lineHeight: 23 * scale,
       color: colors.primaryForeground,
     },
     focusHint: {
       fontFamily: fonts.base,
-      fontSize: 16.5 * scale,
-      lineHeight: 22 * scale,
+      fontSize: 14.5 * scale,
+      lineHeight: 20 * scale,
       marginTop: 2,
       color: colors.primaryForeground,
       opacity: 0.85,
