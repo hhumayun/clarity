@@ -33,7 +33,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
-import { EASE_IN, EASE_OUT, fadeOut } from "../../../src/ui/motion";
+import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { NOTES_QUERY_KEY, useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
@@ -228,6 +228,18 @@ export default function NotesListScreen() {
     opacity: 1 - 0.7 * Math.min(1, Math.abs(slideX.value) / Math.max(1, slideWidth.value)),
   }));
 
+  // The day's notes do not travel with the dates. They fade away as the
+  // dates start to move and come back, rising slightly, only when the dates
+  // have stopped AND the new week's notes have arrived, so they never show
+  // "No notes on this day" for a moment before the real notes land.
+  const dayReveal = useSharedValue(1);
+  const dayRevealStyle = useAnimatedStyle(() => ({
+    opacity: dayReveal.value,
+    transform: [{ translateY: (1 - dayReveal.value) * 10 }],
+  }));
+  const awaitingReveal = useRef(false);
+  const [slideSettled, setSlideSettled] = useState(true);
+
   const SLIDE_OUT_MS = 140;
   const SLIDE_IN_MS = 240;
   const changeWeek = (next: number, day: Date, pickDayWithNotes: boolean) => {
@@ -243,6 +255,9 @@ export default function NotesListScreen() {
     const distance = slideWidth.value * 0.6;
     pendingWeek.current = target;
     if (slideTimer.current) clearTimeout(slideTimer.current);
+    awaitingReveal.current = true;
+    setSlideSettled(false);
+    dayReveal.value = withTiming(0, { duration: MOTION.fast, easing: EASE_IN });
     slideX.value = withTiming(dir * distance, { duration: SLIDE_OUT_MS, easing: EASE_IN });
     slideTimer.current = setTimeout(() => {
       slideTimer.current = null;
@@ -253,8 +268,27 @@ export default function NotesListScreen() {
       autoPick.current = pickDayWithNotes;
       slideX.value = -dir * distance;
       slideX.value = withTiming(0, { duration: SLIDE_IN_MS, easing: EASE_OUT });
+      // The dates have stopped once the slide-in has run.
+      slideTimer.current = setTimeout(() => {
+        slideTimer.current = null;
+        setSlideSettled(true);
+      }, SLIDE_IN_MS);
     }, SLIDE_OUT_MS);
   };
+  const weekReady = weekQuery.isError || (Boolean(weekQuery.data) && !weekQuery.isPlaceholderData);
+  useEffect(() => {
+    if (!awaitingReveal.current || !slideSettled || !weekReady) return;
+    awaitingReveal.current = false;
+    dayReveal.value = withTiming(1, { duration: MOTION.slow, easing: EASE_OUT });
+  }, [slideSettled, weekReady, selectedDay, dayReveal]);
+  // If the journal is left mid-change (another view, the archive), never
+  // come back to hidden notes.
+  useEffect(() => {
+    if (view === "days" && !showArchived) return;
+    awaitingReveal.current = false;
+    dayReveal.value = 1;
+  }, [view, showArchived, dayReveal]);
+
   const stepWeek = (delta: number) => {
     const target = Math.max(0, (pendingWeek.current ?? weeksBackRef.current) + delta);
     const page = weekStrip(new Date(), target);
@@ -455,7 +489,7 @@ export default function NotesListScreen() {
             <Text style={styles.backToTodayText}>Back to today</Text>
           </Pressable>
         ) : null}
-        <Animated.View style={[styles.slide, slideStyle]}>
+        <Animated.View style={slideStyle}>
         <View style={styles.strip}>
           {strip.map((day) => {
             const active = isSameDay(day.date, selectedDay);
@@ -476,6 +510,8 @@ export default function NotesListScreen() {
             );
           })}
         </View>
+        </Animated.View>
+        <Animated.View style={dayRevealStyle}>
         <FadeSwitch switchKey={selectedDay.toDateString()} style={styles.dayBlock}>
           <View>
             <Text style={styles.dayTitle}>{dayHeading(selectedDay)}</Text>
@@ -649,7 +685,6 @@ function makeStyles(colors: Colors, scale: number) {
     weekLabel: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
     backToToday: { alignSelf: "center", marginTop: -spacing[2] },
     backToTodayText: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
-    slide: { gap: spacing[4] },
     strip: { flexDirection: "row", gap: 6 },
     stripDay: {
       flex: 1,
