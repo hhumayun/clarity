@@ -394,7 +394,7 @@ export default function NoteEditorScreen() {
         </View>
 
         {TASKS_ENABLED && loaded ? (
-          <Animated.View layout={layoutTransition} style={styles.areaRow}>
+          <View style={styles.areaRow}>
             {tagIds
               .map((id) => allProjects.find((project) => project.id === id))
               .filter((project): project is NonNullable<typeof project> => Boolean(project))
@@ -420,7 +420,7 @@ export default function NoteEditorScreen() {
               {tagIds.length === 0 ? <Text style={styles.areaChipMuted}>Area</Text> : null}
             </Pressable>
             </Animated.View>
-          </Animated.View>
+          </View>
         ) : null}
 
         {TASKS_ENABLED ? (

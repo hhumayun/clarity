@@ -25,7 +25,7 @@ import { fonts, radius, spacing, type Colors } from "../theme";
 import type { ProjectRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
-import { fadeInFast, fadeOut, layoutTransition } from "./motion";
+import { Collapse } from "./Collapse";
 
 export type QuickAddDraft = {
   text: string;
@@ -245,11 +245,9 @@ export function QuickAddTask({
             boxHeight.value = event.nativeEvent.layout.height;
           }}
         >
-        {/* Grows and shrinks smoothly as a row unfolds under the line. */}
-        <Animated.View
-          layout={layoutTransition}
-          style={[styles.box, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}
-        >
+        {/* No layout animation here: the rows below grow and shrink their own
+            height, and the box simply follows them. */}
+        <View style={[styles.box, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
           <TextInput
             value={text}
             onChangeText={setText}
@@ -263,8 +261,8 @@ export function QuickAddTask({
             accessibilityLabel="Task"
           />
 
-          {expander === "project" ? (
-            <Animated.View entering={fadeInFast} exiting={fadeOut} style={styles.chips}>
+          <Collapse open={expander === "project"}>
+            <View style={[styles.chips, styles.unfold]}>
               {projects.map((project) => {
                 const active = project.id === projectId;
                 return (
@@ -289,11 +287,11 @@ export function QuickAddTask({
               >
                 <Plus size={16} color={colors.mutedForeground} />
               </Pressable>
-            </Animated.View>
-          ) : null}
+            </View>
+          </Collapse>
 
-          {expander === "newProject" ? (
-            <Animated.View entering={fadeInFast} exiting={fadeOut} style={styles.row}>
+          <Collapse open={expander === "newProject"}>
+            <View style={[styles.row, styles.unfold]}>
               <Input
                 style={styles.flex}
                 value={newProject}
@@ -312,11 +310,11 @@ export function QuickAddTask({
               >
                 Add
               </Button>
-            </Animated.View>
-          ) : null}
+            </View>
+          </Collapse>
 
-          {expander === "date" ? (
-            <Animated.View entering={fadeInFast} exiting={fadeOut} style={styles.chips}>
+          <Collapse open={expander === "date"}>
+            <View style={[styles.chips, styles.unfold]}>
               {shortcuts.map((option) => {
                 const active =
                   option.value === null ? date === null : isSameDay(option.value, date);
@@ -336,20 +334,32 @@ export function QuickAddTask({
                 <CalendarDays size={14} color={colors.mutedForeground} />
                 <Text style={styles.chipText}>Pick…</Text>
               </Pressable>
-            </Animated.View>
-          ) : null}
+            </View>
+          </Collapse>
 
-          {pickerOpen ? (
-            <Animated.View entering={fadeInFast} exiting={fadeOut}>
-              <DateTimePicker
-                value={date ?? new Date()}
-                mode="date"
-                display={Platform.OS === "ios" ? "inline" : "default"}
-                accentColor={colors.primary}
-                themeVariant={dark ? "dark" : "light"}
-                onChange={onPicked}
-              />
-            </Animated.View>
+          {/* iOS draws the calendar inline, so it unfolds like the rows above.
+              Android's picker is a dialog of its own and must mount and unmount
+              exactly with its state. */}
+          {Platform.OS === "ios" ? (
+            <Collapse open={pickerOpen}>
+              <View style={styles.unfold}>
+                <DateTimePicker
+                  value={date ?? new Date()}
+                  mode="date"
+                  display="inline"
+                  accentColor={colors.primary}
+                  themeVariant={dark ? "dark" : "light"}
+                  onChange={onPicked}
+                />
+              </View>
+            </Collapse>
+          ) : pickerOpen ? (
+            <DateTimePicker
+              value={date ?? new Date()}
+              mode="date"
+              display="default"
+              onChange={onPicked}
+            />
           ) : null}
 
           <View style={styles.toolbar}>
@@ -394,7 +404,7 @@ export function QuickAddTask({
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-        </Animated.View>
+        </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -421,8 +431,10 @@ function makeStyles(colors: Colors, scale: number) {
       borderColor: colors.border,
       paddingHorizontal: spacing[4],
       paddingTop: spacing[4],
-      gap: spacing[3],
     },
+    // Each unfolding row carries its own space above it, so it takes none
+    // at all when folded away.
+    unfold: { paddingTop: spacing[3] },
     input: {
       fontFamily: fonts.base,
       fontSize: 18 * scale,
@@ -432,7 +444,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     row: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
-    toolbar: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
+    toolbar: { flexDirection: "row", alignItems: "center", gap: spacing[2], marginTop: spacing[3] },
     chip: {
       flexDirection: "row",
       alignItems: "center",
@@ -464,6 +476,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     sendDisabled: { opacity: 0.4 },
     error: {
+      marginTop: spacing[2],
       fontFamily: fonts.base,
       fontSize: 14 * scale,
       color: colors.error,

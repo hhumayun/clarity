@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { layoutTransition } from "./motion";
 
 type Props = {
   open: boolean;
@@ -67,12 +66,11 @@ export function Sheet({ open, title, description, eyebrow, onClose, children }: 
             sheetHeight.value = event.nativeEvent.layout.height;
           }}
         >
-          {/* Its own layer, so a change of height between faces glides
-              rather than jumps, without fighting the slide above. */}
-          <Animated.View
-            layout={layoutTransition}
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}
-          >
+          {/* No layout animation on the sheet itself: it is pinned to the
+              bottom, and animating its frame let the screen behind show
+              through while its contents had already moved. A new face fades
+              in instead. */}
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
             <View style={styles.handle} />
             {shown.eyebrow ? <View style={styles.eyebrow}>{shown.eyebrow}</View> : null}
             <Text style={styles.title}>{shown.title}</Text>
@@ -80,7 +78,7 @@ export function Sheet({ open, title, description, eyebrow, onClose, children }: 
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
               {shown.children}
             </ScrollView>
-          </Animated.View>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>

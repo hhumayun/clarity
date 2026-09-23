@@ -7,6 +7,7 @@ import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { fadeInFast, fadeOut } from "../../../src/ui/motion";
 import { RotatingChevron } from "../../../src/ui/RotatingChevron";
+import { Collapse } from "../../../src/ui/Collapse";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusSummary } from "../../../src/hooks/useFocus";
 import { useNotes } from "../../../src/hooks/useNotes";
@@ -267,6 +268,7 @@ export default function LifeCenterScreen() {
               </View>
               {settingsButton}
             </View>
+            <View>
             <View style={styles.controls}>
               {viewSwitch}
               <Pressable
@@ -283,8 +285,9 @@ export default function LifeCenterScreen() {
                 <ChevronDown size={16} color={colors.mutedForeground} />
               </Pressable>
             </View>
-            {areaMenuOpen ? (
-              <Animated.View entering={FadeInDown.duration(180)} exiting={motion.exit} style={styles.areaMenu}>
+            <Collapse open={areaMenuOpen}>
+              <View style={styles.menuSpace}>
+              <View style={styles.areaMenu}>
                 {[{ id: ALL, name: "All areas" }, ...projects].map((area) => {
                   const active = area.id === areaFilter;
                   return (
@@ -315,8 +318,10 @@ export default function LifeCenterScreen() {
                 >
                   <Text style={styles.areaManageText}>Manage areas…</Text>
                 </Pressable>
-              </Animated.View>
-            ) : null}
+              </View>
+              </View>
+            </Collapse>
+            </View>
           </>
         ) : (
           <>
@@ -627,6 +632,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     areaPillOpen: { borderColor: colors.primary },
     areaPillText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.foreground },
+    menuSpace: { paddingTop: spacing[3] },
     areaMenu: {
       borderRadius: radius.md,
       borderWidth: 1,

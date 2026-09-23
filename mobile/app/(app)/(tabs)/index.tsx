@@ -198,7 +198,7 @@ export default function NotesListScreen() {
   // Search matches words, dates ("last week") and an area's name: "Business"
   // finds the notes tagged with it.
   const searchField = showSearchField ? (
-    <Animated.View entering={FadeInDown.duration(180)} exiting={fadeOut} style={styles.searchRow}>
+    <Animated.View entering={FadeInDown.duration(180)} style={styles.searchRow}>
       <Search size={18} color={colors.mutedForeground} />
       <TextInput
         value={search}
