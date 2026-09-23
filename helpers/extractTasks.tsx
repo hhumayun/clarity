@@ -11,7 +11,7 @@ Rules:
 - Write each task as a short, clear action in the writer's plain language.
 - Classify each task into the best existing project when one clearly fits. Return that existing project name exactly.
 - If no existing project fits, propose a calm, concise new project name of 1 to 4 words.
-- Set completeBy to YYYY-MM-DD only when the note gives an explicit or unambiguous date. Resolve relative dates such as "tomorrow" or "Friday" using the supplied current date and weekday. A bare weekday means the next such day, counting today if today is that day. Otherwise use null.
+- Set completeBy to YYYY-MM-DD whenever the note says when a task is due: a date ("Oct 3", "the 25th"), a weekday, or a time from now ("tomorrow", "next week", "in 3 days", "in 6 months", "end of the month"). Resolve it from the supplied current date and weekday. A bare weekday means the next such day, counting today if today is that day. "Next week" means seven days from today. "In N months" means the same day of the month N months on, or that month's last day if it is shorter. When the note gives no timing, or only a vague one ("someday", "soon", "at some point"), still include the task, with completeBy null.
 - Do not duplicate near-identical tasks.
 - Return no more than 30 tasks.
 - Respond ONLY with JSON: {"tasks":[{"text":"...","projectName":"...","completeBy":null}]}`;
