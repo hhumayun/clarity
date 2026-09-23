@@ -21,6 +21,7 @@ import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatClockTime, formatPlannedDate } from "../lib/dates";
 import { areaColor } from "../lib/lifeCenter";
 import { focusMetaLabel } from "../lib/focus";
+import { hapticDone, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
 import type { TaskFocusSummary, TaskRecord, TaskStatus } from "../types";
 
@@ -139,6 +140,8 @@ export function TaskCard({
       return;
     }
     if (pendingDone !== null) return;
+    if (entering) hapticDone();
+    else hapticUndone();
     setPendingDone(entering);
     if (completeTimer.current) clearTimeout(completeTimer.current);
     completeTimer.current = setTimeout(() => onStatusChange(next), COMPLETE_DELAY_MS);

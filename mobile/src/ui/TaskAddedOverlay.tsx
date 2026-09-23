@@ -10,7 +10,11 @@ export const TASK_ADDED_MS = 1_100;
 
 type Props = {
   visible: boolean;
-  projectName: string;
+  /** "added": "Task added to Errands". "done": "Done" over the task's words. */
+  kind?: "added" | "done";
+  projectName?: string;
+  /** The task, shown under "Done". */
+  taskText?: string;
   /** Where to sit. Defaults to filling and centring in the parent. */
   style?: StyleProp<ViewStyle>;
 };
@@ -20,7 +24,7 @@ type Props = {
  * Modal on purpose — it sits inside the screen, takes no touches, and is
  * unmounted the moment it is done.
  */
-export function TaskAddedOverlay({ visible, projectName, style }: Props) {
+export function TaskAddedOverlay({ visible, kind = "added", projectName = "", taskText = "", style }: Props) {
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   if (!visible) return null;
@@ -35,16 +39,27 @@ export function TaskAddedOverlay({ visible, projectName, style }: Props) {
         entering={ZoomIn.springify().damping(14).stiffness(220).mass(0.7)}
         style={styles.card}
         accessibilityLiveRegion="polite"
-        accessibilityLabel={`Task added to ${projectName}`}
+        accessibilityLabel={kind === "done" ? `Done: ${taskText}` : `Task added to ${projectName}`}
       >
         <View style={styles.circle}>
           <Animated.View entering={ZoomIn.delay(140).springify().damping(12).stiffness(260)}>
             <Check size={30} color={colors.primaryForeground} strokeWidth={3} />
           </Animated.View>
         </View>
-        <Text style={styles.text}>
-          Task added to <Text style={styles.project}>{projectName}</Text>
-        </Text>
+        {kind === "done" ? (
+          <>
+            <Text style={styles.doneTitle}>Done</Text>
+            {taskText ? (
+              <Text style={styles.doneTask} numberOfLines={2}>
+                {taskText}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <Text style={styles.text}>
+            Task added to <Text style={styles.project}>{projectName}</Text>
+          </Text>
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -92,5 +107,13 @@ function makeStyles(colors: Colors, scale: number) {
       textAlign: "center",
     },
     project: { fontFamily: fonts.baseSemi },
+    doneTitle: { fontFamily: fonts.display, fontSize: 24 * scale, color: colors.foreground },
+    doneTask: {
+      maxWidth: 260,
+      fontFamily: fonts.base,
+      fontSize: 15 * scale,
+      color: colors.mutedForeground,
+      textAlign: "center",
+    },
   });
 }

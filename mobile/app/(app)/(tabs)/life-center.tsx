@@ -71,6 +71,9 @@ export default function LifeCenterScreen() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // After an add: the confirmation, then which card to scroll to and flash.
   const [added, setAdded] = useState<TaskRecord | null>(null);
+  // A task just marked done from its panel, confirmed with the same card.
+  const [finished, setFinished] = useState<TaskRecord | null>(null);
+  const finishedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -80,9 +83,20 @@ export default function LifeCenterScreen() {
   useEffect(
     () => () => {
       if (revealTimer.current) clearTimeout(revealTimer.current);
+      if (finishedTimer.current) clearTimeout(finishedTimer.current);
     },
     [],
   );
+
+  const showFinished = (task: TaskRecord) => {
+    setAdded(null);
+    setFinished(task);
+    if (finishedTimer.current) clearTimeout(finishedTimer.current);
+    finishedTimer.current = setTimeout(() => {
+      finishedTimer.current = null;
+      setFinished(null);
+    }, TASK_ADDED_MS);
+  };
 
   const now = new Date();
   const projects = useMemo(() => sortProjects(query.data?.projects ?? []), [query.data?.projects]);
@@ -545,6 +559,7 @@ export default function LifeCenterScreen() {
         }
         onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
         startPanel="actions"
+        onMarkedDone={showFinished}
         onStartFocus={
           editing
             ? () => {
@@ -593,6 +608,7 @@ export default function LifeCenterScreen() {
       />
 
       <TaskAddedOverlay visible={added !== null} projectName={added?.projectName ?? ""} />
+      <TaskAddedOverlay visible={finished !== null} kind="done" taskText={finished?.text ?? ""} />
     </SafeAreaView>
   );
 }

@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTasks } from "../../src/hooks/useTasks";
 import { daysFromToday, formatPlannedDateLong, nextWeekend } from "../../src/lib/dates";
 import { areaColor, overdueQueue } from "../../src/lib/lifeCenter";
+import { hapticDone } from "../../src/lib/haptics";
 import { recordMovedFrom } from "../../src/lib/movedFrom";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
 import { useToast } from "../../src/providers/ToastProvider";
@@ -66,6 +67,7 @@ export default function CatchUpScreen() {
   };
 
   const letGo = (task: TaskRecord) => {
+    hapticDone();
     update.mutate(
       { id: task.id, status: "done" },
       { onError: () => toast.show("That change could not be saved. Please try again.") },

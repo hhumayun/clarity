@@ -15,6 +15,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
 import { atNoon, daysFromToday, formatShortDate, isSameDay, nextWeekend } from "../lib/dates";
+import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaColor } from "../lib/lifeCenter";
 import { formatDue } from "../lib/taskDates";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -54,6 +55,8 @@ type Props = {
   startPanel?: "task" | "actions";
   /** Shows Start focus time on the action panel. */
   onStartFocus?: () => void;
+  /** Called once Mark done has saved, so the screen can confirm it. */
+  onMarkedDone?: (task: TaskRecord) => void;
 };
 
 /**
@@ -103,6 +106,7 @@ export function TaskSheet({
   onCreateProject,
   startPanel = "task",
   onStartFocus,
+  onMarkedDone,
 }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
@@ -187,6 +191,12 @@ export function TaskSheet({
     try {
       await onSave({ ...draftFrom(task, defaultProjectId, projects), ...change });
       onClose();
+      if (change.status === "done" && task.status !== "done") {
+        hapticDone();
+        onMarkedDone?.(task);
+      } else if (change.status && change.status !== "done" && task.status === "done") {
+        hapticUndone();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "That change could not be saved. Please try again.");
     } finally {

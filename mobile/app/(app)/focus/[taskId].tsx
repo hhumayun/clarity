@@ -51,6 +51,7 @@ import {
   scheduleEndAlert,
   softHaptic,
 } from "../../../src/lib/focusAlerts";
+import { hapticDone } from "../../../src/lib/haptics";
 import { areaColor } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
@@ -287,6 +288,7 @@ export default function FocusScreen() {
       { onError: () => toast.show("That session could not be saved.") },
     );
     if (outcome === "finished") {
+      hapticDone();
       update.mutate(
         { id: task.id, status: "done" },
         { onError: () => toast.show("The task could not be marked done. Please try again.") },

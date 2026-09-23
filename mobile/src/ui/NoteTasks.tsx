@@ -62,14 +62,27 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // After an add: the confirmation, then which card to flash.
   const [added, setAdded] = useState<TaskRecord | null>(null);
+  const [finished, setFinished] = useState<TaskRecord | null>(null);
+  const finishedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
       if (revealTimer.current) clearTimeout(revealTimer.current);
+      if (finishedTimer.current) clearTimeout(finishedTimer.current);
     },
     [],
   );
+
+  const showFinished = (task: TaskRecord) => {
+    setAdded(null);
+    setFinished(task);
+    if (finishedTimer.current) clearTimeout(finishedTimer.current);
+    finishedTimer.current = setTimeout(() => {
+      finishedTimer.current = null;
+      setFinished(null);
+    }, TASK_ADDED_MS);
+  };
 
   const runExtract = () => {
     if (!noteId) return;
@@ -380,6 +393,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
         }
         onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
         startPanel="actions"
+        onMarkedDone={showFinished}
         onStartFocus={
           taskDialog.task
             ? () => {
@@ -396,6 +410,12 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
       <TaskAddedOverlay
         visible={added !== null}
         projectName={added?.projectName ?? ""}
+        style={styles.addedOverlay}
+      />
+      <TaskAddedOverlay
+        visible={finished !== null}
+        kind="done"
+        taskText={finished?.text ?? ""}
         style={styles.addedOverlay}
       />
     </View>
