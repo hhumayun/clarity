@@ -85,13 +85,13 @@ export function ProjectSheet({
               : "This project will be removed."
           : "Projects are the areas of your life that tasks belong to."
       }
+      // The ×, a drag down or a tap outside closes the sheet, dropping any
+      // removal in progress; Android's back button just backs out of it.
       onClose={() => {
-        if (deleting) {
-          setDeleting(null);
-          return;
-        }
+        setDeleting(null);
         onClose();
       }}
+      onBack={deleting ? () => setDeleting(null) : onClose}
     >
       {deleting ? (
         <>

@@ -1,14 +1,7 @@
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import {
-  CalendarDays,
-  ChevronLeft,
-  CircleCheck,
-  Pencil,
-  Plus,
-  RotateCcw,
-} from "lucide-react-native";
+import { CalendarDays, ChevronLeft, CircleCheck, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
@@ -238,7 +231,29 @@ export function TaskSheet({
         open={open}
         title={titles[panel].title}
         description={titles[panel].description}
-        onClose={panel === home ? onClose : () => setPanel(panel === "move" ? "actions" : "task")}
+        // The ×, a drag down or a tap outside closes the whole sheet. Android's
+        // back button steps back a page: to the actions from Move or Edit,
+        // and to the form from a project or date.
+        onClose={onClose}
+        onBack={
+          panel === home
+            ? onClose
+            : () => setPanel(panel === "move" || panel === "task" ? "actions" : "task")
+        }
+        headerAction={
+          panel === "task" && editing && onDelete ? (
+            // Up here, away from Save, and it still asks before deleting.
+            <Pressable
+              onPress={() => setConfirmingDelete(true)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Delete this task"
+            >
+              <Trash2 size={20} color={colors.mutedForeground} />
+            </Pressable>
+          ) : undefined
+        }
       >
         {/* Each face fades in as it replaces the last, while the sheet's
             height glides between them. */}
@@ -435,11 +450,6 @@ export function TaskSheet({
             <Button size="lg" loading={saving} disabled={!canSave} onPress={() => void save()}>
               {editing ? "Save changes" : "Add task"}
             </Button>
-            {onDelete ? (
-              <Button variant="ghost" onPress={() => setConfirmingDelete(true)}>
-                Delete task
-              </Button>
-            ) : null}
           </>
         ) : panel === "project" ? (
           <>
@@ -552,6 +562,13 @@ function makeStyles(colors: Colors, scale: number) {
     picker: { marginHorizontal: -spacing[2] },
     face: { gap: spacing[4] },
     pressed: { opacity: 0.85 },
+    deleteButton: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.full,
+    },
     flexShrink: { flexShrink: 1 },
     focusButton: {
       flexDirection: "row",
