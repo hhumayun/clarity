@@ -16,7 +16,6 @@ import {
   type TaskStatus,
 } from "../types";
 import { Button } from "./Button";
-import { ConfirmModal } from "./ConfirmModal";
 import { Input } from "./Input";
 import { PomodoroBadge } from "./PomodoroBadge";
 import { Sheet } from "./Sheet";
@@ -51,12 +50,14 @@ type Props = {
 };
 
 /**
- * Which face of the sheet is showing. Deliberately one sheet with three
- * faces rather than sheets opened on top of each other: on iOS a second
- * Modal presented over a first is fragile, and the failure mode is a screen
- * that still looks right but answers no touches.
+ * Which face of the sheet is showing. Deliberately one sheet with faces
+ * rather than sheets opened on top of each other: on iOS a second Modal
+ * presented over a first is fragile, and the failure mode is a screen that
+ * still looks right but answers no touches. That includes confirming a
+ * delete, which once opened a dialog over the sheet and froze the screen
+ * behind it after both closed.
  */
-type Panel = "actions" | "move" | "task" | "project" | "date";
+type Panel = "actions" | "move" | "task" | "project" | "date" | "confirmDelete";
 
 function draftFrom(
   task: TaskRecord | null | undefined,
@@ -108,7 +109,6 @@ export function TaskSheet({
   const [error, setError] = useState("");
   const [newProject, setNewProject] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [panel, setPanel] = useState<Panel>("task");
   const [movePickerOpen, setMovePickerOpen] = useState(false);
@@ -223,6 +223,10 @@ export function TaskSheet({
       description: "A short name is easiest to recognise later.",
     },
     date: { title: "Pick a date" },
+    confirmDelete: {
+      title: "Delete this task?",
+      description: "It will stay hidden even if you refresh tasks from the note it came from.",
+    },
   };
 
   return (
@@ -233,7 +237,7 @@ export function TaskSheet({
         description={titles[panel].description}
         // The ×, a drag down or a tap outside closes the whole sheet. Android's
         // back button steps back a page: to the actions from Move or Edit,
-        // and to the form from a project or date.
+        // and to the form from a project, a date or the delete confirmation.
         onClose={onClose}
         onBack={
           panel === home
@@ -244,7 +248,10 @@ export function TaskSheet({
           panel === "task" && editing && onDelete ? (
             // Up here, away from Save, and it still asks before deleting.
             <Pressable
-              onPress={() => setConfirmingDelete(true)}
+              onPress={() => {
+                setError("");
+                setPanel("confirmDelete");
+              }}
               hitSlop={8}
               style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
               accessibilityRole="button"
@@ -451,6 +458,29 @@ export function TaskSheet({
               {editing ? "Save changes" : "Add task"}
             </Button>
           </>
+        ) : panel === "confirmDelete" ? (
+          <>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Button
+              variant="destructive"
+              size="lg"
+              loading={deleting}
+              onPress={() => {
+                if (!onDelete || deleting) return;
+                setDeleting(true);
+                setError("");
+                onDelete()
+                  .then(() => onClose())
+                  .catch(() => setError("That task could not be deleted. Please try again."))
+                  .finally(() => setDeleting(false));
+              }}
+            >
+              Delete
+            </Button>
+            <Button variant="ghost" onPress={() => setPanel("task")} disabled={deleting}>
+              Cancel
+            </Button>
+          </>
         ) : panel === "project" ? (
           <>
             <Input
@@ -509,25 +539,6 @@ export function TaskSheet({
         )}
         </Animated.View>
       </Sheet>
-
-      <ConfirmModal
-        open={confirmingDelete}
-        title="Delete this task?"
-        description="It will stay hidden even if you refresh tasks from the note it came from."
-        confirmLabel="Delete"
-        destructive
-        loading={deleting}
-        onClose={() => setConfirmingDelete(false)}
-        onConfirm={() => {
-          setDeleting(true);
-          void onDelete?.()
-            .then(() => {
-              setConfirmingDelete(false);
-              onClose();
-            })
-            .finally(() => setDeleting(false));
-        }}
-      />
     </>
   );
 }
