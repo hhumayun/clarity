@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Plus, Sparkles, Trash2 } from "lucide-react-native";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Plus, Sparkles, Trash2, X } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -18,12 +18,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getNote, postNoteCreate, postNoteUpdate } from "../../../src/api/notes";
+import { getNote, postNoteCreate, postNoteUpdate, postSuggestTitle } from "../../../src/api/notes";
 import { upsertNoteInLists, useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSuggestions } from "../../../src/hooks/useSuggestions";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts } from "../../../src/lib/localDrafts";
+import { wantsTitleIdea, wantsTitleOnLeave } from "../../../src/lib/noteTitle";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { fonts, spacing, type Colors } from "../../../src/theme";
@@ -32,6 +33,7 @@ import {
   type BubbleSuggestion,
 } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
+import { Collapse } from "../../../src/ui/Collapse";
 import { Sheet } from "../../../src/ui/Sheet";
 import Animated from "react-native-reanimated";
 import { fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
@@ -51,6 +53,9 @@ const SERVER_SAVE_DELAY_MS = 900;
 const REINDEX_DELAY_MS = 4_000;
 // Roughly four lines: below this the note stops feeling like somewhere to write.
 const MIN_BODY_HEIGHT = 120;
+// An untitled note's title idea waits for a pause in the writing, so it comes
+// from a thought rather than half a word.
+const TITLE_IDEA_PAUSE_MS = 2_000;
 
 function shouldCapitalize(before: string): boolean {
   const trimmed = before.trimEnd();
@@ -97,6 +102,26 @@ export default function NoteEditorScreen() {
   const noteIdRef = useRef(noteId);
   noteIdRef.current = noteId;
   const creatingRef = useRef(false);
+  // The create request in flight, so leaving can wait for the note to exist.
+  const createInFlightRef = useRef<Promise<unknown> | null>(null);
+
+  // Titles for notes the writer has not titled. An idea is offered once the
+  // note has a little text; leaving applies one if the writer changed the
+  // note this visit but never touched the title.
+  const [titleIdea, setTitleIdea] = useState<{ title: string; forContent: string } | null>(null);
+  const titleIdeaRef = useRef(titleIdea);
+  titleIdeaRef.current = titleIdea;
+  const [titleIdeaDismissed, setTitleIdeaDismissed] = useState(false);
+  const titleIdeaDismissedRef = useRef(titleIdeaDismissed);
+  titleIdeaDismissedRef.current = titleIdeaDismissed;
+  const titleIdeaAskedRef = useRef(false);
+  // Typed in the title field this visit (even if it was cleared again).
+  const titleTouchedRef = useRef(false);
+  // The text as it was when the note opened: leaving only titles a note
+  // whose text changed, so just opening and closing one never edits it.
+  const baselineContentRef = useRef<string | null>(null);
+  const aiSuggestionsRef = useRef(aiSuggestions);
+  aiSuggestionsRef.current = aiSuggestions;
 
   // Keyed on the note once it exists, so creating one mid-session moves the
   // draft from "new" to its id without a navigation.
@@ -132,6 +157,7 @@ export default function NoteEditorScreen() {
       noteIdRef.current = null;
       setTitle(draft?.title ?? "");
       setContent(draft?.content ?? "");
+      baselineContentRef.current = draft?.content ?? "";
       setCursorPos(draft?.content.length ?? 0);
       setStatus("idle");
       loadedKeyRef.current = draftKey;
@@ -154,11 +180,13 @@ export default function NoteEditorScreen() {
         if (draft && draft.at > note.updatedAt.getTime()) {
           setTitle(draft.title);
           setContent(draft.content);
+          baselineContentRef.current = draft.content;
           setCursorPos(draft.content.length);
           setStatus("saving");
         } else {
           setTitle(note.title);
           setContent(note.content);
+          baselineContentRef.current = note.content;
           setCursorPos(note.content.length);
           setStatus("saved");
         }
@@ -175,6 +203,7 @@ export default function NoteEditorScreen() {
         if (draft) {
           setTitle(draft.title);
           setContent(draft.content);
+          baselineContentRef.current = draft.content;
           setCursorPos(draft.content.length);
           setStatus("offline");
           loadedKeyRef.current = draftKey;
@@ -204,11 +233,13 @@ export default function NoteEditorScreen() {
           if (creatingRef.current) return;
           creatingRef.current = true;
           try {
-            const { note } = await postNoteCreate({
+            const creating = postNoteCreate({
               title: nextTitle,
               content: nextContent,
               ...(tagIdsRef.current.length ? { projectIds: tagIdsRef.current } : {}),
             });
+            createInFlightRef.current = creating;
+            const { note } = await creating;
             setNoteId(note.id);
             noteIdRef.current = note.id;
             // Show it in the notes list straight away.
@@ -221,6 +252,7 @@ export default function NoteEditorScreen() {
             loadedKeyRef.current = note.id;
           } finally {
             creatingRef.current = false;
+            createInFlightRef.current = null;
           }
         } else {
           const { note } = await postNoteUpdate({
@@ -336,8 +368,82 @@ export default function NoteEditorScreen() {
     setPendingSelection(next.length);
   }, [reflectionQuestion]);
 
+  // Offer a title once an untitled note has a little text and the writer
+  // pauses. Once per visit: leaving asks again if the text has moved on.
+  useEffect(() => {
+    if (!loaded || titleIdeaAskedRef.current) return;
+    const state = { title, content, titleTouched: titleTouchedRef.current, dismissed: titleIdeaDismissed, aiOn: aiSuggestions };
+    if (!wantsTitleIdea(state)) return;
+    const timer = setTimeout(() => {
+      titleIdeaAskedRef.current = true;
+      const forContent = contentRef.current;
+      postSuggestTitle({ content: forContent })
+        .then(({ title: idea }) => {
+          if (idea && !titleRef.current.trim() && !titleTouchedRef.current) {
+            setTitleIdea({ title: idea, forContent });
+          }
+        })
+        .catch(() => {
+          // No idea this time; an untitled note is fine.
+        });
+    }, TITLE_IDEA_PAUSE_MS);
+    return () => clearTimeout(timer);
+  }, [loaded, aiSuggestions, titleIdeaDismissed, title, content]);
+
+  const showTitleIdea =
+    titleIdea !== null && aiSuggestions && !titleIdeaDismissed && title.trim() === "" && !titleTouchedRef.current;
+
+  const leftRef = useRef(false);
+  // Runs once as the editor goes, however it goes: the back button, the
+  // swipe back, or leaving after archiving. It saves, and gives an untitled
+  // note a title if the writer changed its text but never touched the title.
+  const leave = useCallback(() => {
+    if (leftRef.current) return;
+    leftRef.current = true;
+    // Deleted, or never finished loading: nothing to save.
+    if (loadedKeyRef.current === null) return;
+    const content = contentRef.current;
+    const saving = persist(titleRef.current, content);
+    const wantsTitle = wantsTitleOnLeave({
+      title: titleRef.current,
+      content,
+      contentAtOpen: baselineContentRef.current,
+      titleTouched: titleTouchedRef.current,
+      dismissed: titleIdeaDismissedRef.current,
+      aiOn: aiSuggestionsRef.current,
+    });
+    if (!wantsTitle) return;
+    void (async () => {
+      try {
+        // The idea on screen if it was made from this same text; otherwise a
+        // fresh one from the text as it now stands.
+        const idea = titleIdeaRef.current;
+        const title =
+          idea && idea.forContent === content ? idea.title : (await postSuggestTitle({ content })).title;
+        if (!title) return;
+        await saving;
+        if (createInFlightRef.current) await createInFlightRef.current;
+        const id = noteIdRef.current;
+        if (!id) return;
+        // Content goes too, in case edits made while the note was being
+        // created missed that save.
+        const { note } = await postNoteUpdate({ id, title, content });
+        upsertNoteInLists(queryClient, note);
+        await localDrafts.clear(id);
+      } catch {
+        // The note stays untitled; the list shows its first line instead.
+      }
+    })();
+  }, [persist, queryClient]);
+  const leaveRef = useRef(leave);
+  leaveRef.current = leave;
+
+  // The swipe back skips the back button, so listen for the screen going.
+  const navigation = useNavigation();
+  useEffect(() => navigation.addListener("beforeRemove", () => leaveRef.current()), [navigation]);
+
   const goBack = useCallback(() => {
-    void persist(titleRef.current, contentRef.current);
+    leave();
     // Pop the editor off the stack so it animates back out the way it came in.
     // router.replace would push a fresh screen, which slides in from the right again.
     if (router.canGoBack()) {
@@ -345,7 +451,7 @@ export default function NoteEditorScreen() {
     } else {
       router.replace("/");
     }
-  }, [persist, router]);
+  }, [leave, router]);
 
   const statusLabel =
     status === "saving"
@@ -369,7 +475,10 @@ export default function NoteEditorScreen() {
           <View style={styles.headerCenter}>
             <TextInput
               value={title}
-              onChangeText={setTitle}
+              onChangeText={(value) => {
+                titleTouchedRef.current = true;
+                setTitle(value);
+              }}
               editable={loaded}
               placeholder={loaded ? "Untitled" : ""}
               placeholderTextColor={colors.mutedForeground}
@@ -397,6 +506,35 @@ export default function NoteEditorScreen() {
             <View style={styles.headerSpacer} />
           )}
         </View>
+
+        <Collapse open={showTitleIdea}>
+          <View style={styles.titleIdeaRow}>
+            <Pressable
+              onPress={() => {
+                const idea = titleIdeaRef.current;
+                if (idea) setTitle(idea.title);
+              }}
+              style={({ pressed }) => [styles.titleIdea, pressed && styles.titleIdeaPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Use the suggested title: ${titleIdea?.title ?? ""}`}
+            >
+              <Sparkles size={14} color={colors.primary} />
+              <Text style={styles.titleIdeaText} numberOfLines={1}>
+                {titleIdea?.title}
+              </Text>
+              <Text style={styles.titleIdeaUse}>Use</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setTitleIdeaDismissed(true)}
+              hitSlop={10}
+              style={styles.titleIdeaDismiss}
+              accessibilityRole="button"
+              accessibilityLabel="No thanks, keep this note untitled"
+            >
+              <X size={16} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        </Collapse>
 
         {TASKS_ENABLED && loaded ? (
           <View style={styles.areaRow}>
@@ -708,6 +846,33 @@ function makeStyles(colors: Colors, scale: number) {
     },
     tabs: { alignSelf: "center", marginBottom: spacing[2] },
     headerSpacer: { width: 48, height: 48 },
+    titleIdeaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing[1],
+      paddingHorizontal: spacing[4],
+      marginBottom: spacing[2],
+    },
+    titleIdea: {
+      flexShrink: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 999,
+      backgroundColor: colors.accent,
+      paddingHorizontal: spacing[3],
+      paddingVertical: 6,
+    },
+    titleIdeaPressed: { opacity: 0.8 },
+    titleIdeaText: {
+      flexShrink: 1,
+      fontFamily: fonts.base,
+      fontSize: 14 * scale,
+      color: colors.accentForeground,
+    },
+    titleIdeaUse: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
+    titleIdeaDismiss: { padding: spacing[1] },
     areaRow: {
       flexDirection: "row",
       flexWrap: "wrap",

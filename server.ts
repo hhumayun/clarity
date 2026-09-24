@@ -44,6 +44,7 @@ const routes: Array<["GET" | "POST", string, string]> = [
   ["POST", "/_api/notes/update", "./endpoints/notes/update_POST.js"],
   ["POST", "/_api/notes/delete", "./endpoints/notes/delete_POST.js"],
   ["POST", "/_api/notes/reindex", "./endpoints/notes/reindex_POST.js"],
+  ["POST", "/_api/notes/suggest_title", "./endpoints/notes/suggest_title_POST.js"],
   ["GET", "/_api/preferences", "./endpoints/preferences_GET.js"],
   ["POST", "/_api/preferences", "./endpoints/preferences_POST.js"],
   ["GET", "/_api/projects/list", "./endpoints/projects/list_GET.js"],

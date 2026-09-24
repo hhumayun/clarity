@@ -63,6 +63,23 @@ export async function getNoteCounts(init?: RequestInit): Promise<{ archived: num
   return parseResponse(result);
 }
 
+/**
+ * A title idea for an untitled note, from its text as it stands in the
+ * editor. Null when the model has nothing useful; nothing is saved.
+ */
+export async function postSuggestTitle(
+  body: { content: string },
+  init?: RequestInit,
+): Promise<{ title: string | null }> {
+  const result = await apiFetch("/_api/notes/suggest_title", {
+    method: "POST",
+    body: superjson.stringify(body),
+    ...init,
+    headers: jsonHeaders(init),
+  });
+  return parseResponse(result);
+}
+
 export async function getNote(
   params: { id: string },
   init?: RequestInit,
