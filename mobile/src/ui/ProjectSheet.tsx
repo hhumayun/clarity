@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { useToast } from "../providers/ToastProvider";
 import { sortProjects } from "../lib/taskSort";
@@ -29,8 +29,8 @@ export function ProjectSheet({
   onDelete,
 }: Props) {
   const toast = useToast();
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [newName, setNewName] = useState("");
@@ -232,7 +232,7 @@ export function ProjectSheet({
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     row: {
       flexDirection: "row",

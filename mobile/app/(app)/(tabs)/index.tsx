@@ -52,7 +52,7 @@ import {
 } from "../../../src/lib/notesList";
 import { taskCountByNote } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
-import { radius, spacing, type Colors, type Fonts } from "../../../src/theme";
+import { fonts, radius, spacing, type Colors } from "../../../src/theme";
 import type { NoteRecord } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { NoteCard } from "../../../src/ui/NoteCard";
@@ -66,8 +66,8 @@ type NotesView = "list" | "days";
 
 export default function NotesListScreen() {
   const router = useRouter();
-  const { colors, fonts, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const [view, setView] = useState<NotesView>("list");
   const [showArchived, setShowArchived] = useState(false);
@@ -604,7 +604,7 @@ export default function NotesListScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },

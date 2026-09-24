@@ -14,7 +14,7 @@ import {
 } from "../../src/hooks/usePreferences";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
 import { useToast } from "../../src/providers/ToastProvider";
-import { radius, spacing, type Colors, type Fonts } from "../../src/theme";
+import { fonts, radius, spacing, type Colors } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 import { ConfirmModal } from "../../src/ui/ConfirmModal";
 import { Skeleton } from "../../src/ui/Skeleton";
@@ -26,8 +26,8 @@ export default function PrivacyScreen() {
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { data: preferences, isFetching } = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const clearPersonalization = useClearPersonalization();
@@ -174,7 +174,7 @@ export default function PrivacyScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingHorizontal: spacing[2] },

@@ -55,7 +55,7 @@ import { hapticDone } from "../../../src/lib/haptics";
 import { areaColor } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { radius, spacing, type Colors, type Fonts } from "../../../src/theme";
+import { fonts, radius, spacing, type Colors } from "../../../src/theme";
 import type { TaskRecord } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { ProgressRing } from "../../../src/ui/ProgressRing";
@@ -88,8 +88,8 @@ export default function FocusScreen() {
   const taskId = params.taskId;
   const router = useRouter();
   const toast = useToast();
-  const { colors, fonts, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const { query, update } = useTasks();
   const summary = useFocusSummary();
@@ -725,7 +725,7 @@ export default function FocusScreen() {
   return <SafeAreaView style={styles.page} />;
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },

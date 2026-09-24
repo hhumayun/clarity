@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { EASE_OUT, MOTION } from "./motion";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 type Option<T extends string> = {
@@ -28,8 +28,8 @@ export function Segmented<T extends string>({
   size = "md",
 }: Props<T>) {
   const small = size === "sm";
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   // One pill that slides to the chosen option, instead of the highlight
   // jumping from one to the next. Positions come from each option's layout.
@@ -100,7 +100,7 @@ export function Segmented<T extends string>({
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     row: {
       flexDirection: "row",

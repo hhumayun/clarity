@@ -3,7 +3,7 @@ import React, { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 
 /** How long the confirmation stays up before the screen moves on to the card. */
 export const TASK_ADDED_MS = 1_100;
@@ -25,8 +25,8 @@ type Props = {
  * unmounted the moment it is done.
  */
 export function TaskAddedOverlay({ visible, kind = "added", projectName = "", taskText = "", style }: Props) {
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   if (!visible) return null;
   return (
     <Animated.View
@@ -65,7 +65,7 @@ export function TaskAddedOverlay({ visible, kind = "added", projectName = "", ta
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     fill: {
       position: "absolute",

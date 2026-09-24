@@ -83,43 +83,12 @@ export const radius = {
   full: 999,
 };
 
-/**
- * Font roles. Each theme has its own pair, as in the redesign: Morning Paper
- * sets Literata headings over Atkinson Hyperlegible, and Evening Sage sets
- * Fraunces over Figtree. Atkinson Hyperlegible comes only in regular and
- * bold, so its semibold and title roles use the bold.
- */
-export type Fonts = {
-  /** Body text. */
-  base: string;
-  /** Emphasis: labels, buttons, the active tab. */
-  baseSemi: string;
-  baseBold: string;
-  /** Task and note titles. */
-  title: string;
-  /** Headings. */
-  display: string;
-};
-
-const paperFonts: Fonts = {
-  base: "AtkinsonHyperlegible_400Regular",
-  baseSemi: "AtkinsonHyperlegible_700Bold",
-  baseBold: "AtkinsonHyperlegible_700Bold",
-  title: "AtkinsonHyperlegible_700Bold",
-  display: "Literata_600SemiBold",
-};
-
-const sageFonts: Fonts = {
-  base: "Figtree_400Regular",
-  baseSemi: "Figtree_600SemiBold",
-  baseBold: "Figtree_700Bold",
-  title: "Figtree_500Medium",
+export const fonts = {
+  base: "NunitoSans_400Regular",
+  baseSemi: "NunitoSans_600SemiBold",
+  baseBold: "NunitoSans_700Bold",
   display: "Fraunces_600SemiBold",
 };
-
-export function fontSet(darkMode: boolean): Fonts {
-  return darkMode ? sageFonts : paperFonts;
-}
 
 export function palette(darkMode: boolean): Colors {
   return darkMode ? dark : light;

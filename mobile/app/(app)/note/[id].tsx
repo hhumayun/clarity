@@ -26,7 +26,7 @@ import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts } from "../../../src/lib/localDrafts";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { spacing, type Colors, type Fonts } from "../../../src/theme";
+import { fonts, spacing, type Colors } from "../../../src/theme";
 import {
   isCompletionSuggestion,
   type BubbleSuggestion,
@@ -62,8 +62,8 @@ export default function NoteEditorScreen() {
   const isNew = routeId === "new";
   const router = useRouter();
   const toast = useToast();
-  const { colors, fonts, scale, aiSuggestions, setAiSuggestions, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale, aiSuggestions, setAiSuggestions, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const [noteId, setNoteId] = useState<string | null>(isNew ? null : routeId ?? null);
   const [title, setTitle] = useState("");
@@ -677,7 +677,7 @@ export default function NoteEditorScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },

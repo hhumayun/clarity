@@ -1,15 +1,11 @@
 import {
-  AtkinsonHyperlegible_400Regular,
-  AtkinsonHyperlegible_700Bold,
-} from "@expo-google-fonts/atkinson-hyperlegible";
+  Fraunces_600SemiBold,
+} from "@expo-google-fonts/fraunces";
 import {
-  Figtree_400Regular,
-  Figtree_500Medium,
-  Figtree_600SemiBold,
-  Figtree_700Bold,
-} from "@expo-google-fonts/figtree";
-import { Fraunces_600SemiBold } from "@expo-google-fonts/fraunces";
-import { Literata_600SemiBold } from "@expo-google-fonts/literata";
+  NunitoSans_400Regular,
+  NunitoSans_600SemiBold,
+  NunitoSans_700Bold,
+} from "@expo-google-fonts/nunito-sans";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -24,10 +20,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppThemeProvider, useAppTheme } from "../src/providers/AppThemeProvider";
 import { AuthProvider, useAuth } from "../src/providers/AuthProvider";
 import { ToastProvider } from "../src/providers/ToastProvider";
-import { fontSet } from "../src/theme";
-
-// The missing-key screen shows before the theme loads: Morning Paper.
-const fonts = fontSet(false);
+import { fonts } from "../src/theme";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -38,15 +31,10 @@ const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
-  // Both themes' fonts: Morning Paper (light) and Evening Sage (dark).
   const [loaded, error] = useFonts({
-    AtkinsonHyperlegible_400Regular,
-    AtkinsonHyperlegible_700Bold,
-    Literata_600SemiBold,
-    Figtree_400Regular,
-    Figtree_500Medium,
-    Figtree_600SemiBold,
-    Figtree_700Bold,
+    NunitoSans_400Regular,
+    NunitoSans_600SemiBold,
+    NunitoSans_700Bold,
     Fraunces_600SemiBold,
   });
 

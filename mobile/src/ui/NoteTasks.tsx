@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CalendarDays, Sparkles } from "lucide-react-native";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useToast } from "../providers/ToastProvider";
@@ -42,8 +42,8 @@ function commonProjectId(tasks: TaskRecord[]): string | null {
 export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled: boolean }) {
   const toast = useToast();
   const router = useRouter();
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { query, extract, addSuggested, create, update, remove, createProject } = useTasks(
     noteId ?? undefined,
     enabled && Boolean(noteId),
@@ -422,7 +422,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     section: { gap: spacing[3], paddingBottom: spacing[8] },
     addedOverlay: { justifyContent: "flex-start", paddingTop: spacing[12] },

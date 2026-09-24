@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { MOTION } from "./motion";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { Button } from "./Button";
 
@@ -30,8 +30,8 @@ export function ConfirmModal({
   onConfirm,
   onClose,
 }: Props) {
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   // See Sheet: a hidden Modal left mounted keeps eating touches under the new
   // renderer, so a closed dialog is unmounted once its exit has played.
@@ -71,7 +71,7 @@ export function ConfirmModal({
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,

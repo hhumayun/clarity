@@ -4,7 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { spacing, type Colors, type Fonts } from "../theme";
+import { fonts, spacing, type Colors } from "../theme";
 import { Button } from "./Button";
 
 export function GoogleSignInButton({
@@ -13,8 +13,8 @@ export function GoogleSignInButton({
   onError: (message: string) => void;
 }) {
   const { startSSOFlow } = useSSO();
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export function GoogleSignInButton({
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     divider: {
       flexDirection: "row",

@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { CalendarDays, Check, FileText, Play, Timer } from "lucide-react-native";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatClockTime, formatPlannedDate } from "../lib/dates";
 import { areaColor } from "../lib/lifeCenter";
@@ -107,8 +107,8 @@ export function TaskCard({
   onContinueFocus,
 }: Props) {
   const router = useRouter();
-  const { colors, fonts, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const done = task.status === "done";
   const focus = variant === "focus";
   const due = task.completeBy ? dueState(task.completeBy) : null;
@@ -344,7 +344,7 @@ export function TaskCard({
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     card: {
       gap: spacing[3],
@@ -430,7 +430,7 @@ function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
     },
     continueText: { fontFamily: fonts.baseBold, fontSize: 16 * scale, color: colors.primaryForeground },
     text: {
-      fontFamily: fonts.title,
+      fontFamily: fonts.baseSemi,
       fontSize: 16 * scale,
       color: colors.foreground,
     },

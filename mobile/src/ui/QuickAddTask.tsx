@@ -21,7 +21,7 @@ import { usePresence } from "../hooks/usePresence";
 import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 import type { ProjectRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -80,8 +80,8 @@ export function QuickAddTask({
   onSubmit,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const { colors, fonts, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const [text, setText] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -411,7 +411,7 @@ export function QuickAddTask({
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     flex: { flex: 1, justifyContent: "flex-end" },
     backdrop: {

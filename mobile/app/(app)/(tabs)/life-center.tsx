@@ -32,7 +32,7 @@ import { dueState } from "../../../src/lib/taskDates";
 import { sortProjects } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { radius, spacing, type Colors, type Fonts } from "../../../src/theme";
+import { fonts, radius, spacing, type Colors } from "../../../src/theme";
 import type { ProjectRecord, TaskRecord, TaskStatus } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { ConfirmModal } from "../../../src/ui/ConfirmModal";
@@ -51,8 +51,8 @@ const ALL = "__all__";
 export default function LifeCenterScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { colors, fonts, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { query, create, update, remove, clearDone, createProject, renameProject, deleteProject } =
     useTasks();
   const notes = useNotes({});
@@ -613,7 +613,7 @@ export default function LifeCenterScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },

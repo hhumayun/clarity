@@ -1,11 +1,11 @@
 import React, { useMemo } from "react";
 import { StyleSheet, TextInput, type TextInputProps } from "react-native";
-import { radius, spacing, type Colors, type Fonts } from "../theme";
+import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 export function Input({ style, ...props }: TextInputProps) {
-  const { colors, fonts, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   return (
     <TextInput
       placeholderTextColor={colors.mutedForeground}
@@ -15,7 +15,7 @@ export function Input({ style, ...props }: TextInputProps) {
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     input: {
       minHeight: 52,

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaColor } from "../lib/lifeCenter";
 import { sortProjects } from "../lib/taskSort";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { spacing, type Colors, type Fonts } from "../theme";
+import { fonts, spacing, type Colors } from "../theme";
 import type { ProjectRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -25,8 +25,8 @@ type Props = {
  * sheet stays open, so tagging three areas is three taps, not three trips.
  */
 export function AreaPickerSheet({ open, onClose, projects, selected, onToggle, onCreate }: Props) {
-  const { colors, fonts, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
+  const { colors, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -111,7 +111,7 @@ export function AreaPickerSheet({ open, onClose, projects, selected, onToggle, o
   );
 }
 
-function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
+function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     flex: { flex: 1 },
     row: { flexDirection: "row", alignItems: "center", gap: spacing[3], paddingVertical: spacing[3] },
