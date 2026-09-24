@@ -12,6 +12,7 @@ import {
   Play,
   Square,
   PersonStanding,
+  X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -27,7 +28,8 @@ import {
 } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { fadeOut, MOTION } from "../../../src/ui/motion";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView, KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCountdown } from "../../../src/hooks/useCountdown";
 import { useFirstSteps, useFocusPrefs, useFocusSummary, useRecordFocus } from "../../../src/hooks/useFocus";
 import { useCreateNote } from "../../../src/hooks/useNotes";
@@ -103,6 +105,12 @@ export default function FocusScreen() {
   const lastLeftOff = last && last.lastOutcome !== "finished" ? last.lastLeftOff.trim() : "";
 
   const [phase, setPhase] = useState<Phase>("setup");
+  // Footers with a text box above them ride on the keyboard (best practice
+  // for a form with actions: the field being typed in stays visible, and so
+  // does the main action). The box scrolls to sit just above the footer.
+  const insets = useSafeAreaInsets();
+  const keyboardOpen = useKeyboardState((state) => state.isVisible);
+  const [footerHeight, setFooterHeight] = useState(88);
   const [minutes, setMinutes] = useState(prefs.minutes);
   const [breakAfter, setBreakAfter] = useState(prefs.breakAfter);
   const [firstStep, setFirstStep] = useState("");
@@ -345,8 +353,12 @@ export default function FocusScreen() {
           <Text style={styles.headerTitle}>Focus time</Text>
           <View style={styles.roundSpacer} />
         </View>
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={footerHeight + spacing[3]}
+        >
             <View style={styles.gapSm}>
               <Text style={styles.muted}>You'll work on</Text>
               <Text style={styles.taskTitle}>{task.text}</Text>
@@ -413,8 +425,12 @@ export default function FocusScreen() {
                 accessibilityLabel={`${BREAK_MINUTES}-minute break after`}
               />
             </View>
-          </ScrollView>
-          <View style={styles.footer}>
+        </KeyboardAwareScrollView>
+        <KeyboardStickyView offset={{ opened: insets.bottom }}>
+          <View
+            style={[styles.footer, styles.stickyFooter]}
+            onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+          >
             <Pressable
               style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
               onPress={startFromSetup}
@@ -424,7 +440,7 @@ export default function FocusScreen() {
               <Text style={styles.primaryText}>Start {minutesPhrase(minutes)}</Text>
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardStickyView>
               </Animated.View>
       </SafeAreaView>
     );
@@ -556,8 +572,23 @@ export default function FocusScreen() {
     return (
       <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
         <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          {/* Closing keeps the session, like "I'm done for now". */}
+          <Pressable
+            onPress={() => void leaveCheckIn("done")}
+            style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Close. Your focus time is saved."
+          >
+            <X size={20} color={colors.foreground} />
+          </Pressable>
+        </View>
+        <KeyboardAwareScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={footerHeight + spacing[3]}
+        >
             <Animated.View entering={FadeIn.duration(240)} style={styles.doneBadge}>
               <Check size={26} color={colors.accentForeground} strokeWidth={2.5} />
             </Animated.View>
@@ -608,12 +639,24 @@ export default function FocusScreen() {
                   style={[styles.input, styles.leftOffInput]}
                   multiline
                   maxLength={2_000}
+                  // A short note: Return closes the keyboard rather than
+                  // starting a new line, so the buttons are one tap away.
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
                 />
                 <Text style={styles.breakHint}>You'll see this next time you open the task.</Text>
               </Animated.View>
             ) : null}
-          </ScrollView>
-          <View style={[styles.footer, styles.gapSm]}>
+        </KeyboardAwareScrollView>
+        <KeyboardStickyView offset={{ opened: insets.bottom }}>
+          {/* While typing, only the main action rides on the keyboard, so the
+              note has room; the rest come back when the keyboard closes. */}
+          <View
+            style={[styles.footer, styles.gapSm, styles.stickyFooter]}
+            onLayout={(event) => {
+              if (keyboardOpen) setFooterHeight(event.nativeEvent.layout.height);
+            }}
+          >
             <Pressable
               style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
               onPress={() => void leaveCheckIn(primary.next)}
@@ -621,7 +664,7 @@ export default function FocusScreen() {
             >
               <Text style={styles.primaryText}>{primary.label}</Text>
             </Pressable>
-            {secondary ? (
+            {secondary && !keyboardOpen ? (
               <Pressable
                 style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
                 onPress={() => void leaveCheckIn(secondary.next)}
@@ -630,13 +673,13 @@ export default function FocusScreen() {
                 <Text style={styles.secondaryText}>{secondary.label}</Text>
               </Pressable>
             ) : null}
-            {breakAfter && !finished ? (
+            {breakAfter && !finished && !keyboardOpen ? (
               <Pressable onPress={() => void leaveCheckIn("done")} style={styles.textLink}>
                 <Text style={styles.textLinkText}>I'm done for now</Text>
               </Pressable>
             ) : null}
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardStickyView>
               </Animated.View>
       </SafeAreaView>
     );
@@ -807,6 +850,8 @@ function makeStyles(colors: Colors, scale: number) {
     breakTitle: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.foreground },
     breakHint: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
     footer: { paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[3] },
+    // Riding on the keyboard it passes over the page, so it needs a floor.
+    stickyFooter: { backgroundColor: colors.background },
     primary: {
       flexDirection: "row",
       alignItems: "center",

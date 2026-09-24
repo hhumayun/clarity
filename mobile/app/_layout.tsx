@@ -16,6 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppThemeProvider, useAppTheme } from "../src/providers/AppThemeProvider";
 import { AuthProvider, useAuth } from "../src/providers/AuthProvider";
@@ -63,6 +64,9 @@ export default function RootLayout() {
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
+          {/* Keyboard-aware scrolling and footers that ride on the keyboard
+              (react-native-keyboard-controller, included in Expo Go). */}
+          <KeyboardProvider>
           <AppThemeProvider>
             <AuthProvider>
               <ToastProvider>
@@ -70,6 +74,7 @@ export default function RootLayout() {
               </ToastProvider>
             </AuthProvider>
           </AppThemeProvider>
+          </KeyboardProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
     </ClerkProvider>
