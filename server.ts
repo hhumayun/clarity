@@ -39,6 +39,7 @@ const routes: Array<["GET" | "POST", string, string]> = [
   ["GET", "/_api/auth/session", "./endpoints/auth/session_GET.js"],
   ["GET", "/_api/notes/get", "./endpoints/notes/get_GET.js"],
   ["GET", "/_api/notes/list", "./endpoints/notes/list_GET.js"],
+  ["GET", "/_api/notes/counts", "./endpoints/notes/counts_GET.js"],
   ["POST", "/_api/notes/create", "./endpoints/notes/create_POST.js"],
   ["POST", "/_api/notes/update", "./endpoints/notes/update_POST.js"],
   ["POST", "/_api/notes/delete", "./endpoints/notes/delete_POST.js"],

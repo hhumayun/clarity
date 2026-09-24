@@ -10,12 +10,21 @@ export const schema = z.object({
   from: z.coerce.date().optional(),
   /** ...and before this one. */
   to: z.coerce.date().optional(),
+  /**
+   * Ask for pages of this many notes, newest written first. Without it the
+   * list is the newest-edited 200 in one go.
+   */
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  /** Where the previous page ended: its `nextCursor`. */
+  cursor: z.string().min(1).max(500).optional(),
 });
 
 export type InputType = z.infer<typeof schema>;
 
 export type OutputType = {
   notes: NoteRecord[];
+  /** Paged lists only: pass back as `cursor` for the next page; null on the last. */
+  nextCursor?: string | null;
 };
 
 export const getNotesList = async (
@@ -28,6 +37,8 @@ export const getNotesList = async (
   if (validated.archived) search.set("archived", "true");
   if (validated.from) search.set("from", validated.from.toISOString());
   if (validated.to) search.set("to", validated.to.toISOString());
+  if (validated.limit) search.set("limit", String(validated.limit));
+  if (validated.cursor) search.set("cursor", validated.cursor);
   const query = search.toString();
 
   const result = await apiFetch(`/_api/notes/list${query ? `?${query}` : ""}`, {

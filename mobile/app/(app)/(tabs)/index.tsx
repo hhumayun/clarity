@@ -23,6 +23,8 @@ import {
   TextInput,
   View,
   useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -36,13 +38,19 @@ import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
-import { NOTES_QUERY_KEY, useNotes, useReindexNotes } from "../../../src/hooks/useNotes";
+import {
+  NOTES_QUERY_KEY,
+  flattenPages,
+  useNoteCounts,
+  useNotes,
+  useNotesPages,
+  useReindexNotes,
+} from "../../../src/hooks/useNotes";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
 import {
   dayHeading,
   groupNotesByDay,
-  inRange,
   notesOnDay,
   parseNoteSearch,
   stripRange,
@@ -61,6 +69,9 @@ import { Sheet } from "../../../src/ui/Sheet";
 
 const BACKFILL_FLAG = "clarity:backfilled";
 const VIEW_KEY = "clarity:notes-view";
+// Start loading older notes this far (in points) before the end of the list,
+// so they are usually there by the time you reach it.
+const LOAD_MORE_WITHIN = 600;
 
 type NotesView = "list" | "days";
 
@@ -107,15 +118,20 @@ export default function NotesListScreen() {
   // "receipts last week": the words go to the server, the dates stay here.
   const parsed = useMemo(() => parseNoteSearch(debouncedSearch), [debouncedSearch]);
   const searching = debouncedSearch.length > 0;
+  // Both go to the server, so a search reaches every note, not just the
+  // pages loaded so far.
   const params = useMemo(
     () => ({
       ...(parsed.text ? { q: parsed.text } : {}),
+      ...(parsed.range ? { from: parsed.range.start, to: parsed.range.end } : {}),
       ...(showArchived ? { archived: true } : {}),
     }),
-    [parsed.text, showArchived],
+    [parsed.text, parsed.range, showArchived],
   );
-  const { data, isFetching, isError, refetch } = useNotes(params);
-  const archivedList = useNotes({ archived: true });
+  // The newest notes first; older pages load as the list scrolls near its end.
+  const { data, isFetching, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useNotesPages(params);
+  const noteCounts = useNoteCounts();
   const tasks = useTasks(undefined, TASKS_ENABLED);
   const queryClient = useQueryClient();
   const firstFocus = useRef(true);
@@ -144,10 +160,7 @@ export default function NotesListScreen() {
     })();
   }, []);
 
-  const notes = useMemo(
-    () => (data?.notes ?? []).filter((note) => inRange(note.createdAt, parsed.range)),
-    [data?.notes, parsed.range],
-  );
+  const notes = useMemo(() => flattenPages(data), [data]);
   const counts = useMemo(
     () => (TASKS_ENABLED ? taskCountByNote(tasks.query.data?.tasks ?? []) : new Map<string, number>()),
     [tasks.query.data?.tasks],
@@ -163,7 +176,7 @@ export default function NotesListScreen() {
       const name = projectNames.get(id);
       return name ? [{ id, name }] : [];
     });
-  const archivedCount = archivedList.data?.notes.length ?? 0;
+  const archivedCount = noteCounts.data?.archived ?? 0;
   const loading = isFetching && !data;
 
   const openNote = (note: NoteRecord) => router.push(`/note/${note.id}`);
@@ -387,6 +400,7 @@ export default function NotesListScreen() {
           {group.notes.map(card)}
         </Animated.View>
       ))}
+      {isFetchingNextPage ? <Text style={styles.loadingMore}>Loading older notes…</Text> : null}
     </>
   );
 
@@ -554,9 +568,26 @@ export default function NotesListScreen() {
     );
   }
 
+  // The day-by-day view shows its own week, so only the list, search results
+  // and the archive load older pages.
+  const listShown = view === "list" || searching || showArchived;
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!listShown || !hasNextPage || isFetchingNextPage) return;
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    if (contentOffset.y + layoutMeasurement.height >= contentSize.height - LOAD_MORE_WITHIN) {
+      void fetchNextPage();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onScroll={onScroll}
+        scrollEventThrottle={100}
+      >
         <FadeSwitch switchKey={showArchived ? "archived" : "notes"}>{header}</FadeSwitch>
         {searchField}
         {/* The body fades in whenever what it shows changes kind: list, days,
@@ -641,6 +672,13 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.foreground,
     },
     group: { gap: spacing[2] },
+    loadingMore: {
+      fontFamily: fonts.base,
+      fontSize: 14 * scale,
+      color: colors.mutedForeground,
+      textAlign: "center",
+      paddingVertical: spacing[3],
+    },
     groupLabel: {
       fontFamily: fonts.baseSemi,
       fontSize: 12 * scale,

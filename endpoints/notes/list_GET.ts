@@ -4,6 +4,7 @@ import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
 import { attachProjectIds } from "../../helpers/noteProjects";
+import { filterNotes, listNotesPage } from "../../helpers/listNotesPage";
 import { schema, type OutputType } from "./list_GET.schema";
 
 export async function handle(request: Request) {
@@ -15,40 +16,27 @@ export async function handle(request: Request) {
       archived: url.searchParams.get("archived") === "true" ? true : undefined,
       from: url.searchParams.get("from") ?? undefined,
       to: url.searchParams.get("to") ?? undefined,
+      limit: url.searchParams.get("limit") ?? undefined,
+      cursor: url.searchParams.get("cursor") ?? undefined,
     });
 
-    let query = db
-      .selectFrom("notes")
-      .select([...NOTE_RECORD_COLUMNS])
-      .where("userId", "=", user.id)
-      .where("archived", "=", input.archived === true);
-
-    // A date range reaches back past the newest-200 cap below, so the journal
-    // can show a week from any time, not just recent ones.
-    if (input.from) query = query.where("createdAt", ">=", input.from);
-    if (input.to) query = query.where("createdAt", "<", input.to);
-
-    const term = input.q?.trim();
-    if (term) {
-      const pattern = `%${term.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-      query = query.where((eb) =>
-        eb.or([
-          eb("title", "ilike", pattern),
-          eb("content", "ilike", pattern),
-          // Searching an area's name finds the notes tagged with it.
-          eb.exists(
-            eb
-              .selectFrom("noteProjects")
-              .innerJoin("projects", "projects.id", "noteProjects.projectId")
-              .select("noteProjects.noteId")
-              .whereRef("noteProjects.noteId", "=", "notes.id")
-              .where("projects.name", "ilike", pattern),
-          ),
-        ]),
-      );
+    // Paged: a page of notes, newest written first, and where the next begins.
+    if (input.limit) {
+      const page = await listNotesPage(db, user.id, { ...input, limit: input.limit });
+      return new Response(superjson.stringify(page satisfies OutputType));
     }
 
-    const rows = await query.orderBy("updatedAt", "desc").limit(200).execute();
+    // Unpaged, for callers that do not ask for pages: the newest-edited 200.
+    // A date range reaches back past that cap, so the journal can show a
+    // week from any time, not just recent ones.
+    const rows = await filterNotes(
+      db.selectFrom("notes").select([...NOTE_RECORD_COLUMNS]),
+      user.id,
+      input,
+    )
+      .orderBy("updatedAt", "desc")
+      .limit(200)
+      .execute();
     const notes = await attachProjectIds(db, rows, user.id);
 
     return new Response(superjson.stringify({ notes } satisfies OutputType));
