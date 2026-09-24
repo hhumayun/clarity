@@ -48,8 +48,8 @@ Store suggestions on the server, each marked pending or dismissed.
 - A new `task_suggestions` table: `id`, `user_id`, `note_id`, `fingerprint`
   (from `taskFingerprint`), `text`, `project_name`, `complete_by`, `status`
   (`pending` or `dismissed`) and `created_at`, unique on
-  `(note_id, fingerprint)`. This is migration 006 and must be approved before
-  it is applied to Neon.
+  `(note_id, fingerprint)`. It needs a new migration (006 is taken by the
+  notes list index) and must be approved before it is applied to Neon.
 - `extract_POST` replaces the note's pending rows with the new result, skipping
   fingerprints that are dismissed or already tasks, so a line deleted from the
   note stops being suggested.
