@@ -1,18 +1,24 @@
 import { X } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
-  PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { EASE_OUT, MOTION } from "./motion";
@@ -37,10 +43,10 @@ type Props = {
   children: React.ReactNode;
 };
 
-// Dragged down this far (or flicked down), the sheet closes; any less and
-// it springs back.
+// Dragged down this far (or flicked down, in points a second), the sheet
+// closes; any less and it springs back.
 const CLOSE_DRAG = 120;
-const CLOSE_FLICK = 0.9;
+const CLOSE_FLICK = 900;
 
 export function Sheet({ open, title, description, eyebrow, onClose, onBack, headerAction, children }: Props) {
   const insets = useSafeAreaInsets();
@@ -71,29 +77,87 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  // The handle and title are the grip. Only a mostly-downward drag takes it,
-  // so taps still reach the buttons there, and the list below keeps its own
-  // scrolling.
-  const grip = useMemo(
+  const close = useCallback(() => onCloseRef.current(), []);
+
+  // With the keyboard up, dragging the list lowers the keyboard (and the
+  // sheet settles back down) rather than pulling the sheet away.
+  const [keyboardShown, setKeyboardShown] = useState(false);
+  const keyboardUp = useSharedValue(false);
+  useEffect(() => {
+    if (!open) return;
+    const up = Keyboard.isVisible();
+    setKeyboardShown(up);
+    keyboardUp.value = up;
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => {
+      setKeyboardShown(true);
+      keyboardUp.value = true;
+    });
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => {
+      setKeyboardShown(false);
+      keyboardUp.value = false;
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [open, keyboardUp]);
+
+  // Where the list is scrolled to, and where the header ends: a drag that
+  // starts on the header always moves the sheet, one on the list only once
+  // the list is at its top.
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+  const headerBottom = useSharedValue(0);
+  const fromHeader = useSharedValue(false);
+  const pulling = useSharedValue(false);
+  const pullStart = useSharedValue(0);
+
+  // The list scrolls natively; the pull runs alongside it and only takes
+  // over at the top, the way a system sheet does.
+  const listGesture = useMemo(() => Gesture.Native(), []);
+  const pull = useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
-        onPanResponderMove: (_, g) => {
-          dragY.value = Math.max(0, g.dy);
-        },
-        onPanResponderRelease: (_, g) => {
-          if (g.dy > Math.min(CLOSE_DRAG, sheetHeight.value * 0.3) || (g.vy > CLOSE_FLICK && g.dy > 12)) {
+      Gesture.Pan()
+        .simultaneousWithExternalGesture(listGesture)
+        .activeOffsetY([-8, 8])
+        .failOffsetX([-16, 16])
+        .onBegin((event) => {
+          "worklet";
+          fromHeader.value = event.y <= headerBottom.value;
+          pulling.value = false;
+        })
+        .onUpdate((event) => {
+          "worklet";
+          if (!pulling.value) {
+            const canPull = fromHeader.value || (scrollY.value <= 0 && !keyboardUp.value);
+            if (!canPull || event.translationY <= 0) return;
+            pulling.value = true;
+            pullStart.value = event.translationY;
+          }
+          dragY.value = Math.max(0, event.translationY - pullStart.value);
+        })
+        .onEnd((event) => {
+          "worklet";
+          if (!pulling.value) return;
+          if (
+            dragY.value > Math.min(CLOSE_DRAG, sheetHeight.value * 0.3) ||
+            (event.velocityY > CLOSE_FLICK && dragY.value > 12)
+          ) {
             // Slides on down from where the finger left it.
-            onCloseRef.current();
+            runOnJS(close)();
           } else {
             dragY.value = withTiming(0, { duration: MOTION.base, easing: EASE_OUT });
           }
-        },
-        onPanResponderTerminate: () => {
-          dragY.value = withTiming(0, { duration: MOTION.base, easing: EASE_OUT });
-        },
-      }),
-    [dragY, sheetHeight],
+        })
+        .onFinalize(() => {
+          "worklet";
+          pulling.value = false;
+        }),
+    [listGesture, close, dragY, sheetHeight, scrollY, headerBottom, fromHeader, pulling, pullStart, keyboardUp],
   );
 
   if (!mounted) return null;
@@ -103,6 +167,8 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
     // backdrop up with the sheet, like a dark wall rising. Here the backdrop
     // fades while the sheet slides.
     <Modal visible transparent animationType="none" onRequestClose={onBack ?? onClose}>
+      {/* A Modal is its own window: gestures inside it need their own root. */}
+      <GestureHandlerRootView style={styles.flex}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -120,13 +186,19 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
             bottom, and animating its frame let the screen behind show
             through while its contents had already moved. A new face fades
             in instead. */}
+        <GestureDetector gesture={pull}>
         <Animated.View
           style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }, sheetStyle]}
           onLayout={(event) => {
             sheetHeight.value = event.nativeEvent.layout.height;
           }}
         >
-          <View {...grip.panHandlers}>
+          <View
+            onLayout={(event) => {
+              const { y, height } = event.nativeEvent.layout;
+              headerBottom.value = y + height;
+            }}
+          >
             <View style={styles.handle} />
             <View style={styles.headerRow}>
               <Pressable
@@ -146,17 +218,28 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
             </View>
             {shown.description ? <Text style={styles.description}>{shown.description}</Text> : null}
           </View>
-          {/* Dragging the list down pulls the keyboard down with it, and the
-              sheet settles back to the bottom. */}
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            contentContainerStyle={styles.body}
-          >
-            {shown.children}
-          </ScrollView>
+          {/* With the keyboard up, dragging the list pulls the keyboard down
+              with the finger and the sheet settles back to the bottom; the
+              list bounces then so even a short one can be dragged. Otherwise
+              it does not bounce at its top, so pulling the sheet down moves
+              the sheet alone. */}
+          <GestureDetector gesture={listGesture}>
+            <Animated.ScrollView
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              bounces={keyboardShown}
+              alwaysBounceVertical={keyboardShown}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              contentContainerStyle={styles.body}
+            >
+              {shown.children}
+            </Animated.ScrollView>
+          </GestureDetector>
         </Animated.View>
+        </GestureDetector>
       </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
