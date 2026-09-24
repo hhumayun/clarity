@@ -224,10 +224,7 @@ export function TaskSheet({
   const titles: Record<Panel, { title: string; description?: string }> = {
     actions: { title: task?.text ?? "" },
     move: { title: "Move to another day" },
-    task: {
-      title: editing ? "Edit task" : "Add a task",
-      description: "Keep it short. You can always change it later.",
-    },
+    task: { title: editing ? "Edit task" : "Add a task" },
     project: {
       title: "Add a project",
       description: "A short name is easiest to recognise later.",
