@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { fontScale, palette, type Colors, type ThemeMode, useResolvedDark } from "../theme";
+import { fontScale, fontSet, palette, type Colors, type Fonts, type ThemeMode, useResolvedDark } from "../theme";
 
 const XL_KEY = "clarity:xl-text";
 const ONBOARDING_KEY = "clarity:onboarding-done";
@@ -17,6 +17,8 @@ const AI_SUGGESTIONS_KEY = "clarity:ai-suggestions";
 type AppThemeValue = {
   ready: boolean;
   colors: Colors;
+  /** The font pair that goes with the current palette. */
+  fonts: Fonts;
   dark: boolean;
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
@@ -41,6 +43,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const [aiSuggestions, setAiSuggestionsState] = useState(true);
   const dark = useResolvedDark(mode);
   const colors = palette(dark);
+  const fonts = fontSet(dark);
   const scale = fontScale(xlText);
 
   useEffect(() => {
@@ -85,6 +88,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ready,
       colors,
+      fonts,
       dark,
       mode,
       setMode,
@@ -99,6 +103,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     [
       ready,
       colors,
+      fonts,
       dark,
       mode,
       setMode,

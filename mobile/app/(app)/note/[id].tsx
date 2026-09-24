@@ -26,7 +26,7 @@ import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts } from "../../../src/lib/localDrafts";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { fonts, spacing, type Colors } from "../../../src/theme";
+import { spacing, type Colors, type Fonts } from "../../../src/theme";
 import {
   isCompletionSuggestion,
   type BubbleSuggestion,
@@ -62,8 +62,8 @@ export default function NoteEditorScreen() {
   const isNew = routeId === "new";
   const router = useRouter();
   const toast = useToast();
-  const { colors, scale, aiSuggestions, setAiSuggestions } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, aiSuggestions, setAiSuggestions, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
 
   const [noteId, setNoteId] = useState<string | null>(isNew ? null : routeId ?? null);
   const [title, setTitle] = useState("");
@@ -410,7 +410,7 @@ export default function NoteEditorScreen() {
                     style={styles.areaChip}
                     accessibilityLabel={`Area: ${project.name}. Change areas`}
                   >
-                    <View style={[styles.areaDot, { backgroundColor: areaColor(project.id) }]} />
+                    <View style={[styles.areaDot, { backgroundColor: areaColor(project.id, dark) }]} />
                     <Text style={styles.areaChipText}>{project.name}</Text>
                   </Pressable>
                 </Animated.View>
@@ -677,7 +677,7 @@ export default function NoteEditorScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },

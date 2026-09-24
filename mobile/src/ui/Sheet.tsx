@@ -13,7 +13,7 @@ import {
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 type Props = {
@@ -29,8 +29,8 @@ type Props = {
 export function Sheet({ open, title, description, eyebrow, onClose, children }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
 
   // Mounted only while open or animating out: a Modal left in the tree after
   // closing keeps a transparent window that swallows every touch under the
@@ -89,7 +89,7 @@ export function Sheet({ open, title, description, eyebrow, onClose, children }: 
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     flex: { flex: 1, justifyContent: "flex-end" },
     backdrop: {
@@ -98,7 +98,7 @@ function makeStyles(colors: Colors, scale: number) {
       right: 0,
       bottom: 0,
       left: 0,
-      backgroundColor: "rgba(30, 28, 25, 0.4)",
+      backgroundColor: "rgba(28, 27, 25, 0.4)",
     },
     fill: { flex: 1 },
     sheet: {

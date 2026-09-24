@@ -9,7 +9,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive";
@@ -34,8 +34,8 @@ export function Button({
   textStyle,
   ...rest
 }: Props) {
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const isIcon = size === "icon";
 
   return (
@@ -67,7 +67,7 @@ export function Button({
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     base: {
       flexDirection: "row",

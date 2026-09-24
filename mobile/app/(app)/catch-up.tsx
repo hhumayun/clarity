@@ -11,7 +11,7 @@ import { hapticDone } from "../../src/lib/haptics";
 import { recordMovedFrom } from "../../src/lib/movedFrom";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
 import { useToast } from "../../src/providers/ToastProvider";
-import { fonts, radius, spacing, type Colors } from "../../src/theme";
+import { radius, spacing, type Colors, type Fonts } from "../../src/theme";
 import type { TaskRecord } from "../../src/types";
 import { Button } from "../../src/ui/Button";
 import { SegmentBar } from "../../src/ui/SegmentBar";
@@ -27,8 +27,8 @@ type Outcome = "today" | "moved" | "letGo" | "skipped";
 export default function CatchUpScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const { query, update } = useTasks();
 
   const [queue, setQueue] = useState<string[] | null>(null);
@@ -117,7 +117,7 @@ export default function CatchUpScreen() {
             style={styles.card}
           >
             <View style={styles.area}>
-              <View style={[styles.dot, { backgroundColor: areaColor(current.projectId) }]} />
+              <View style={[styles.dot, { backgroundColor: areaColor(current.projectId, dark) }]} />
               <Text style={styles.areaText}>{current.projectName}</Text>
             </View>
             <Text style={styles.taskTitle}>{current.text}</Text>
@@ -229,7 +229,7 @@ function Summary({
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     header: {

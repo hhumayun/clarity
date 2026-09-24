@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from "react";
 import { Animated, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppTheme } from "./AppThemeProvider";
 
 type ToastContextValue = {
   show: (message: string) => void;
@@ -14,6 +15,7 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
+  const { fonts } = useAppTheme();
   const [message, setMessage] = useState<string | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,7 +49,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           pointerEvents="none"
           style={[styles.toast, { bottom: insets.bottom + 88, opacity, transform: [{ translateY: rise }] }]}
         >
-          <Text style={styles.text}>{message}</Text>
+          <Text style={[styles.text, { fontFamily: fonts.baseSemi }]}>{message}</Text>
         </Animated.View>
       ) : null}
     </ToastContext.Provider>
@@ -59,14 +61,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 24,
     right: 24,
-    backgroundColor: "#2c2a26",
+    backgroundColor: "#24211c", // Morning Paper text
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   text: {
-    color: "#faf6f0",
-    fontFamily: "NunitoSans_600SemiBold",
+    color: "#f6f2ea", // Morning Paper bg
     fontSize: 15,
     textAlign: "center",
   },

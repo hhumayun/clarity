@@ -4,15 +4,15 @@ import React, { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
-import { fonts, spacing, type Colors } from "../../src/theme";
+import { spacing, type Colors, type Fonts } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 import { GoogleSignInButton } from "../../src/ui/GoogleSignInButton";
 import { Input } from "../../src/ui/Input";
 
 export default function RegisterScreen() {
   const { isLoaded, signUp, setActive } = useSignUp();
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -117,7 +117,7 @@ function clerkMessage(error: unknown): string {
   return first ?? (error instanceof Error ? error.message : "");
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1, justifyContent: "center", padding: spacing[6] },

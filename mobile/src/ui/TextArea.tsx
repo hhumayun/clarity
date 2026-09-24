@@ -1,11 +1,11 @@
 import React, { useMemo } from "react";
 import { StyleSheet, TextInput, type TextInputProps } from "react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 export function TextArea({ style, ...props }: TextInputProps) {
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   return (
     <TextInput
       multiline
@@ -17,7 +17,7 @@ export function TextArea({ style, ...props }: TextInputProps) {
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     input: {
       minHeight: 96,

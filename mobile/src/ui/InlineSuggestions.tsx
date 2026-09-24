@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Minus, Plus, X } from "lucide-react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import {
   SUGGESTION_CATEGORIES,
@@ -98,8 +98,8 @@ export function InlineSuggestions({
   onAccept,
   onDismiss,
 }: Props) {
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
 
   const dim = useSharedValue(1);
   useEffect(() => {
@@ -208,7 +208,7 @@ export function InlineSuggestions({
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     container: { gap: spacing[3] },
     status: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingVertical: spacing[2] },

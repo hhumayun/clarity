@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaColor } from "../lib/lifeCenter";
 import { displayTitle, noteTimeLabel } from "../lib/notesList";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import type { NoteRecord } from "../types";
 
 type Props = {
@@ -20,8 +20,8 @@ type Props = {
 
 /** The two small tags a note can carry, shared by both views. */
 export function NoteTags({ note, taskCount = 0, compact = false }: { note: NoteRecord; taskCount?: number; compact?: boolean }) {
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   if (taskCount <= 0 && note.source !== "focus") return null;
   return (
     <View style={styles.tags}>
@@ -44,8 +44,8 @@ export function NoteTags({ note, taskCount = 0, compact = false }: { note: NoteR
 }
 
 export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "card" }: Props) {
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const { title, preview } = displayTitle(note);
   const when = noteTimeLabel(note.createdAt);
   const areaLine =
@@ -53,7 +53,7 @@ export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "
       <View style={styles.areas}>
         {areas.map((area) => (
           <View key={area.id} style={styles.area}>
-            <View style={[styles.areaDot, { backgroundColor: areaColor(area.id) }]} />
+            <View style={[styles.areaDot, { backgroundColor: areaColor(area.id, dark) }]} />
             <Text style={styles.areaText}>{area.name}</Text>
           </View>
         ))}
@@ -97,7 +97,7 @@ export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     card: {
       backgroundColor: colors.card,
@@ -108,7 +108,7 @@ function makeStyles(colors: Colors, scale: number) {
       gap: spacing[2],
     },
     pressed: { opacity: 0.85 },
-    title: { fontFamily: fonts.baseSemi, fontSize: 18 * scale, color: colors.foreground },
+    title: { fontFamily: fonts.title, fontSize: 18 * scale, color: colors.foreground },
     preview: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 21 * scale, color: colors.mutedForeground },
     footer: {
       flexDirection: "row",

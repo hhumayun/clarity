@@ -16,7 +16,7 @@ import { fadeInFast } from "./motion";
 import { atNoon, daysFromToday, formatShortDate, isSameDay, nextWeekend } from "../lib/dates";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import {
   type ProjectRecord,
   type TaskRecord,
@@ -106,8 +106,8 @@ export function TaskSheet({
   onStartFocus,
   onMarkedDone,
 }: Props) {
-  const { colors, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const [draft, setDraft] = useState<TaskDraft>(() =>
     draftFrom(task, defaultProjectId, projects),
   );
@@ -525,7 +525,7 @@ export function TaskSheet({
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     label: {
       fontFamily: fonts.baseSemi,

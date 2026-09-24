@@ -21,7 +21,7 @@ import { usePresence } from "../hooks/usePresence";
 import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import type { ProjectRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -80,8 +80,8 @@ export function QuickAddTask({
   onSubmit,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const { colors, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
 
   const [text, setText] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -411,7 +411,7 @@ export function QuickAddTask({
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     flex: { flex: 1, justifyContent: "flex-end" },
     backdrop: {
@@ -420,7 +420,7 @@ function makeStyles(colors: Colors, scale: number) {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: "rgba(30, 28, 25, 0.4)",
+      backgroundColor: "rgba(28, 27, 25, 0.4)",
     },
     fill: { flex: 1 },
     box: {

@@ -32,7 +32,7 @@ import { dueState } from "../../../src/lib/taskDates";
 import { sortProjects } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { fonts, radius, spacing, type Colors } from "../../../src/theme";
+import { radius, spacing, type Colors, type Fonts } from "../../../src/theme";
 import type { ProjectRecord, TaskRecord, TaskStatus } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { ConfirmModal } from "../../../src/ui/ConfirmModal";
@@ -51,8 +51,8 @@ const ALL = "__all__";
 export default function LifeCenterScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const { query, create, update, remove, clearDone, createProject, renameProject, deleteProject } =
     useTasks();
   const notes = useNotes({});
@@ -291,7 +291,7 @@ export default function LifeCenterScreen() {
                 accessibilityLabel={`Area: ${activeArea?.name ?? "All areas"}. Change area`}
               >
                 {activeArea ? (
-                  <View style={[styles.dot, { backgroundColor: areaColor(activeArea.id) }]} />
+                  <View style={[styles.dot, { backgroundColor: areaColor(activeArea.id, dark) }]} />
                 ) : null}
                 <Text style={styles.areaPillText} numberOfLines={1}>
                   {activeArea?.name ?? "All areas"}
@@ -314,7 +314,7 @@ export default function LifeCenterScreen() {
                       }}
                     >
                       {area.id !== ALL ? (
-                        <View style={[styles.dot, { backgroundColor: areaColor(area.id) }]} />
+                        <View style={[styles.dot, { backgroundColor: areaColor(area.id, dark) }]} />
                       ) : null}
                       <Text style={[styles.areaItemText, active && styles.areaItemActive]}>
                         {area.name}
@@ -613,7 +613,7 @@ export default function LifeCenterScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },

@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../../src/theme";
+import { radius, spacing, type Colors, type Fonts } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 
 const STEPS = [
@@ -27,8 +27,8 @@ const STEPS = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { colors, scale, completeOnboarding } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, completeOnboarding } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const [step, setStep] = useState(0);
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;
@@ -67,7 +67,7 @@ export default function OnboardingScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     page: {
       flex: 1,

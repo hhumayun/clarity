@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors, type ThemeMode } from "../../src/theme";
+import { radius, spacing, type Colors, type ThemeMode, type Fonts } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 import { ConfirmModal } from "../../src/ui/ConfirmModal";
 import { Switch } from "../../src/ui/Switch";
@@ -13,8 +13,8 @@ import { Switch } from "../../src/ui/Switch";
 export default function SettingsScreen() {
   const router = useRouter();
   const { authState, logout } = useAuth();
-  const { colors, scale, xlText, setXlText, mode, setMode } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, xlText, setXlText, mode, setMode } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const email = authState.type === "authenticated" ? authState.user.email : "";
@@ -121,7 +121,7 @@ export default function SettingsScreen() {
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingHorizontal: spacing[2] },

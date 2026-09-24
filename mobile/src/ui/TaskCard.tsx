@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { CalendarDays, Check, FileText, Play, Timer } from "lucide-react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { radius, spacing, type Colors, type Fonts } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatClockTime, formatPlannedDate } from "../lib/dates";
 import { areaColor } from "../lib/lifeCenter";
@@ -107,8 +107,8 @@ export function TaskCard({
   onContinueFocus,
 }: Props) {
   const router = useRouter();
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { colors, fonts, scale, dark } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, scale, fonts), [colors, scale, fonts]);
   const done = task.status === "done";
   const focus = variant === "focus";
   const due = task.completeBy ? dueState(task.completeBy) : null;
@@ -256,7 +256,7 @@ export function TaskCard({
           <View style={styles.meta}>
             {showProject ? (
               <View style={styles.metaItem}>
-                <View style={[styles.dot, { backgroundColor: areaColor(task.projectId) }]} />
+                <View style={[styles.dot, { backgroundColor: areaColor(task.projectId, dark) }]} />
                 <Text style={styles.chip}>{task.projectName}</Text>
               </View>
             ) : null}
@@ -344,7 +344,7 @@ export function TaskCard({
   );
 }
 
-function makeStyles(colors: Colors, scale: number) {
+function makeStyles(colors: Colors, scale: number, fonts: Fonts) {
   return StyleSheet.create({
     card: {
       gap: spacing[3],
@@ -430,7 +430,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     continueText: { fontFamily: fonts.baseBold, fontSize: 16 * scale, color: colors.primaryForeground },
     text: {
-      fontFamily: fonts.baseSemi,
+      fontFamily: fonts.title,
       fontSize: 16 * scale,
       color: colors.foreground,
     },
