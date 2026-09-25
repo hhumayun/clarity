@@ -33,6 +33,10 @@ export function useSuggestions(opts: {
   // no local list to fall back on, by design.
   const [reflectionQuestion, setReflectionQuestion] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Where the cursor was (its offset in the note) when the set on screen was
+  // asked for. The set belongs to that spot: completions to the exact place,
+  // sentence starters to that sentence. Null when there is no set.
+  const [madeAt, setMadeAt] = useState<number | null>(null);
 
   const seqRef = useRef(0);
   const shownAtRef = useRef(Date.now());
@@ -82,6 +86,7 @@ export function useSuggestions(opts: {
     setSuggestions([]);
     setCompletionSuggestions([]);
     setReflectionQuestion(null);
+    setMadeAt(null);
     setLoading(false);
   }, [noteId]);
 
@@ -111,6 +116,7 @@ export function useSuggestions(opts: {
     clearAutoTimer();
     autoBaselineRef.current = current.text;
 
+    const spot = current.textBeforeCursor.length;
     const seq = ++seqRef.current;
     controllerRef.current?.abort();
     const controller = new AbortController();
@@ -140,6 +146,7 @@ export function useSuggestions(opts: {
       );
       const question = result.reflectionQuestion?.trim();
       setReflectionQuestion(question ? question : null);
+      setMadeAt(spot);
       return true;
     } catch (error) {
       if (seq !== seqRef.current) return false;
@@ -151,6 +158,7 @@ export function useSuggestions(opts: {
       setSuggestions([]);
       setCompletionSuggestions([]);
       setReflectionQuestion(null);
+      setMadeAt(null);
       return false;
     } finally {
       if (seq === seqRef.current) setLoading(false);
@@ -230,6 +238,7 @@ export function useSuggestions(opts: {
     suggestions,
     completionSuggestions,
     reflectionQuestion,
+    madeAt,
     loading,
     refresh,
     accept,

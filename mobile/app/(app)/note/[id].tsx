@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Plus, Sparkles, Trash2, X } from "lucide-react-native";
+import { Archive, ArchiveRestore, ChevronLeft, MoreHorizontal, Plus, Sparkles, Trash2, X } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -41,7 +41,8 @@ import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { areaColor } from "../../../src/lib/lifeCenter";
-import { InlineSuggestions } from "../../../src/ui/InlineSuggestions";
+import { SuggestionBar } from "../../../src/ui/SuggestionBar";
+import { sameSentence } from "../../../src/lib/suggestionSpot";
 import { NoteTasks } from "../../../src/ui/NoteTasks";
 import { ReflectionStrip } from "../../../src/ui/ReflectionStrip";
 import { Skeleton } from "../../../src/ui/Skeleton";
@@ -91,7 +92,6 @@ export default function NoteEditorScreen() {
   const allProjects = tasksQuery.data?.projects ?? [];
   const [cursorPos, setCursorPos] = useState(0);
   const [editorTab, setEditorTab] = useState<"note" | "tasks">("note");
-  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
 
@@ -293,6 +293,7 @@ export default function NoteEditorScreen() {
     suggestions,
     completionSuggestions,
     reflectionQuestion,
+    madeAt,
     loading,
     refresh,
     accept,
@@ -304,6 +305,12 @@ export default function NoteEditorScreen() {
     textBeforeCursor,
     enabled: loaded && editorTab === "note" && aiSuggestions,
   });
+
+  // A set of suggestions belongs to where the cursor was when it was asked
+  // for: its completions to that exact place, its starters to that sentence.
+  // Moving elsewhere hides it; writing there brings a set for the new spot.
+  const startersHere = madeAt !== null && sameSentence(content, madeAt, cursorPos);
+  const completionsHere = madeAt !== null && cursorPos === madeAt;
 
   const requestSuggestions = useCallback(() => {
     void refresh().then((ok) => {
@@ -352,7 +359,6 @@ export default function NoteEditorScreen() {
       contentRef.current = next;
       setContent(next);
       setPendingSelection(before.length + inserted.length);
-      setSuggestionsExpanded(false);
       accept(suggestion);
     },
     [accept, cursorPos],
@@ -631,51 +637,24 @@ export default function NoteEditorScreen() {
                 style={styles.body}
                 textAlignVertical="top"
               />
-              {aiSuggestions ? (
-                <InlineSuggestions
-                  suggestions={suggestions}
-                  completionSuggestions={completionSuggestions}
-                  loading={loading}
-                  expanded={suggestionsExpanded}
-                  onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
-                  onAccept={insertSuggestion}
-                  onDismiss={dismiss}
-                />
-              ) : null}
                 </>
               )}
             </ScrollView>
             <View style={styles.footer}>
-              <View style={styles.toolbar}>
-                <Text style={styles.toolbarLabel}>
-                  {aiSuggestions ? "AI suggestions" : "AI suggestions off"}
-                </Text>
-                {aiSuggestions ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    style={styles.toolButton}
-                    onPress={requestSuggestions}
-                    loading={loading}
-                    accessibilityLabel="Get new suggestions for what you are writing"
-                  >
-                    <Sparkles size={18} color={colors.foreground} />
-                  </Button>
-                ) : null}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  style={styles.toolButton}
-                  onPress={() => setAiSuggestions(!aiSuggestions)}
-                  accessibilityLabel={aiSuggestions ? "Hide AI suggestions" : "Show AI suggestions"}
-                >
-                  {aiSuggestions ? (
-                    <EyeOff size={18} color={colors.foreground} />
-                  ) : (
-                    <Eye size={18} color={colors.foreground} />
-                  )}
-                </Button>
-              </View>
+              {/* Pinned above the keyboard, so suggestions are in view
+                  wherever in the note the writer is working. */}
+              <SuggestionBar
+                aiOn={aiSuggestions}
+                suggestions={suggestions}
+                completionSuggestions={completionSuggestions}
+                loading={loading}
+                startersHere={startersHere}
+                completionsHere={completionsHere}
+                onAccept={insertSuggestion}
+                onDismiss={dismiss}
+                onRefresh={requestSuggestions}
+                onToggleAi={() => setAiSuggestions(!aiSuggestions)}
+              />
               {aiSuggestions && reflectionQuestion ? (
                 <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
               ) : null}
@@ -899,12 +878,12 @@ function makeStyles(colors: Colors, scale: number) {
     menuDivider: { borderTopWidth: 1, borderTopColor: colors.border },
     menuText: { fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
     menuDanger: { color: colors.error },
-    // Bottom padding clears the pinned reflection strip, so the last row of
-    // chips can always be scrolled out from behind it.
+    // The suggestions live in the bar above the keyboard now, so the note
+    // only needs a little room after its last line.
     notePanel: {
       paddingHorizontal: spacing[4],
       paddingTop: spacing[3],
-      paddingBottom: spacing[16],
+      paddingBottom: spacing[6],
       gap: spacing[3],
     },
     body: {
@@ -923,21 +902,5 @@ function makeStyles(colors: Colors, scale: number) {
       gap: spacing[2],
       backgroundColor: colors.background,
     },
-    // One slim row of controls pinned above the keyboard: a caption on the
-    // left, then the refresh and show/hide buttons, each a 36pt target.
-    toolbar: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "flex-end",
-      gap: spacing[1],
-    },
-    toolbarLabel: {
-      flex: 1,
-      fontFamily: fonts.baseSemi,
-      fontSize: 12 * scale,
-      letterSpacing: 0.4,
-      color: colors.mutedForeground,
-    },
-    toolButton: { width: 36, height: 36 },
   });
 }
