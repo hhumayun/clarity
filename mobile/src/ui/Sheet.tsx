@@ -14,6 +14,7 @@ import {
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
+  useAnimatedReaction,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -21,7 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
-import { EASE_OUT, MOTION } from "./motion";
+import { EASE_OUT, MOTION, fadeInFast } from "./motion";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
@@ -68,12 +69,54 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: progress.value * (1 - Math.min(1, dragY.value / Math.max(1, sheetHeight.value))),
   }));
+  // The sheet's height glides when what it shows changes size (another
+  // page, a calendar opening), rather than its top edge jumping. It is
+  // measured, not left to a layout animation: that animated the frame while
+  // the contents had already jumped, and the screen behind showed through.
+  // The height is the header plus the content, at most 88% of the room
+  // above the keyboard; before the first measurement the sheet sizes itself.
+  const room = useSharedValue(0);
+  const headerHeight = useSharedValue(0);
+  const contentHeight = useSharedValue(0);
+  const bottomPad = useSharedValue(Math.max(insets.bottom, spacing[4]));
+  const height = useSharedValue(0);
+  const measured = useSharedValue(false);
+  useEffect(() => {
+    bottomPad.value = Math.max(insets.bottom, spacing[4]);
+  }, [insets.bottom, bottomPad]);
+  useAnimatedReaction(
+    () => {
+      if (room.value <= 0 || headerHeight.value <= 0 || contentHeight.value <= 0) return -1;
+      const natural = SHEET_PADDING_TOP + headerHeight.value + contentHeight.value + bottomPad.value;
+      return Math.min(natural, room.value * MAX_SHARE);
+    },
+    (target) => {
+      if (target < 0) return;
+      if (!measured.value) {
+        // First size: the sheet is sliding in, so no glide on top of that.
+        height.value = target;
+        measured.value = true;
+        return;
+      }
+      height.value = withTiming(target, { duration: MOTION.slow, easing: EASE_OUT });
+    },
+  );
   const sheetStyle = useAnimatedStyle(() => ({
+    ...(measured.value ? { height: height.value } : {}),
     transform: [{ translateY: (1 - progress.value) * sheetHeight.value + dragY.value }],
   }));
   useEffect(() => {
     if (open) dragY.value = 0;
   }, [open, dragY]);
+  // Once it has gone, forget its size, so the next opening measures afresh
+  // and starts at its natural height. (Reset here rather than on opening:
+  // by then the new page may already have reported its size.)
+  useEffect(() => {
+    if (mounted) return;
+    measured.value = false;
+    headerHeight.value = 0;
+    contentHeight.value = 0;
+  }, [mounted, measured, headerHeight, contentHeight]);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -176,16 +219,18 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
         <Animated.View style={[styles.backdrop, backdropStyle]}>
           <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
-        {/* The sliding view is the sheet itself, a direct child of the
-            keyboard-avoiding view, so its 88% limit is measured against the
-            space the keyboard leaves. Wrapped in another view, the limit was
-            88% of the sheet's own height: every sheet lost its last eighth
-            and stopped short of the bottom of the screen.
-
-            No layout animation on the sheet itself: it is pinned to the
-            bottom, and animating its frame let the screen behind show
-            through while its contents had already moved. A new face fades
-            in instead. */}
+        {/* This box fills the room the keyboard leaves, and measures it. It
+            must fill it: an earlier wrapper sized itself to the sheet, so the
+            88% limit came out as 88% of the sheet's own height, and every
+            sheet lost its last eighth. Touches pass through it to the
+            backdrop. */}
+        <View
+          style={styles.room}
+          pointerEvents="box-none"
+          onLayout={(event) => {
+            room.value = event.nativeEvent.layout.height;
+          }}
+        >
         <GestureDetector gesture={pull}>
         <Animated.View
           style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[4]) }, sheetStyle]}
@@ -195,8 +240,9 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
         >
           <View
             onLayout={(event) => {
-              const { y, height } = event.nativeEvent.layout;
-              headerBottom.value = y + height;
+              const { y, height: h } = event.nativeEvent.layout;
+              headerBottom.value = y + h;
+              headerHeight.value = h;
             }}
           >
             <View style={styles.handle} />
@@ -212,11 +258,18 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
               </Pressable>
               <View style={styles.headerText}>
                 {shown.eyebrow ? <View style={styles.eyebrow}>{shown.eyebrow}</View> : null}
-                <Text style={styles.title}>{shown.title}</Text>
+                {/* A new title fades in with the page it names. */}
+                <Animated.Text key={shown.title} entering={fadeInFast} style={styles.title}>
+                  {shown.title}
+                </Animated.Text>
               </View>
               {shown.headerAction ? <View style={styles.headerAction}>{shown.headerAction}</View> : null}
             </View>
-            {shown.description ? <Text style={styles.description}>{shown.description}</Text> : null}
+            {shown.description ? (
+              <Animated.Text key={shown.description} entering={fadeInFast} style={styles.description}>
+                {shown.description}
+              </Animated.Text>
+            ) : null}
           </View>
           {/* With the keyboard up, dragging the list pulls the keyboard down
               with the finger and the sheet settles back to the bottom; the
@@ -232,12 +285,16 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               contentContainerStyle={styles.body}
+              onContentSizeChange={(_, h) => {
+                contentHeight.value = h;
+              }}
             >
               {shown.children}
             </Animated.ScrollView>
           </GestureDetector>
         </Animated.View>
         </GestureDetector>
+        </View>
       </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
@@ -245,6 +302,9 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
 }
 
 const HEADER_BUTTON = 36;
+const SHEET_PADDING_TOP = spacing[3];
+/** The most of the room above the keyboard a sheet may take. */
+const MAX_SHARE = 0.88;
 
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
@@ -258,13 +318,16 @@ function makeStyles(colors: Colors, scale: number) {
       backgroundColor: "rgba(28, 27, 25, 0.4)",
     },
     fill: { flex: 1 },
+    room: { flex: 1, justifyContent: "flex-end" },
     sheet: {
       backgroundColor: colors.card,
       borderTopLeftRadius: radius.lg,
       borderTopRightRadius: radius.lg,
-      maxHeight: "88%",
+      maxHeight: "88%", // MAX_SHARE
       paddingHorizontal: spacing[6],
-      paddingTop: spacing[3],
+      paddingTop: SHEET_PADDING_TOP,
+      // Clips the page while the height glides to fit it.
+      overflow: "hidden",
     },
     handle: {
       alignSelf: "center",

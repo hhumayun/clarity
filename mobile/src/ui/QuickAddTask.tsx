@@ -93,6 +93,12 @@ export function QuickAddTask({
   const [creating, setCreating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const inputRef = useRef<TextInput>(null);
+  // After a choice that took the keyboard away (the calendar needs its room,
+  // a new project name has its own field), hand it back to the task line.
+  const refocus = () => {
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
 
   const { parsed, pending, settle } = useTaskLineParse(text, { enabled: open });
 
@@ -174,6 +180,7 @@ export function QuickAddTask({
     setDateSource("manual");
     setExpander(null);
     setPickerOpen(false);
+    refocus();
   };
 
   const openPicker = () => {
@@ -185,6 +192,7 @@ export function QuickAddTask({
   const onPicked = (event: DateTimePickerEvent, picked?: Date) => {
     if (event.type === "dismissed") {
       setPickerOpen(false);
+      refocus();
       return;
     }
     if (picked) chooseDate(atNoon(picked.getFullYear(), picked.getMonth(), picked.getDate()));
@@ -201,6 +209,7 @@ export function QuickAddTask({
       setProjectId(project.id);
       setNewProject("");
       setExpander(null);
+      refocus();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That project could not be added.");
     } finally {
@@ -249,6 +258,7 @@ export function QuickAddTask({
             height, and the box simply follows them. */}
         <View style={[styles.box, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
           <TextInput
+            ref={inputRef}
             value={text}
             onChangeText={setText}
             autoFocus
