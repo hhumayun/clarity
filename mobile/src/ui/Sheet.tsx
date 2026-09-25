@@ -19,7 +19,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { GentleKeyboardAvoidingView } from "./GentleKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { EASE_OUT, MOTION, fadeInFast } from "./motion";
@@ -212,15 +212,11 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
     <Modal visible transparent animationType="none" onRequestClose={onBack ?? onClose}>
       {/* A Modal is its own window: gestures inside it need their own root. */}
       <GestureHandlerRootView style={styles.flex}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        // react-native-keyboard-controller's version: its padding follows the
-        // keyboard frame by frame on the UI thread. React Native's own drives
-        // the change with LayoutAnimation, which under the new renderer runs
-        // out of step with the keyboard (and with Reanimated's animations
-        // here), so the screen lurched as the keyboard came up.
-        behavior="padding"
-      >
+      {/* Makes room for the keyboard on the UI thread, gliding a little
+          slower than the keyboard itself. React Native's own avoiding view
+          drove this with LayoutAnimation, which under the new renderer ran
+          out of step with the keyboard and lurched. */}
+      <GentleKeyboardAvoidingView style={styles.flex}>
         <Animated.View style={[styles.backdrop, backdropStyle]}>
           <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
@@ -300,7 +296,7 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
         </Animated.View>
         </GestureDetector>
         </View>
-      </KeyboardAvoidingView>
+      </GentleKeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   );
