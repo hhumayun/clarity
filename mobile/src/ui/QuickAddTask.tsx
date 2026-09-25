@@ -1,7 +1,7 @@
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { ArrowUp, CalendarDays, Hash, Plus, Sparkles } from "lucide-react-native";
+import { ArrowUp, CalendarDays, Hash, Plus, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -187,13 +187,21 @@ export function QuickAddTask({
   };
 
   /**
-   * Fold the date tray away. Going back to typing, the keyboard returns, and
-   * if it was down (for the calendar) the tray shrinks in step with it.
+   * Fold the date tray away, going back to typing if asked. With the
+   * calendar showing it goes in steps: the calendar fades out where it is,
+   * then the box moves down into its place, and only then does the keyboard
+   * come back, so nothing moves while the calendar is still on screen.
    */
   const closeTray = (backToTyping: boolean) => {
-    const keyboardComing = backToTyping && !Keyboard.isVisible();
-    tray.close(keyboardComing ? "show" : undefined);
     setPickerOpen(false);
+    if (calendar) {
+      tray.close({
+        fadeFirst: true,
+        then: backToTyping ? () => inputRef.current?.focus() : undefined,
+      });
+      return;
+    }
+    tray.close();
     if (backToTyping) refocus();
   };
 
@@ -398,6 +406,22 @@ export function QuickAddTask({
                 </View>
                 {Platform.OS === "ios" && calendar ? (
                   <View style={styles.unfold}>
+                    {/* Put the calendar away without choosing: back to the task. */}
+                    <View style={styles.calendarHead}>
+                      <Pressable
+                        onPress={() => {
+                          setExpander(null);
+                          closeTray(true);
+                        }}
+                        hitSlop={8}
+                        style={({ pressed }) => [styles.calendarClose, pressed && styles.pressedDim]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Close the calendar"
+                      >
+                        <X size={18} color={colors.foreground} />
+                      </Pressable>
+                      <Text style={styles.calendarTitle}>Pick a date</Text>
+                    </View>
                     <DateTimePicker
                       value={date ?? new Date()}
                       mode="date"
@@ -494,6 +518,17 @@ function makeStyles(colors: Colors, scale: number) {
     // at all when folded away.
     unfold: { paddingTop: spacing[3] },
     clip: { overflow: "hidden" },
+    calendarHead: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
+    calendarClose: {
+      width: 32,
+      height: 32,
+      marginLeft: -6,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.full,
+    },
+    pressedDim: { opacity: 0.6 },
+    calendarTitle: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.foreground },
     trayContent: { position: "absolute", top: 0, left: 0, right: 0 },
     input: {
       fontFamily: fonts.base,
