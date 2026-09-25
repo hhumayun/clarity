@@ -17,7 +17,7 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useKeyboardSyncedHeight } from "../hooks/useKeyboardSyncedHeight";
+import { useKeyboardSlot } from "../hooks/useKeyboardSlot";
 import { usePresence } from "../hooks/usePresence";
 import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
@@ -95,15 +95,12 @@ export function QuickAddTask({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<TextInput>(null);
-  // The date tray: the shortcuts, and on iOS the calendar under them. It is
-  // one panel so that, when the calendar and the keyboard trade places, its
-  // height can follow the keyboard's and the box moves as one.
-  const [trayMounted, setTrayMounted] = useState(false);
+  // On iOS the calendar takes the keyboard's place, below the box, like a
+  // custom keyboard: the two trade places and the box stays where it is.
   const [calendar, setCalendar] = useState(false);
-  const tray = useKeyboardSyncedHeight(() => {
-    setTrayMounted(false);
+  const slot = useKeyboardSlot(() => {
     setCalendar(false);
-    tray.reset();
+    slot.reset();
   });
   // After a choice that took the keyboard away (the calendar needs its room,
   // a new project name has its own field), hand it back to the task line.
@@ -126,12 +123,11 @@ export function QuickAddTask({
     setDateSource(defaults.defaultDate ? "default" : "none");
     setExpander(null);
     setPickerOpen(false);
-    setTrayMounted(false);
     setCalendar(false);
-    tray.reset();
+    slot.reset();
     setNewProject("");
     setError("");
-    // tray.reset is stable; this runs on open only.
+    // slot.reset is stable; this runs on open only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -187,51 +183,35 @@ export function QuickAddTask({
   };
 
   /**
-   * Fold the date tray away, going back to typing if asked. With the
-   * calendar showing it goes in steps: the calendar fades out where it is,
-   * then the box moves down into its place, and only then does the keyboard
-   * come back, so nothing moves while the calendar is still on screen.
+   * Put the calendar away and go back to typing: the calendar goes down as
+   * the keyboard comes up, in step, and the box above them stays put.
    */
-  const closeTray = (backToTyping: boolean) => {
-    setPickerOpen(false);
-    if (calendar) {
-      tray.close({
-        fadeFirst: true,
-        then: backToTyping ? () => inputRef.current?.focus() : undefined,
-      });
-      return;
-    }
-    tray.close();
-    if (backToTyping) refocus();
+  const closeCalendar = () => {
+    if (!calendar) return;
+    slot.hide(true);
+    inputRef.current?.focus();
   };
 
   const toggle = (next: Exclude<Expander, null>) => {
-    const dateWasOpen = expander === "date";
-    if (dateWasOpen) closeTray(calendar);
-    if (next === "date") {
-      if (!dateWasOpen) {
-        setTrayMounted(true);
-        tray.open();
-      }
-      setExpander(dateWasOpen ? null : "date");
-      return;
-    }
+    closeCalendar();
     setExpander((current) => (current === next ? null : next));
+    setPickerOpen(false);
   };
 
   const chooseDate = (value: Date | null) => {
     setDate(value);
     setDateSource("manual");
     setExpander(null);
-    closeTray(true);
+    setPickerOpen(false);
+    if (calendar) closeCalendar();
+    else refocus();
   };
 
   const openPicker = () => {
     if (Platform.OS === "ios") {
-      // The calendar takes the keyboard's place: it unfolds exactly as fast
-      // as the keyboard goes down.
+      // The calendar comes up as the keyboard goes down, in its place.
       setCalendar(true);
-      tray.open("hide");
+      slot.show();
       Keyboard.dismiss();
       return;
     }
@@ -311,6 +291,9 @@ export function QuickAddTask({
             ref={inputRef}
             value={text}
             onChangeText={setText}
+            onFocus={() => {
+              if (calendar) slot.hide(true);
+            }}
             autoFocus
             placeholder={placeholder}
             placeholderTextColor={colors.mutedForeground}
@@ -373,68 +356,30 @@ export function QuickAddTask({
             </View>
           </Collapse>
 
-          {trayMounted ? (
-            <Animated.View style={[styles.clip, tray.style]}>
-              {/* Laid out at full size, so it can be measured while the
-                  panel around it is still opening. */}
-              <View
-                style={styles.trayContent}
-                onLayout={(event) => {
-                  tray.contentHeight.value = event.nativeEvent.layout.height;
-                }}
-              >
-                <View style={[styles.chips, styles.unfold]}>
-                  {shortcuts.map((option) => {
-                    const active =
-                      option.value === null ? date === null : isSameDay(option.value, date);
-                    return (
-                      <Pressable
-                        key={option.label}
-                        onPress={() => chooseDate(option.value)}
-                        style={[styles.chip, active && styles.chipSet]}
-                      >
-                        <Text style={[styles.chipText, active && styles.chipTextSet]}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                  <Pressable onPress={openPicker} style={styles.chip} accessibilityLabel="Pick a date">
-                    <CalendarDays size={14} color={colors.mutedForeground} />
-                    <Text style={styles.chipText}>Pick…</Text>
+          <Collapse open={expander === "date"}>
+            <View style={[styles.chips, styles.unfold]}>
+              {shortcuts.map((option) => {
+                const active =
+                  option.value === null ? date === null : isSameDay(option.value, date);
+                return (
+                  <Pressable
+                    key={option.label}
+                    onPress={() => chooseDate(option.value)}
+                    style={[styles.chip, active && styles.chipSet]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextSet]}>
+                      {option.label}
+                    </Text>
                   </Pressable>
-                </View>
-                {Platform.OS === "ios" && calendar ? (
-                  <View style={styles.unfold}>
-                    {/* Put the calendar away without choosing: back to the task. */}
-                    <View style={styles.calendarHead}>
-                      <Pressable
-                        onPress={() => {
-                          setExpander(null);
-                          closeTray(true);
-                        }}
-                        hitSlop={8}
-                        style={({ pressed }) => [styles.calendarClose, pressed && styles.pressedDim]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Close the calendar"
-                      >
-                        <X size={18} color={colors.foreground} />
-                      </Pressable>
-                      <Text style={styles.calendarTitle}>Pick a date</Text>
-                    </View>
-                    <DateTimePicker
-                      value={date ?? new Date()}
-                      mode="date"
-                      display="inline"
-                      accentColor={colors.primary}
-                      themeVariant={dark ? "dark" : "light"}
-                      onChange={onPicked}
-                    />
-                  </View>
-                ) : null}
-              </View>
-            </Animated.View>
-          ) : null}
+                );
+              })}
+              <Pressable onPress={openPicker} style={styles.chip} accessibilityLabel="Pick a date">
+                <CalendarDays size={14} color={colors.mutedForeground} />
+                <Text style={styles.chipText}>Pick…</Text>
+              </Pressable>
+            </View>
+          </Collapse>
+
           {Platform.OS !== "ios" && pickerOpen ? (
             <DateTimePicker
               value={date ?? new Date()}
@@ -486,6 +431,42 @@ export function QuickAddTask({
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          {/* The keyboard's place: the calendar sits here while the keyboard
+              is down, as tall as the keyboard, so the two can trade places
+              under a box that stays still. */}
+          {Platform.OS === "ios" && calendar ? (
+            <Animated.View style={[styles.clip, slot.slotStyle]}>
+              <Animated.View
+                style={[styles.slotContent, slot.contentStyle]}
+                onLayout={(event) => {
+                  slot.contentHeight.value = event.nativeEvent.layout.height;
+                }}
+              >
+                {/* Put the calendar away without choosing: back to the task. */}
+                <View style={styles.calendarHead}>
+                  <Pressable
+                    onPress={closeCalendar}
+                    hitSlop={8}
+                    style={({ pressed }) => [styles.calendarClose, pressed && styles.pressedDim]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close the calendar"
+                  >
+                    <X size={18} color={colors.foreground} />
+                  </Pressable>
+                  <Text style={styles.calendarTitle}>Pick a date</Text>
+                </View>
+                <DateTimePicker
+                  value={date ?? new Date()}
+                  mode="date"
+                  display="inline"
+                  accentColor={colors.primary}
+                  themeVariant={dark ? "dark" : "light"}
+                  onChange={onPicked}
+                />
+              </Animated.View>
+            </Animated.View>
+          ) : null}
         </View>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -529,7 +510,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     pressedDim: { opacity: 0.6 },
     calendarTitle: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.foreground },
-    trayContent: { position: "absolute", top: 0, left: 0, right: 0 },
+    slotContent: { position: "absolute", top: 0, left: 0, right: 0, paddingTop: spacing[3] },
     input: {
       fontFamily: fonts.base,
       fontSize: 18 * scale,
