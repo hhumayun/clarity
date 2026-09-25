@@ -6,7 +6,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -15,8 +14,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardSyncedHeight } from "../hooks/useKeyboardSyncedHeight";
 import { usePresence } from "../hooks/usePresence";
 import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
@@ -94,6 +95,16 @@ export function QuickAddTask({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<TextInput>(null);
+  // The date tray: the shortcuts, and on iOS the calendar under them. It is
+  // one panel so that, when the calendar and the keyboard trade places, its
+  // height can follow the keyboard's and the box moves as one.
+  const [trayMounted, setTrayMounted] = useState(false);
+  const [calendar, setCalendar] = useState(false);
+  const tray = useKeyboardSyncedHeight(() => {
+    setTrayMounted(false);
+    setCalendar(false);
+    tray.reset();
+  });
   // After a choice that took the keyboard away (the calendar needs its room,
   // a new project name has its own field), hand it back to the task line.
   const refocus = () => {
@@ -115,8 +126,13 @@ export function QuickAddTask({
     setDateSource(defaults.defaultDate ? "default" : "none");
     setExpander(null);
     setPickerOpen(false);
+    setTrayMounted(false);
+    setCalendar(false);
+    tray.reset();
     setNewProject("");
     setError("");
+    // tray.reset is stable; this runs on open only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Let the model's reading drive the date chip until the writer takes over.
@@ -170,21 +186,48 @@ export function QuickAddTask({
     }
   };
 
-  const toggle = (next: Exclude<Expander, null>) => {
-    setExpander((current) => (current === next ? null : next));
+  /**
+   * Fold the date tray away. Going back to typing, the keyboard returns, and
+   * if it was down (for the calendar) the tray shrinks in step with it.
+   */
+  const closeTray = (backToTyping: boolean) => {
+    const keyboardComing = backToTyping && !Keyboard.isVisible();
+    tray.close(keyboardComing ? "show" : undefined);
     setPickerOpen(false);
+    if (backToTyping) refocus();
+  };
+
+  const toggle = (next: Exclude<Expander, null>) => {
+    const dateWasOpen = expander === "date";
+    if (dateWasOpen) closeTray(calendar);
+    if (next === "date") {
+      if (!dateWasOpen) {
+        setTrayMounted(true);
+        tray.open();
+      }
+      setExpander(dateWasOpen ? null : "date");
+      return;
+    }
+    setExpander((current) => (current === next ? null : next));
   };
 
   const chooseDate = (value: Date | null) => {
     setDate(value);
     setDateSource("manual");
     setExpander(null);
-    setPickerOpen(false);
-    refocus();
+    closeTray(true);
   };
 
   const openPicker = () => {
-    // The inline calendar needs the room the keyboard is using.
+    if (Platform.OS === "ios") {
+      // The calendar takes the keyboard's place: it unfolds exactly as fast
+      // as the keyboard goes down.
+      setCalendar(true);
+      tray.open("hide");
+      Keyboard.dismiss();
+      return;
+    }
+    // Android's picker is a dialog of its own.
     Keyboard.dismiss();
     setPickerOpen(true);
   };
@@ -196,7 +239,6 @@ export function QuickAddTask({
       return;
     }
     if (picked) chooseDate(atNoon(picked.getFullYear(), picked.getMonth(), picked.getDate()));
-    setPickerOpen(false);
   };
 
   const createProject = async () => {
@@ -323,47 +365,53 @@ export function QuickAddTask({
             </View>
           </Collapse>
 
-          <Collapse open={expander === "date"}>
-            <View style={[styles.chips, styles.unfold]}>
-              {shortcuts.map((option) => {
-                const active =
-                  option.value === null ? date === null : isSameDay(option.value, date);
-                return (
-                  <Pressable
-                    key={option.label}
-                    onPress={() => chooseDate(option.value)}
-                    style={[styles.chip, active && styles.chipSet]}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextSet]}>
-                      {option.label}
-                    </Text>
+          {trayMounted ? (
+            <Animated.View style={[styles.clip, tray.style]}>
+              {/* Laid out at full size, so it can be measured while the
+                  panel around it is still opening. */}
+              <View
+                style={styles.trayContent}
+                onLayout={(event) => {
+                  tray.contentHeight.value = event.nativeEvent.layout.height;
+                }}
+              >
+                <View style={[styles.chips, styles.unfold]}>
+                  {shortcuts.map((option) => {
+                    const active =
+                      option.value === null ? date === null : isSameDay(option.value, date);
+                    return (
+                      <Pressable
+                        key={option.label}
+                        onPress={() => chooseDate(option.value)}
+                        style={[styles.chip, active && styles.chipSet]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextSet]}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  <Pressable onPress={openPicker} style={styles.chip} accessibilityLabel="Pick a date">
+                    <CalendarDays size={14} color={colors.mutedForeground} />
+                    <Text style={styles.chipText}>Pick…</Text>
                   </Pressable>
-                );
-              })}
-              <Pressable onPress={openPicker} style={styles.chip} accessibilityLabel="Pick a date">
-                <CalendarDays size={14} color={colors.mutedForeground} />
-                <Text style={styles.chipText}>Pick…</Text>
-              </Pressable>
-            </View>
-          </Collapse>
-
-          {/* iOS draws the calendar inline, so it unfolds like the rows above.
-              Android's picker is a dialog of its own and must mount and unmount
-              exactly with its state. */}
-          {Platform.OS === "ios" ? (
-            <Collapse open={pickerOpen}>
-              <View style={styles.unfold}>
-                <DateTimePicker
-                  value={date ?? new Date()}
-                  mode="date"
-                  display="inline"
-                  accentColor={colors.primary}
-                  themeVariant={dark ? "dark" : "light"}
-                  onChange={onPicked}
-                />
+                </View>
+                {Platform.OS === "ios" && calendar ? (
+                  <View style={styles.unfold}>
+                    <DateTimePicker
+                      value={date ?? new Date()}
+                      mode="date"
+                      display="inline"
+                      accentColor={colors.primary}
+                      themeVariant={dark ? "dark" : "light"}
+                      onChange={onPicked}
+                    />
+                  </View>
+                ) : null}
               </View>
-            </Collapse>
-          ) : pickerOpen ? (
+            </Animated.View>
+          ) : null}
+          {Platform.OS !== "ios" && pickerOpen ? (
             <DateTimePicker
               value={date ?? new Date()}
               mode="date"
@@ -445,6 +493,8 @@ function makeStyles(colors: Colors, scale: number) {
     // Each unfolding row carries its own space above it, so it takes none
     // at all when folded away.
     unfold: { paddingTop: spacing[3] },
+    clip: { overflow: "hidden" },
+    trayContent: { position: "absolute", top: 0, left: 0, right: 0 },
     input: {
       fontFamily: fonts.base,
       fontSize: 18 * scale,
