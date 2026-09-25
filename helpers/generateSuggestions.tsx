@@ -254,9 +254,9 @@ Current-sentence completions:
 - If the text is empty or already ends in . ! ? or a paragraph break, return an empty "complete" array.
 
 The three moods:
-- "deeper" — reflect on meaning or feeling (e.g. "It mattered because", "What I realized was")
-- "continue" — keep the story going (e.g. "Then", "After that,")
-- "forward" — look ahead (e.g. "Tomorrow I want to", "Next time I will")
+- "deeper" — reflect on meaning or feeling
+- "continue" — keep the story going
+- "forward" — look ahead
 
 Rules:
 - Each stem is 1 to 5 everyday words. Plain, warm, simple language.
