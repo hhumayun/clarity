@@ -8,8 +8,6 @@ import React, {
   useState,
 } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +15,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate, postSuggestTitle } from "../../../src/api/notes";
 import { upsertNoteInLists, useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
@@ -466,7 +465,12 @@ export default function NoteEditorScreen() {
     <SafeAreaView style={styles.page} edges={["top"]}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        // react-native-keyboard-controller's version: its padding follows the
+        // keyboard frame by frame on the UI thread. React Native's own drives
+        // the change with LayoutAnimation, which under the new renderer runs
+        // out of step with the keyboard (and with Reanimated's animations
+        // here), so the screen lurched as the keyboard came up.
+        behavior="padding"
       >
         <View style={styles.header}>
           <Button variant="ghost" size="icon" accessibilityLabel="Back to your notes" onPress={goBack}>

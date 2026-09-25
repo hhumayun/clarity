@@ -2,7 +2,6 @@ import { X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -20,6 +19,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { EASE_OUT, MOTION, fadeInFast } from "./motion";
@@ -214,7 +214,12 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
       <GestureHandlerRootView style={styles.flex}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        // react-native-keyboard-controller's version: its padding follows the
+        // keyboard frame by frame on the UI thread. React Native's own drives
+        // the change with LayoutAnimation, which under the new renderer runs
+        // out of step with the keyboard (and with Reanimated's animations
+        // here), so the screen lurched as the keyboard came up.
+        behavior="padding"
       >
         <Animated.View style={[styles.backdrop, backdropStyle]}>
           <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Close" />
