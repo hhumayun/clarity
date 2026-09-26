@@ -3,7 +3,7 @@ import { CalendarDays, Check, X } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, FadeInRight, FadeOutLeft } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { InsetView } from "../../src/ui/InsetView";
 import { useTasks } from "../../src/hooks/useTasks";
 import { daysFromToday, formatPlannedDateLong, nextWeekend } from "../../src/lib/dates";
 import { areaColor, overdueQueue } from "../../src/lib/lifeCenter";
@@ -81,7 +81,7 @@ export default function CatchUpScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+    <InsetView style={styles.page}>
       <View style={styles.header}>
         <Pressable onPress={close} style={styles.close} accessibilityLabel="Close catch up">
           <X size={20} color={colors.foreground} />
@@ -177,7 +177,7 @@ export default function CatchUpScreen() {
           </Pressable>
         </ScrollView>
       ) : null}
-    </SafeAreaView>
+    </InsetView>
   );
 }
 

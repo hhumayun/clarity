@@ -3,7 +3,6 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Check,
-  ChevronLeft,
   CupSoda,
   Eye,
   Flag,
@@ -29,7 +28,8 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { fadeOut, MOTION } from "../../../src/ui/motion";
 import { KeyboardAwareScrollView, KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { InsetView } from "../../../src/ui/InsetView";
 import { useCountdown } from "../../../src/hooks/useCountdown";
 import { useFirstSteps, useFocusPrefs, useFocusSummary, useRecordFocus } from "../../../src/hooks/useFocus";
 import { useCreateNote } from "../../../src/hooks/useNotes";
@@ -321,11 +321,11 @@ export default function FocusScreen() {
 
   if (!task) {
     return (
-      <SafeAreaView style={styles.page}>
+      <InsetView style={styles.page}>
         <Animated.View key="missing" entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <View style={styles.header}>
           <Pressable onPress={close} style={styles.roundButton} accessibilityLabel="Close">
-            <ChevronLeft size={20} color={colors.foreground} />
+            <X size={20} color={colors.foreground} />
           </Pressable>
         </View>
         <View style={styles.body}>
@@ -336,7 +336,7 @@ export default function FocusScreen() {
           )}
         </View>
               </Animated.View>
-      </SafeAreaView>
+      </InsetView>
     );
   }
 
@@ -344,11 +344,11 @@ export default function FocusScreen() {
   if (phase === "setup") {
     const steps = firstSteps.data?.steps ?? [];
     return (
-      <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+      <InsetView style={styles.page}>
         <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <View style={styles.header}>
-          <Pressable onPress={close} style={styles.roundButton} accessibilityLabel="Back">
-            <ChevronLeft size={20} color={colors.foreground} />
+          <Pressable onPress={close} style={styles.roundButton} accessibilityLabel="Close focus time">
+            <X size={20} color={colors.foreground} />
           </Pressable>
           <Text style={styles.headerTitle}>Focus time</Text>
           <View style={styles.roundSpacer} />
@@ -442,7 +442,7 @@ export default function FocusScreen() {
           </View>
         </KeyboardStickyView>
               </Animated.View>
-      </SafeAreaView>
+      </InsetView>
     );
   }
 
@@ -451,7 +451,7 @@ export default function FocusScreen() {
     const left = minutesLeftLabel(focusTimer.remainingMs);
     const paused = focusTimer.status === "paused";
     return (
-      <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+      <InsetView style={styles.page}>
         <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView contentContainerStyle={styles.focusBody} keyboardShouldPersistTaps="handled">
@@ -548,7 +548,7 @@ export default function FocusScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
               </Animated.View>
-      </SafeAreaView>
+      </InsetView>
     );
   }
 
@@ -570,7 +570,7 @@ export default function FocusScreen() {
         ? { label: `Keep going · ${KEEP_GOING_MINUTES} more min`, next: "keepGoing" as const }
         : { label: "I'm done for now", next: "done" as const };
     return (
-      <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+      <InsetView style={styles.page}>
         <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <View style={styles.header}>
           {/* Closing keeps the session, like "I'm done for now". */}
@@ -681,7 +681,7 @@ export default function FocusScreen() {
           </View>
         </KeyboardStickyView>
               </Animated.View>
-      </SafeAreaView>
+      </InsetView>
     );
   }
 
@@ -690,7 +690,7 @@ export default function FocusScreen() {
     const left = restLeftLabel(breakTimer.remainingMs);
     const note = outcome === "finished" ? "" : leftOff.trim();
     return (
-      <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
+      <InsetView style={styles.page}>
         <Animated.View key={phase} entering={FadeIn.duration(MOTION.slow)} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.focusBody}>
           <View style={[styles.pill, styles.pillRest]}>
@@ -761,11 +761,11 @@ export default function FocusScreen() {
           )}
         </View>
               </Animated.View>
-      </SafeAreaView>
+      </InsetView>
     );
   }
 
-  return <SafeAreaView style={styles.page} />;
+  return <InsetView style={styles.page} />;
 }
 
 function makeStyles(colors: Colors, scale: number) {
