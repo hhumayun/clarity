@@ -71,6 +71,7 @@ export function useTasks(noteId?: string, enabled = true) {
       projectId?: string;
       completeBy?: Date | null;
       status?: TaskStatus;
+      noteId?: string | null;
     }) => postTaskUpdate(body),
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY });
@@ -100,6 +101,7 @@ export function useTasks(noteId?: string, enabled = true) {
                               ?.name ?? task.projectName,
                         }
                       : {}),
+                    ...(input.noteId !== undefined ? { noteId: input.noteId } : {}),
                     updatedAt: new Date(),
                   }
                 : task,
@@ -107,6 +109,31 @@ export function useTasks(noteId?: string, enabled = true) {
           };
         },
       );
+      // Linked to another note: it leaves the old note's list and joins the
+      // new one's straight away, so its card is there to point at.
+      if (input.noteId !== undefined) {
+        const moving = snapshots
+          .flatMap(([, data]) => data?.tasks ?? [])
+          .find((task) => task.id === input.id);
+        for (const [key, data] of snapshots) {
+          const listNote = key[1];
+          if (!data || listNote === undefined || listNote === "all") continue;
+          const has = data.tasks.some((task) => task.id === input.id);
+          if (listNote === input.noteId) {
+            if (!has && moving) {
+              queryClient.setQueryData<TasksListOutput>(key, {
+                ...data,
+                tasks: [{ ...moving, noteId: input.noteId, updatedAt: new Date() }, ...data.tasks],
+              });
+            }
+          } else if (has) {
+            queryClient.setQueryData<TasksListOutput>(key, {
+              ...data,
+              tasks: data.tasks.filter((task) => task.id !== input.id),
+            });
+          }
+        }
+      }
       return { snapshots };
     },
     onError: (_error, _input, context) => {

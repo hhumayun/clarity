@@ -16,6 +16,7 @@ import { TaskCard } from "./TaskCard";
 import { QuickAddTask, type QuickAddDraft } from "./QuickAddTask";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "./TaskAddedOverlay";
 import { TaskSheet, type TaskDraft } from "./TaskSheet";
+import { LinkTaskSheet } from "./LinkTaskSheet";
 
 function quietAiFailure(error: unknown): boolean {
   const code = (error as { code?: string } | null)?.code;
@@ -60,6 +61,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
   const [adding, setAdding] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   // After an add: the confirmation, then which card to flash.
   const [added, setAdded] = useState<TaskRecord | null>(null);
   const [finished, setFinished] = useState<TaskRecord | null>(null);
@@ -197,6 +199,24 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
     }, TASK_ADDED_MS);
   };
 
+  // Bring one of the writer's existing tasks into this note (from another
+  // note, or from none), then point at its card.
+  const linkTask = async (task: TaskRecord) => {
+    if (!noteId) return;
+    try {
+      await update.mutateAsync({ id: task.id, noteId });
+      setLinkOpen(false);
+      toast.show("Linked to this note");
+      setFlash({ id: task.id, key: Date.now() });
+    } catch (error) {
+      toast.show(
+        error instanceof Error && error.message.includes("already in this note")
+          ? error.message
+          : "That task could not be linked. Please try again.",
+      );
+    }
+  };
+
   const addTask = async (draft: QuickAddDraft) => {
     const { task } = await create.mutateAsync({ ...draft, status: "todo", noteId });
     handleAdded(task);
@@ -218,6 +238,9 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
           disabled={extract.isPending || loading || adding}
         >
           {extract.isPending ? "Looking…" : "Find tasks"}
+        </Button>
+        <Button variant="secondary" size="sm" onPress={() => setLinkOpen(true)} disabled={loading}>
+          Link a task
         </Button>
         <Button size="sm" onPress={() => setQuickAddOpen(true)} disabled={loading}>
           Add a task
@@ -366,6 +389,15 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
               </Animated.View>
             ))}
         </View>
+      ) : null}
+
+      {noteId ? (
+        <LinkTaskSheet
+          open={linkOpen}
+          noteId={noteId}
+          onClose={() => setLinkOpen(false)}
+          onLink={linkTask}
+        />
       ) : null}
 
       <QuickAddTask

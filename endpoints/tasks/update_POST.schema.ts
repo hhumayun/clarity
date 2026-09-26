@@ -10,6 +10,8 @@ export const schema = z.object({
   projectId: z.string().uuid().optional(),
   completeBy: z.date().nullable().optional(),
   status: z.enum(TASK_STATUS_VALUES).optional(),
+  /** Link the task to one of the writer's notes, or null to unlink it. */
+  noteId: z.string().uuid().nullable().optional(),
 });
 export type InputType = z.infer<typeof schema>;
 export type OutputType = { task: TaskRecord };

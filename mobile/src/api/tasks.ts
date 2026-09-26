@@ -49,6 +49,8 @@ export async function postTaskUpdate(
     projectId?: string;
     completeBy?: Date | null;
     status?: TaskStatus;
+    /** Link the task to this note (moving it from any other), or null to unlink. */
+    noteId?: string | null;
   },
   init?: RequestInit,
 ): Promise<{ task: TaskRecord }> {

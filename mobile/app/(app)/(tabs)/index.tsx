@@ -333,7 +333,9 @@ export default function NotesListScreen() {
     </View>
   ) : (
     <View style={styles.header}>
-      <Text style={[styles.title, styles.flex]}>Your notes</Text>
+      {/* No heading: the tab bar already says Notes. The spacer keeps the
+          buttons on the right. */}
+      <View style={styles.flex} />
       {view === "days" ? (
         <Pressable
           onPress={() => {
