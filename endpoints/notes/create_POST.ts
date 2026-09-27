@@ -10,6 +10,10 @@ export async function handle(request: Request) {
   try {
     const user = await requireUser(request);
     const input = schema.parse(superjson.parse(await request.text()));
+    if (input.taskId) {
+      const task = await db.selectFrom("tasks").select("id").where("id", "=", input.taskId).where("userId", "=", user.id).where("deletedAt", "is", null).executeTakeFirst();
+      if (!task) return new Response(superjson.stringify({ error: "That task could not be found." }), { status: 404 });
+    }
 
     const row = await db.transaction().execute(async (trx) => {
       const created = await trx
@@ -19,6 +23,7 @@ export async function handle(request: Request) {
           title: input.title,
           content: input.content,
           source: input.source ?? null,
+          taskId: input.taskId ?? null,
         })
         .returning([...NOTE_RECORD_COLUMNS])
         .executeTakeFirstOrThrow();

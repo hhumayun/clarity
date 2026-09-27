@@ -46,6 +46,8 @@ export interface Notes {
   entitiesHash: string | null;
   id: Generated<string>;
   source: NoteSource | null;
+  /** For a thought parked during focus time: the task being worked on. */
+  taskId: string | null;
   title: Generated<string>;
   updatedAt: Generated<Timestamp>;
   userId: number;

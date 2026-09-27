@@ -267,8 +267,10 @@ export default function FocusScreen() {
   const parkThought = () => {
     const content = thought.trim();
     if (!content) return;
+    // The note remembers the task being worked on, so the task shows in the
+    // note's Tasks section.
     createNote.mutate(
-      { content, source: "focus" },
+      { content, source: "focus", ...(task ? { taskId: task.id } : {}) },
       {
         onSuccess: () => toast.show("Saved to Notes"),
         onError: () => toast.show("That thought could not be saved. Please try again."),

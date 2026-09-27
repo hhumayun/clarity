@@ -177,7 +177,13 @@ export function upsertNoteInLists(queryClient: QueryClient, note: NoteRecord) {
 export const useCreateNote = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { title?: string; content?: string; source?: "focus"; projectIds?: string[] }) =>
+    mutationFn: (body: {
+      title?: string;
+      content?: string;
+      source?: "focus";
+      taskId?: string;
+      projectIds?: string[];
+    }) =>
       postNoteCreate(body),
     onSuccess: () => invalidateNotes(queryClient),
   });

@@ -10,6 +10,8 @@ export const schema = z.object({
   content: z.string().max(100_000).default(""),
   /** Omitted for notes written in the editor; "focus" for a parked thought. */
   source: z.enum(NoteSourceArrayValues).optional(),
+  /** For a thought parked during focus time: the task being worked on. */
+  taskId: z.string().uuid().optional(),
   /** Areas to tag the note with from the start. */
   projectIds: z.array(z.string().min(1)).max(MAX_NOTE_PROJECTS).optional(),
 });

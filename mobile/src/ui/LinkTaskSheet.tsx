@@ -18,6 +18,8 @@ type Props = {
   open: boolean;
   /** The note the chosen task will be linked to. */
   noteId: string;
+  /** Tasks already showing in the note (e.g. the one a parked thought came from). */
+  excludeIds?: string[];
   onClose: () => void;
   /** Links the task; the sheet closes once it has. */
   onLink: (task: TaskRecord) => Promise<void>;
@@ -27,7 +29,7 @@ type Props = {
  * Pick one of your open tasks to keep with this note. Tasks already in this
  * note are left out; one linked to another note moves here.
  */
-export function LinkTaskSheet({ open, noteId, onClose, onLink }: Props) {
+export function LinkTaskSheet({ open, noteId, excludeIds = [], onClose, onLink }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { query } = useTasks(undefined, open);
@@ -40,6 +42,7 @@ export function LinkTaskSheet({ open, noteId, onClose, onLink }: Props) {
     setLinking(null);
   }, [open]);
 
+  const exclude = useMemo(() => new Set(excludeIds), [excludeIds]);
   const candidates = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return sortTasks(
@@ -47,12 +50,13 @@ export function LinkTaskSheet({ open, noteId, onClose, onLink }: Props) {
         (task) =>
           task.status !== "done" &&
           task.noteId !== noteId &&
+          !exclude.has(task.id) &&
           words.every((word) =>
             `${task.text} ${task.projectName}`.toLowerCase().includes(word),
           ),
       ),
     );
-  }, [query.data?.tasks, noteId, search]);
+  }, [query.data?.tasks, noteId, search, exclude]);
   const shown = candidates.slice(0, MAX_SHOWN);
 
   const choose = async (task: TaskRecord) => {

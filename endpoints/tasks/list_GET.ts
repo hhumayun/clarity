@@ -12,14 +12,17 @@ export async function handle(request: Request) {
     const input = schema.parse({ noteId: url.searchParams.get("noteId") ?? undefined });
 
     let extraction: OutputType["extraction"] = null;
+    // A thought parked during focus time also shows the task it was parked from.
+    let parkedFrom: string | null = null;
     if (input.noteId) {
       const [note, record] = await Promise.all([
-        db.selectFrom("notes").select(["title", "content"]).where("id", "=", input.noteId).where("userId", "=", user.id).executeTakeFirst(),
+        db.selectFrom("notes").select(["title", "content", "taskId"]).where("id", "=", input.noteId).where("userId", "=", user.id).executeTakeFirst(),
         db.selectFrom("taskExtractions").select(["contentHash"]).where("noteId", "=", input.noteId).where("userId", "=", user.id).executeTakeFirst(),
       ]);
       if (!note) {
         return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
       }
+      parkedFrom = note.taskId;
       extraction = {
         hasExtracted: Boolean(record),
         needsRefresh: Boolean(record && record.contentHash !== taskContentHash(note.title, note.content)),
@@ -37,7 +40,12 @@ export async function handle(request: Request) {
       ])
       .where("tasks.userId", "=", user.id)
       .where("tasks.deletedAt", "is", null);
-    if (input.noteId) taskQuery = taskQuery.where("tasks.noteId", "=", input.noteId);
+    if (input.noteId) {
+      const noteId = input.noteId;
+      taskQuery = parkedFrom
+        ? taskQuery.where((eb) => eb.or([eb("tasks.noteId", "=", noteId), eb("tasks.id", "=", parkedFrom)]))
+        : taskQuery.where("tasks.noteId", "=", noteId);
+    }
 
     const [tasks, projects] = await Promise.all([
       taskQuery.orderBy("tasks.updatedAt", "desc").execute(),

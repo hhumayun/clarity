@@ -395,6 +395,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
         <LinkTaskSheet
           open={linkOpen}
           noteId={noteId}
+          excludeIds={tasks.map((task) => task.id)}
           onClose={() => setLinkOpen(false)}
           onLink={linkTask}
         />
