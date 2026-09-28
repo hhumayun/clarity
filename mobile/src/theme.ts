@@ -108,7 +108,7 @@ export const textSize = {
   /** Sheet, dialog and section titles. */
   title: 22,
   /** Screen headings. */
-  display: 30,
+  display: 26,
 } as const;
 
 export function palette(darkMode: boolean): Colors {

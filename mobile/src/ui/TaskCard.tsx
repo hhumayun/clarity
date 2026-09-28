@@ -227,7 +227,7 @@ export function TaskCard({
         >
           <View>
             <Text
-              style={[styles.text, focus && styles.textFocus, shownDone && styles.textDone]}
+              style={[styles.text, shownDone && styles.textDone]}
               onTextLayout={(event) =>
                 setTextLines(
                   event.nativeEvent.lines.map((line: TextLayoutLine) => ({
@@ -403,7 +403,6 @@ function makeStyles(colors: Colors, scale: number) {
       fontSize: textSize.body * scale,
       color: colors.foreground,
     },
-    textFocus: { fontSize: textSize.large * scale },
     textDone: { color: colors.mutedForeground },
     meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: spacing[2], rowGap: 2 },
     metaItem: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 },
