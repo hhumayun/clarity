@@ -29,8 +29,6 @@ export function DayTasks({ tasks, onToggle, onOpenMenu, onAdd }: Props) {
     () => [...tasks].sort((a, b) => Number(a.status === "done") - Number(b.status === "done")),
     [tasks],
   );
-  const open = sorted.filter((task) => task.status !== "done").length;
-  const summary = sorted.length === 0 ? "" : open > 0 ? `${open} open` : "All done";
 
   const openMenu = (task: TaskRecord) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -41,18 +39,15 @@ export function DayTasks({ tasks, onToggle, onOpenMenu, onAdd }: Props) {
     <View>
       <View style={styles.header}>
         <Text style={styles.heading}>Tasks</Text>
-        <View style={styles.headerEnd}>
-          <Text style={styles.summary}>{summary}</Text>
-          <Pressable
-            onPress={onAdd}
-            hitSlop={10}
-            style={({ pressed }) => [styles.add, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Add a task for this day"
-          >
-            <Plus size={18} color={colors.primary} strokeWidth={2.2} />
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={onAdd}
+          hitSlop={10}
+          style={({ pressed }) => [styles.add, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Add a task for this day"
+        >
+          <Plus size={18} color={colors.primary} strokeWidth={2.2} />
+        </Pressable>
       </View>
       {sorted.length === 0 ? (
         <Text style={styles.empty}>Nothing was scheduled.</Text>
@@ -105,8 +100,6 @@ function makeStyles(colors: Colors, scale: number) {
       borderBottomColor: colors.border,
     },
     heading: { fontFamily: fonts.baseSemi, fontSize: 13 * scale, color: colors.foreground },
-    summary: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
-    headerEnd: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     add: { width: 30, height: 30, alignItems: "center", justifyContent: "center", marginRight: -6 },
     empty: {
       fontFamily: fonts.base,
