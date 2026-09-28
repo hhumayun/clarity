@@ -42,7 +42,7 @@ type Props = {
    * Mark done, Move to another day, Edit task), which replaces the old "…"
    * menu. "task" opens straight on the edit form.
    */
-  startPanel?: "task" | "actions";
+  startPanel?: "task" | "actions" | "move";
   /** Shows Start focus time on the action panel. */
   onStartFocus?: () => void;
   /** Called once Mark done has saved, so the screen can confirm it. */
@@ -114,14 +114,15 @@ export function TaskSheet({
   const [movePickerOpen, setMovePickerOpen] = useState(false);
   const editing = Boolean(task);
   // Where "back" goes from a sub-face: the panel the sheet opened on.
-  const home: Panel = task && startPanel === "actions" ? "actions" : "task";
+  // "move" opens straight on Move to another day (e.g. from a task's menu).
+  const home: Panel = task && (startPanel === "actions" || startPanel === "move") ? startPanel : "task";
 
   useEffect(() => {
     if (open) {
       setDraft(draftFrom(task, defaultProjectId, projects));
       setError("");
       setNewProject("");
-      setPanel(task && startPanel === "actions" ? "actions" : "task");
+      setPanel(task && (startPanel === "actions" || startPanel === "move") ? startPanel : "task");
       setMovePickerOpen(false);
     }
   }, [open, task?.id, defaultProjectId, projects, startPanel]);

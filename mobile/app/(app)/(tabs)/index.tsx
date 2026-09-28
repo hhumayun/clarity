@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   Archive,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   List,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -35,6 +37,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
+import { Collapse } from "../../../src/ui/Collapse";
+import { DayTasks } from "../../../src/ui/DayTasks";
+import { TaskMenu } from "../../../src/ui/TaskMenu";
+import { TaskSheet } from "../../../src/ui/TaskSheet";
+import { hapticDone, hapticUndone } from "../../../src/lib/haptics";
+import Svg, { Line } from "react-native-svg";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
@@ -47,21 +55,21 @@ import {
   useReindexNotes,
 } from "../../../src/hooks/useNotes";
 import { useTasks } from "../../../src/hooks/useTasks";
-import { formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
+import { dateChipLabel, formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
 import {
   dayHeading,
+  displayTitle,
   groupNotesByDay,
   notesOnDay,
   parseNoteSearch,
   stripRange,
-  stripRangeLabel,
   weeksBackFor,
   weekStrip,
 } from "../../../src/lib/notesList";
 import { taskCountByNote } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../../../src/theme";
-import type { NoteRecord } from "../../../src/types";
+import type { NoteRecord, TaskRecord } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { NoteCard } from "../../../src/ui/NoteCard";
 import { Skeleton } from "../../../src/ui/Skeleton";
@@ -69,6 +77,9 @@ import { Sheet } from "../../../src/ui/Sheet";
 
 const BACKFILL_FLAG = "clarity:backfilled";
 const VIEW_KEY = "clarity:notes-view";
+const STRIP_KEY = "clarity:notes-strip";
+// A sideways swipe on the dates this long changes the week.
+const SWIPE_WEEK = 50;
 // Start loading older notes this far (in points) before the end of the list,
 // so they are usually there by the time you reach it.
 const LOAD_MORE_WITHIN = 600;
@@ -90,6 +101,11 @@ export default function NotesListScreen() {
   // before that, and so on back.
   const [weeksBack, setWeeksBack] = useState(0);
   const [jumpOpen, setJumpOpen] = useState(false);
+  // The day view's dates fold away when its title is tapped (4a).
+  const [stripOpen, setStripOpen] = useState(true);
+  // A task's press-and-hold menu, and the sheet its Date row opens.
+  const [menuTask, setMenuTask] = useState<TaskRecord | null>(null);
+  const [moveTask, setMoveTask] = useState<TaskRecord | null>(null);
   const autoPick = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const motion = useFocusedMotion();
@@ -100,6 +116,11 @@ export default function NotesListScreen() {
     void AsyncStorage.getItem(VIEW_KEY)
       .then((saved) => {
         if (saved === "list" || saved === "days") setView(saved);
+      })
+      .catch(() => {});
+    void AsyncStorage.getItem(STRIP_KEY)
+      .then((saved) => {
+        if (saved === "closed") setStripOpen(false);
       })
       .catch(() => {});
   }, []);
@@ -203,6 +224,22 @@ export default function NotesListScreen() {
   // placeholder; they must not paint dots onto the new days.
   const weekNotes = weekQuery.isPlaceholderData ? [] : (weekQuery.data?.notes ?? []);
   const dayNotes = useMemo(() => notesOnDay(weekNotes, selectedDay), [weekNotes, selectedDay]);
+  // The day's tasks: the ones due that day, finished ones included.
+  const dayTasks = useMemo(
+    () =>
+      TASKS_ENABLED
+        ? (tasks.query.data?.tasks ?? []).filter(
+            (task) => task.completeBy !== null && isSameDay(task.completeBy, selectedDay),
+          )
+        : [],
+    [tasks.query.data?.tasks, selectedDay],
+  );
+  const toggleTask = (task: TaskRecord) => {
+    const done = task.status !== "done";
+    if (done) hapticDone();
+    else hapticUndone();
+    tasks.update.mutate({ id: task.id, status: done ? "done" : "todo" });
+  };
 
   // After paging, land on the most recent day of that week that has notes,
   // rather than an empty last day. Only once per page, when its notes arrive.
@@ -315,27 +352,38 @@ export default function NotesListScreen() {
     if (Platform.OS === "ios") setJumpOpen(false);
   };
 
+  // With the week arrows gone (4a), the dates are swiped sideways instead:
+  // right for the week before, left for the week after. Captured before the
+  // day buttons, so a sideways drag never taps a day.
+  const stepWeekRef = useRef(stepWeek);
+  stepWeekRef.current = stepWeek;
+  const swipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderRelease: (_, g) => {
+          if (g.dx > SWIPE_WEEK) stepWeekRef.current(1);
+          else if (g.dx < -SWIPE_WEEK && weeksBackRef.current > 0) stepWeekRef.current(-1);
+        },
+      }),
+    [],
+  );
+  const chevron = useSharedValue(stripOpen ? 1 : 0);
+  useEffect(() => {
+    chevron.value = withTiming(stripOpen ? 1 : 0, { duration: MOTION.base, easing: EASE_OUT });
+  }, [stripOpen, chevron]);
+  const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${chevron.value * 180}deg` }] }));
+  const toggleStrip = () => {
+    const next = !stripOpen;
+    setStripOpen(next);
+    void AsyncStorage.setItem(STRIP_KEY, next ? "open" : "closed").catch(() => {});
+  };
+
   const showSearchField = showArchived || view === "list" || searchOpen;
 
-  const header = showArchived ? (
-    <View style={styles.header}>
-      <Pressable
-        onPress={() => {
-          toTop();
-          setShowArchived(false);
-        }}
-        style={styles.iconButton}
-        accessibilityLabel="Back to your notes"
-      >
-        <ChevronLeft size={20} color={colors.foreground} />
-      </Pressable>
-      <Text style={[styles.title, styles.flex]}>Archived</Text>
-    </View>
-  ) : (
-    <View style={styles.header}>
-      {/* No heading: the tab bar already says Notes. The spacer keeps the
-          buttons on the right. */}
-      <View style={styles.flex} />
+  // Plain icons, no rings (4a): search (day view), list or days, settings.
+  const headerIcons = (
+    <>
       {view === "days" ? (
         <Pressable
           onPress={() => {
@@ -362,6 +410,98 @@ export default function NotesListScreen() {
       <Pressable onPress={() => router.push("/settings")} style={styles.iconButton} accessibilityLabel="Settings">
         <SlidersHorizontal size={20} color={colors.foreground} />
       </Pressable>
+    </>
+  );
+
+  const header = showArchived ? (
+    <View style={styles.header}>
+      <Pressable
+        onPress={() => {
+          toTop();
+          setShowArchived(false);
+        }}
+        style={styles.iconButton}
+        accessibilityLabel="Back to your notes"
+      >
+        <ChevronLeft size={20} color={colors.foreground} />
+      </Pressable>
+      <Text style={[styles.title, styles.flex]}>Archived</Text>
+    </View>
+  ) : (
+    <View style={styles.header}>
+      {/* No heading: the tab bar already says Notes. The spacer keeps the
+          buttons on the right. */}
+      <View style={styles.flex} />
+      {headerIcons}
+    </View>
+  );
+
+  // The day view's header (4a): the day on the left (tap to fold the dates
+  // away, press and hold to go to another day), plain icons on the right,
+  // the week's dates below, and one hairline under it all. It stays put
+  // while the day's notes and tasks scroll beneath it.
+  const isToday = isSameDay(selectedDay, new Date());
+  const dayHeader = (
+    <View style={styles.dayHeader}>
+      <View style={styles.dayHeaderRow}>
+        <Pressable
+          onPress={toggleStrip}
+          onLongPress={() => setJumpOpen(true)}
+          style={styles.dayTitleButton}
+          accessibilityRole="button"
+          accessibilityLabel={`${dayHeading(selectedDay)}, ${formatLongDate(selectedDay)}. ${stripOpen ? "Hide" : "Show"} the dates`}
+          accessibilityHint="Press and hold to go to another day"
+        >
+          <View style={styles.dayTitleRow}>
+            <Text style={styles.dayTitle} numberOfLines={1}>
+              {dayHeading(selectedDay)}
+            </Text>
+            <Animated.View style={chevronStyle}>
+              <ChevronDown size={16} color={colors.mutedForeground} />
+            </Animated.View>
+          </View>
+          <Text style={styles.daySub} numberOfLines={1}>
+            {formatLongDate(selectedDay)}
+          </Text>
+        </Pressable>
+        {!isToday ? (
+          <Pressable onPress={() => jumpTo(new Date())} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back to today">
+            <Text style={styles.todayLink}>Today</Text>
+          </Pressable>
+        ) : null}
+        {headerIcons}
+      </View>
+      <Collapse open={stripOpen}>
+        <Animated.View style={[styles.stripWrap, slideStyle]} {...swipe.panHandlers}>
+          {strip.map((day) => {
+            const active = isSameDay(day.date, selectedDay);
+            const hasNotes = weekNotes.some((note) => isSameDay(note.createdAt, day.date));
+            return (
+              <Pressable
+                key={day.key}
+                onPress={() => setSelectedDay(day.date)}
+                style={styles.stripDay}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${formatLongDate(day.date)}${hasNotes ? ", has notes" : ""}`}
+              >
+                <Text style={styles.stripLetter}>{day.letter}</Text>
+                <View style={[styles.stripCircle, active && styles.stripCircleActive]}>
+                  <Text
+                    style={[
+                      styles.stripNumber,
+                      !active && !hasNotes && styles.stripNumberQuiet,
+                      active && styles.stripNumberActive,
+                    ]}
+                  >
+                    {day.day}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </Animated.View>
+      </Collapse>
     </View>
   );
 
@@ -467,106 +607,81 @@ export default function NotesListScreen() {
         </View>
       );
   } else {
-    const hasNote = (day: Date) => weekNotes.some((note) => isSameDay(note.createdAt, day));
     body = (
-      <>
-        {/* Step back a week at a time, or tap the dates to jump anywhere. */}
-        <View style={styles.weekNav}>
-          <Pressable
-            onPress={() => stepWeek(1)}
-            style={styles.weekArrow}
-            accessibilityRole="button"
-            accessibilityLabel="Previous seven days"
-          >
-            <ChevronLeft size={20} color={colors.foreground} />
-          </Pressable>
-          <Pressable
-            onPress={() => setJumpOpen(true)}
-            style={styles.weekLabelButton}
-            accessibilityRole="button"
-            accessibilityLabel={`${stripRangeLabel(strip)}. Pick a date`}
-          >
-            <CalendarDays size={16} color={colors.mutedForeground} />
-            <Text style={styles.weekLabel}>{stripRangeLabel(strip)}</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => stepWeek(-1)}
-            disabled={weeksBack === 0}
-            style={[styles.weekArrow, weeksBack === 0 && styles.weekArrowOff]}
-            accessibilityRole="button"
-            accessibilityLabel="Next seven days"
-            accessibilityState={{ disabled: weeksBack === 0 }}
-          >
-            <ChevronRight size={20} color={colors.foreground} />
-          </Pressable>
-        </View>
-        {weeksBack > 0 ? (
-          <Pressable onPress={() => jumpTo(new Date())} style={styles.backToToday} accessibilityRole="button">
-            <Text style={styles.backToTodayText}>Back to today</Text>
-          </Pressable>
-        ) : null}
-        <Animated.View style={slideStyle}>
-        <View style={styles.strip}>
-          {strip.map((day) => {
-            const active = isSameDay(day.date, selectedDay);
-            const dot = hasNote(day.date);
-            return (
-              <Pressable
-                key={day.key}
-                onPress={() => setSelectedDay(day.date)}
-                style={[styles.stripDay, active && styles.stripDayActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`${formatLongDate(day.date)}${dot ? ", has notes" : ""}`}
-              >
-                <Text style={[styles.stripLetter, active && styles.stripTextActive]}>{day.letter}</Text>
-                <Text style={[styles.stripNumber, active && styles.stripTextActive]}>{day.day}</Text>
-                <View style={[styles.stripDot, dot && (active ? styles.stripDotActive : styles.stripDotOn)]} />
-              </Pressable>
-            );
-          })}
-        </View>
-        </Animated.View>
-        <Animated.View style={dayRevealStyle}>
+      <Animated.View style={dayRevealStyle}>
         <FadeSwitch switchKey={selectedDay.toDateString()} style={styles.dayBlock}>
-          <View>
-            <Text style={styles.dayTitle}>{dayHeading(selectedDay)}</Text>
-            <Text style={styles.daySub}>
-              {formatLongDate(selectedDay)} · {dayNotes.length} {dayNotes.length === 1 ? "note" : "notes"}
-            </Text>
-          </View>
           {dayNotes.length === 0 ? (
-            <Text style={styles.emptyText}>No notes on this day.</Text>
+            <Text style={styles.noNotes}>No notes this day.</Text>
           ) : (
             <View>
-              {dayNotes.map((note, i) => (
-                <View key={note.id} style={styles.timelineRow}>
-                  <View style={styles.rail}>
-                    <View
-                      style={[
-                        styles.railDot,
-                        { backgroundColor: note.source === "focus" ? colors.rest : colors.primary },
-                      ]}
-                    />
-                    {i < dayNotes.length - 1 ? <View style={styles.railLine} /> : null}
-                  </View>
-                  <View style={styles.flex}>
-                    <Text style={styles.timelineTime}>{formatClockTime(note.createdAt)}</Text>
-                    <NoteCard
-                      note={note}
-                      variant="timeline"
-                      taskCount={counts.get(note.id)}
-                      areas={areasOf(note)}
-                      onPress={() => openNote(note)}
-                    />
-                  </View>
-                </View>
-              ))}
+              {dayNotes.map((note, i) => {
+                const { title, preview } = displayTitle(note);
+                const areaNames = areasOf(note).map((area) => area.name).join(", ");
+                const linked = counts.get(note.id) ?? 0;
+                const parked = note.source === "focus";
+                return (
+                  <Pressable
+                    key={note.id}
+                    onPress={() => openNote(note)}
+                    style={({ pressed }) => [styles.noteRow, pressed && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${title}, ${formatClockTime(note.createdAt)}`}
+                  >
+                    <View style={styles.rail}>
+                      <View style={[styles.railDot, { backgroundColor: parked ? colors.rest : colors.primary }]} />
+                      {i < dayNotes.length - 1 ? (
+                        <View style={styles.railLine}>
+                          <Svg width={2} height="100%">
+                            <Line
+                              x1={1}
+                              y1={1}
+                              x2={1}
+                              y2="100%"
+                              stroke={colors.mutedForeground}
+                              strokeOpacity={0.55}
+                              strokeWidth={2}
+                              strokeDasharray="0.1 5"
+                              strokeLinecap="round"
+                            />
+                          </Svg>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.noteBody}>
+                      <Text style={styles.noteTime}>{formatClockTime(note.createdAt)}</Text>
+                      <Text style={styles.noteTitle}>{title}</Text>
+                      {preview ? (
+                        <Text style={styles.notePreview} numberOfLines={2}>
+                          {preview}
+                        </Text>
+                      ) : null}
+                      {areaNames || linked > 0 || parked ? (
+                        <Text style={styles.noteMeta}>
+                          {[
+                            areaNames,
+                            parked ? "Parked during focus" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                          {linked > 0 ? (
+                            <Text style={styles.noteLinked}>
+                              {areaNames || parked ? " · " : ""}
+                              {linked} {linked === 1 ? "task" : "tasks"}
+                            </Text>
+                          ) : null}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
+          {TASKS_ENABLED ? (
+            <DayTasks tasks={dayTasks} onToggle={toggleTask} onOpenMenu={setMenuTask} />
+          ) : null}
         </FadeSwitch>
-        </Animated.View>
-      </>
+      </Animated.View>
     );
   }
 
@@ -581,8 +696,13 @@ export default function NotesListScreen() {
     }
   };
 
+  // The day view pins its header above the scrolling notes and tasks; the
+  // list and the archive scroll their header away with the notes.
+  const dayView = view === "days" && !showArchived;
+
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
+      {dayView ? dayHeader : null}
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
@@ -590,7 +710,9 @@ export default function NotesListScreen() {
         onScroll={onScroll}
         scrollEventThrottle={100}
       >
-        <FadeSwitch switchKey={showArchived ? "archived" : "notes"}>{header}</FadeSwitch>
+        {dayView ? null : (
+          <FadeSwitch switchKey={showArchived ? "archived" : "notes"}>{header}</FadeSwitch>
+        )}
         {searchField}
         {/* The body fades in whenever what it shows changes kind: list, days,
             archive, or search results. The search field stays out of this, so
@@ -618,6 +740,43 @@ export default function NotesListScreen() {
       ) : jumpOpen ? (
         <DateTimePicker value={selectedDay} mode="date" display="default" maximumDate={new Date()} onChange={onJumpPicked} />
       ) : null}
+
+      <TaskMenu
+        task={menuTask}
+        dueLabel={menuTask?.completeBy ? dateChipLabel(menuTask.completeBy) : "None"}
+        onClose={() => setMenuTask(null)}
+        onDate={(task) => {
+          setMenuTask(null);
+          // After the menu has gone: two Modals must never be up together.
+          setTimeout(() => setMoveTask(task), MOTION.fast + 40);
+        }}
+        onFocus={(task) => {
+          setMenuTask(null);
+          router.push(`/focus/${task.id}`);
+        }}
+        onViewNote={(task) => {
+          setMenuTask(null);
+          if (task.noteId) router.push(`/note/${task.noteId}`);
+        }}
+      />
+      <TaskSheet
+        open={moveTask !== null}
+        onClose={() => setMoveTask(null)}
+        task={moveTask}
+        projects={tasks.query.data?.projects ?? []}
+        onSave={async (draft) => {
+          if (!moveTask) return;
+          await tasks.update.mutateAsync({
+            id: moveTask.id,
+            text: draft.text,
+            ...(draft.projectId ? { projectId: draft.projectId } : {}),
+            completeBy: draft.completeBy,
+            status: draft.status,
+          });
+        }}
+        onCreateProject={async (name) => (await tasks.createProject.mutateAsync({ name })).project}
+        startPanel="move"
+      />
 
       {!showArchived ? (
         <View style={styles.writeWrap}>
@@ -647,15 +806,13 @@ function makeStyles(colors: Colors, scale: number) {
     body: { gap: spacing[4] },
     title: { fontFamily: fonts.display, fontSize: 32 * scale, color: colors.foreground },
     iconButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: colors.border,
+      width: 40,
+      height: 40,
+      borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
     },
-    iconButtonOn: { borderColor: colors.primary },
+    iconButtonOn: { backgroundColor: colors.muted },
     searchRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -703,54 +860,51 @@ function makeStyles(colors: Colors, scale: number) {
     archivedText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[12] },
     emptyText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground, textAlign: "center" },
-    weekNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing[2] },
-    weekArrow: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: "center",
-      justifyContent: "center",
+    // Day view (4a): a pinned header with a hairline under it.
+    dayHeader: {
+      paddingHorizontal: spacing[4],
+      paddingTop: spacing[1],
+      paddingBottom: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.background,
     },
-    weekArrowOff: { opacity: 0.35 },
-    weekLabelButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing[2],
-      paddingHorizontal: spacing[3],
-      paddingVertical: spacing[2],
-      borderRadius: radius.full,
+    dayHeaderRow: { flexDirection: "row", alignItems: "center", gap: spacing[1], paddingTop: 6 },
+    dayTitleButton: { flex: 1, minWidth: 0, gap: 2 },
+    dayTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    dayTitle: { flexShrink: 1, fontFamily: fonts.display, fontSize: 22 * scale, color: colors.foreground },
+    daySub: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    todayLink: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary, paddingHorizontal: spacing[1] },
+    stripWrap: { flexDirection: "row", marginTop: spacing[4] },
+    stripDay: { flex: 1, alignItems: "center", gap: 6 },
+    stripLetter: { fontFamily: fonts.baseSemi, fontSize: 12 * scale, color: colors.mutedForeground },
+    stripCircle: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+    stripCircleActive: { backgroundColor: colors.primary },
+    stripNumber: { fontFamily: fonts.baseSemi, fontSize: 17 * scale, color: colors.foreground },
+    // Days without notes are quieter than days with them.
+    stripNumberQuiet: { fontFamily: fonts.base, color: colors.mutedForeground },
+    stripNumberActive: { color: colors.primaryForeground },
+    dayBlock: { gap: spacing[1] },
+    noNotes: {
+      fontFamily: fonts.base,
+      fontSize: 14 * scale,
+      color: colors.mutedForeground,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
     },
-    weekLabel: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
-    backToToday: { alignSelf: "center", marginTop: -spacing[2] },
-    backToTodayText: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
-    strip: { flexDirection: "row", gap: 6 },
-    stripDay: {
-      flex: 1,
-      alignItems: "center",
-      gap: 2,
-      paddingVertical: spacing[2],
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-    },
-    stripDayActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    stripLetter: { fontFamily: fonts.base, fontSize: 12 * scale, color: colors.mutedForeground },
-    stripNumber: { fontFamily: fonts.baseSemi, fontSize: 18 * scale, color: colors.foreground },
-    stripTextActive: { color: colors.primaryForeground },
-    stripDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "transparent", marginTop: 2 },
-    stripDotOn: { backgroundColor: colors.primary },
-    stripDotActive: { backgroundColor: colors.primaryForeground },
-    dayBlock: { gap: spacing[4] },
-    dayTitle: { fontFamily: fonts.display, fontSize: 26 * scale, color: colors.foreground },
-    daySub: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground, marginTop: 2 },
-    timelineRow: { flexDirection: "row", gap: spacing[3] },
-    rail: { width: 12, alignItems: "center" },
-    railDot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
-    railLine: { flex: 1, width: 2, backgroundColor: colors.border, marginTop: 4 },
-    timelineTime: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground, marginBottom: 2 },
+    // A note on the day's timeline: a dot, a dotted line to the next, then
+    // its time, title, two lines of it, and its area and linked tasks.
+    noteRow: { flexDirection: "row", gap: spacing[3] },
+    rail: { width: 20, alignItems: "center", paddingTop: 5 },
+    railDot: { width: 9, height: 9, borderRadius: 5 },
+    railLine: { flex: 1, width: 2, minHeight: 20, marginTop: 6 },
+    noteBody: { flex: 1, minWidth: 0, gap: 4, paddingBottom: 22 },
+    noteTime: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    noteTitle: { fontFamily: fonts.baseSemi, fontSize: 17 * scale, lineHeight: 22 * scale, color: colors.foreground },
+    notePreview: { fontFamily: fonts.base, fontSize: 14 * scale, lineHeight: 20 * scale, color: colors.mutedForeground },
+    noteMeta: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground, marginTop: 2 },
+    noteLinked: { color: colors.primary },
     writeWrap: {
       paddingHorizontal: spacing[4],
       paddingTop: spacing[2],
@@ -761,12 +915,10 @@ function makeStyles(colors: Colors, scale: number) {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing[3],
-      minHeight: 54,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      minHeight: 46,
+      borderRadius: 10,
       backgroundColor: colors.card,
-      paddingHorizontal: spacing[4],
+      paddingHorizontal: 14,
     },
     writeText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground },
   });
