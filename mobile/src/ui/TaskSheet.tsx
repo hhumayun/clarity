@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
 import { atNoon, dateChipLabel, daysFromToday, isSameDay, nextWeekend } from "../lib/dates";
@@ -124,6 +124,7 @@ export function TaskSheet({
 }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const { height: windowHeight } = useWindowDimensions();
   const [draft, setDraft] = useState<TaskDraft>(() =>
     draftFrom(task, defaultProjectId, projects),
   );
@@ -292,26 +293,13 @@ export function TaskSheet({
                     ? "actions"
                     : panel === "project"
                       ? "chooseProject"
-                      : "task",
+                      : panel === "confirmDelete"
+                        ? "actions"
+                        : "task",
                 )
         }
-        headerAction={
-          panel === "task" && editing && onDelete ? (
-            // Up here, away from Save, and it still asks before deleting.
-            <Pressable
-              onPress={() => {
-                setError("");
-                setPanel("confirmDelete");
-              }}
-              hitSlop={8}
-              style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel="Delete this task"
-            >
-              <Trash2 size={20} color={colors.mutedForeground} />
-            </Pressable>
-          ) : undefined
-        }
+        // The edit page gives its title, the task, the whole width.
+        showClose={panel !== "task"}
       >
         {/* Each face fades in as it replaces the last, while the sheet's
             height glides between them. */}
@@ -369,6 +357,20 @@ export function TaskSheet({
                 <Pencil size={20} color={colors.foreground} />
                 <Text style={styles.actionText}>Edit task</Text>
               </Pressable>
+              {onDelete ? (
+                // Last, away from the rest, and it still asks first.
+                <Pressable
+                  style={[styles.actionRow, styles.actionDivider]}
+                  onPress={() => {
+                    setError("");
+                    setPanel("confirmDelete");
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Trash2 size={20} color={colors.error} />
+                  <Text style={[styles.actionText, styles.deleteText]}>Delete task</Text>
+                </Pressable>
+              ) : null}
             </View>
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </>
@@ -422,11 +424,14 @@ export function TaskSheet({
           </>
         ) : panel === "task" ? (
           <>
+            {/* One line to start, growing as it is written in; past a third
+                of the screen it scrolls inside itself. */}
             <TextArea
               value={draft.description ?? ""}
               onChangeText={(description) => setDraft((current) => ({ ...current, description }))}
               placeholder="Add a description"
               maxLength={5000}
+              style={[styles.description, { maxHeight: Math.round(windowHeight / 3) }]}
               accessibilityLabel="Description"
             />
 
@@ -531,7 +536,7 @@ export function TaskSheet({
             >
               Delete
             </Button>
-            <Button variant="ghost" onPress={() => setPanel("task")} disabled={deleting}>
+            <Button variant="ghost" onPress={() => setPanel("actions")} disabled={deleting}>
               Cancel
             </Button>
           </>
@@ -672,13 +677,18 @@ function makeStyles(colors: Colors, scale: number) {
     // sheet's edges on narrow screens.
     picker: { marginHorizontal: -spacing[2] },
     face: { gap: spacing[4] },
-    pressed: { opacity: 0.85 },
-    deleteButton: {
-      width: 36,
-      height: 36,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: radius.full,
+    deleteText: { color: colors.error },
+    // Plain text under the title: no box, the task's own words above it.
+    description: {
+      minHeight: 0,
+      borderWidth: 0,
+      borderRadius: 0,
+      backgroundColor: "transparent",
+      paddingHorizontal: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
+      fontSize: 17 * scale,
+      lineHeight: 24 * scale,
     },
     flexShrink: { flexShrink: 1 },
     focusButton: {

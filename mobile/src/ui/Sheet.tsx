@@ -40,6 +40,11 @@ type Props = {
   /** Closes the sheet: the × button, dragging it down, or tapping outside it. */
   onClose: () => void;
   /**
+   * The × at the top left. Off for a page that wants its title to have the
+   * whole width; dragging down and tapping outside still close it.
+   */
+  showClose?: boolean;
+  /**
    * Android's back button, for sheets with pages inside them: step back a
    * page rather than close. Defaults to onClose.
    */
@@ -61,6 +66,7 @@ export function Sheet({
   description,
   eyebrow,
   onClose,
+  showClose = true,
   onBack,
   headerAction,
   children,
@@ -75,7 +81,15 @@ export function Sheet({
   // new renderer (RN clears it only from an old-renderer event).
   const { mounted, progress } = usePresence(open);
   // Keep showing what was there while it slides away.
-  const shown = useHeldWhileOpen(open, { title, titleInput, description, eyebrow, headerAction, children });
+  const shown = useHeldWhileOpen(open, {
+    title,
+    titleInput,
+    description,
+    eyebrow,
+    showClose,
+    headerAction,
+    children,
+  });
 
   // Slide by the sheet's own height once known; until then, off the screen.
   const sheetHeight = useSharedValue(windowHeight);
@@ -263,15 +277,17 @@ export function Sheet({
           >
             <View style={styles.handle} />
             <View style={styles.headerRow}>
-              <Pressable
-                onPress={onClose}
-                hitSlop={8}
-                style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
-                <X size={22} color={colors.foreground} />
-              </Pressable>
+              {shown.showClose ? (
+                <Pressable
+                  onPress={onClose}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                >
+                  <X size={22} color={colors.foreground} />
+                </Pressable>
+              ) : null}
               <View style={styles.headerText}>
                 {shown.eyebrow ? <View style={styles.eyebrow}>{shown.eyebrow}</View> : null}
                 {/* A new title fades in with the page it names. */}
