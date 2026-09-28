@@ -15,7 +15,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import { CalendarDays, Check, FileText, Play, Timer } from "lucide-react-native";
+import { CalendarDays, Check, FileText, Timer } from "lucide-react-native";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatClockTime, formatPlannedDate } from "../lib/dates";
@@ -88,8 +88,6 @@ type Props = {
   onOpen: () => void;
   /** Today card only: the small timer button, which opens focus setup. */
   onStartFocus?: () => void;
-  /** Today card only: pick up from "where you left off". */
-  onContinueFocus?: () => void;
 };
 
 export function TaskCard({
@@ -104,7 +102,6 @@ export function TaskCard({
   onStatusChange,
   onOpen,
   onStartFocus,
-  onContinueFocus,
 }: Props) {
   const router = useRouter();
   const { colors, scale, dark } = useAppTheme();
@@ -196,15 +193,15 @@ export function TaskCard({
     focus && !shownDone && focusSummary?.lastLeftOff.trim() && focusSummary.lastOutcome !== "finished"
       ? focusSummary.lastLeftOff.trim()
       : null;
-  const continueMinutes = focusSummary?.lastPlannedMinutes ?? 15;
-  const showTimerButton = focus && !shownDone && !leftOff && Boolean(onStartFocus);
+  // A task already worked on is a task like any other: the timer to start
+  // again (its setup picks up from where you left off), and the note below.
+  const showTimerButton = focus && !shownDone && Boolean(onStartFocus);
 
   return (
     <View
       style={[
         styles.card,
         focus && styles.cardFocus,
-        leftOff && styles.cardContinue,
         shownDone && (focus ? styles.doneFocus : styles.done),
       ]}
     >
@@ -319,22 +316,9 @@ export function TaskCard({
       </View>
 
       {leftOff ? (
-        <View style={styles.continueBlock}>
-          <View style={styles.leftOffBox}>
-            <Text style={styles.leftOffLabel}>WHERE YOU LEFT OFF</Text>
-            <Text style={styles.leftOffText}>{leftOff}</Text>
-          </View>
-          {onContinueFocus ? (
-            <Pressable
-              style={({ pressed }) => [styles.continueButton, pressed && styles.pressed]}
-              onPress={onContinueFocus}
-              accessibilityRole="button"
-              accessibilityLabel={`Continue focus time, ${continueMinutes} minutes`}
-            >
-              <Play size={16} color={colors.primaryForeground} fill={colors.primaryForeground} />
-              <Text style={styles.continueText}>Continue · {continueMinutes} min</Text>
-            </Pressable>
-          ) : null}
+        <View style={styles.leftOffBox}>
+          <Text style={styles.leftOffLabel}>WHERE YOU LEFT OFF</Text>
+          <Text style={styles.leftOffText}>{leftOff}</Text>
         </View>
       ) : null}
     </View>
@@ -353,7 +337,6 @@ function makeStyles(colors: Colors, scale: number) {
     },
     row: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
     rowFocus: { alignItems: "center" },
-    cardContinue: { borderColor: colors.primary },
     cardFocus: {
       paddingVertical: spacing[4],
       paddingHorizontal: spacing[4],
@@ -402,7 +385,6 @@ function makeStyles(colors: Colors, scale: number) {
       alignItems: "center",
       justifyContent: "center",
     },
-    continueBlock: { gap: spacing[3] },
     leftOffBox: {
       borderRadius: radius.sm,
       backgroundColor: colors.surface,
@@ -416,16 +398,6 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.mutedForeground,
     },
     leftOffText: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 21 * scale, color: colors.foreground },
-    continueButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: spacing[2],
-      minHeight: 48,
-      borderRadius: radius.sm,
-      backgroundColor: colors.primary,
-    },
-    continueText: { fontFamily: fonts.baseBold, fontSize: 16 * scale, color: colors.primaryForeground },
     text: {
       fontFamily: fonts.baseSemi,
       fontSize: 16 * scale,

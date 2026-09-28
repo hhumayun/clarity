@@ -204,9 +204,6 @@ export default function LifeCenterScreen() {
           onStatusChange={(next) => changeStatus(task, next)}
           onOpen={() => setEditing(task)}
           onStartFocus={variant === "focus" ? () => router.push(`/focus/${task.id}`) : undefined}
-          onContinueFocus={
-            variant === "focus" ? () => router.push(`/focus/${task.id}?continue=1`) : undefined
-          }
         />
       </View>
     </Animated.View>
