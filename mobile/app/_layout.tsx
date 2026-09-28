@@ -1,7 +1,4 @@
 import {
-  Fraunces_600SemiBold,
-} from "@expo-google-fonts/fraunces";
-import {
   NunitoSans_400Regular,
   NunitoSans_600SemiBold,
   NunitoSans_700Bold,
@@ -21,7 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppThemeProvider, useAppTheme } from "../src/providers/AppThemeProvider";
 import { AuthProvider, useAuth } from "../src/providers/AuthProvider";
 import { ToastProvider } from "../src/providers/ToastProvider";
-import { fonts } from "../src/theme";
+import { fonts, textSize } from "../src/theme";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -36,7 +33,6 @@ export default function RootLayout() {
     NunitoSans_400Regular,
     NunitoSans_600SemiBold,
     NunitoSans_700Bold,
-    Fraunces_600SemiBold,
   });
 
   useEffect(() => {
@@ -135,6 +131,6 @@ const styles = StyleSheet.create({
     padding: 32,
     backgroundColor: "#f6f2ea",
   },
-  missingTitle: { fontFamily: fonts.display, fontSize: 24, marginBottom: 12 },
-  missingBody: { fontFamily: fonts.base, fontSize: 16, textAlign: "center", color: "#655f55" },
+  missingTitle: { fontFamily: fonts.display, fontSize: textSize.title, marginBottom: 12 },
+  missingBody: { fontFamily: fonts.base, fontSize: textSize.body, textAlign: "center", color: "#655f55" },
 });

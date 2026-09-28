@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { CalendarDays, Check, FileText, Timer } from "lucide-react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatClockTime, formatPlannedDate } from "../lib/dates";
 import { areaTag } from "../lib/lifeCenter";
@@ -393,27 +393,27 @@ function makeStyles(colors: Colors, scale: number) {
     },
     leftOffLabel: {
       fontFamily: fonts.baseSemi,
-      fontSize: 11 * scale,
+      fontSize: textSize.label * scale,
       letterSpacing: 1,
       color: colors.mutedForeground,
     },
-    leftOffText: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 21 * scale, color: colors.foreground },
+    leftOffText: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 22 * scale, color: colors.foreground },
     text: {
       fontFamily: fonts.baseSemi,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
       color: colors.foreground,
     },
-    textFocus: { fontSize: 18 * scale },
+    textFocus: { fontSize: textSize.large * scale },
     textDone: { color: colors.mutedForeground },
     meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: spacing[2], rowGap: 2 },
     metaItem: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 },
     dot: { width: 7, height: 7, borderRadius: 4 },
-    sep: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    sep: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     noteLink: { color: colors.primary },
     chipWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
     chip: {
       fontFamily: fonts.base,
-      fontSize: 13 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
     overdue: {},

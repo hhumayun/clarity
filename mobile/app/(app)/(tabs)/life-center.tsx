@@ -32,7 +32,7 @@ import { dueState } from "../../../src/lib/taskDates";
 import { sortProjects } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { fonts, radius, spacing, type Colors } from "../../../src/theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../../../src/theme";
 import type { ProjectRecord, TaskRecord, TaskStatus } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { ConfirmModal } from "../../../src/ui/ConfirmModal";
@@ -613,8 +613,8 @@ function makeStyles(colors: Colors, scale: number) {
     viewBody: { gap: spacing[4] },
     pressed: { opacity: 0.8 },
     titleRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
-    title: { fontFamily: fonts.display, fontSize: 32 * scale, color: colors.foreground },
-    subtitle: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground, marginTop: 2 },
+    title: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
+    subtitle: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground, marginTop: 2 },
     // Plain outline: a quiet circle, not a filled button competing with the tasks.
     iconButton: {
       width: 44,
@@ -639,7 +639,7 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: spacing[2],
     },
     areaPillOpen: { borderColor: colors.primary },
-    areaPillText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.foreground },
+    areaPillText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.foreground },
     menuSpace: { paddingTop: spacing[3] },
     areaMenu: {
       borderRadius: radius.md,
@@ -655,20 +655,20 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[4],
       paddingVertical: spacing[3],
     },
-    areaItemText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.foreground },
+    areaItemText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     areaItemActive: { fontFamily: fonts.baseSemi },
     areaManage: { borderTopWidth: 1, borderTopColor: colors.border },
-    areaManageText: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.primary },
+    areaManageText: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.primary },
     dot: { width: 8, height: 8, borderRadius: 4 },
     greetingBlock: { gap: 2 },
     focusLine: { flexDirection: "row", alignItems: "center", gap: spacing[1], marginTop: 2 },
-    greeting: { fontFamily: fonts.display, fontSize: 36 * scale, color: colors.foreground },
+    greeting: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     progress: { gap: spacing[2] },
-    progressText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    progressText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     section: { gap: spacing[2] },
     sectionLabel: {
       fontFamily: fonts.baseSemi,
-      fontSize: 12 * scale,
+      fontSize: textSize.label * scale,
       letterSpacing: 1,
       color: colors.mutedForeground,
     },
@@ -683,8 +683,8 @@ function makeStyles(colors: Colors, scale: number) {
     },
     slippedHead: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     slippedDot: { backgroundColor: colors.warning },
-    slippedTitle: { flex: 1, fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
-    slippedBody: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 22 * scale, color: colors.mutedForeground },
+    slippedTitle: { flex: 1, fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
+    slippedBody: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 23 * scale, color: colors.mutedForeground },
     reviewButton: {
       flexDirection: "row",
       alignItems: "center",
@@ -694,7 +694,7 @@ function makeStyles(colors: Colors, scale: number) {
       borderRadius: radius.md,
       backgroundColor: colors.accent,
     },
-    reviewText: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.accentForeground },
+    reviewText: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.accentForeground },
     slippedRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -705,8 +705,8 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[4],
       paddingVertical: spacing[3],
     },
-    slippedRowText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.foreground },
-    slippedRowAction: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.primary },
+    slippedRowText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
+    slippedRowAction: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.primary },
     comingRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -714,17 +714,17 @@ function makeStyles(colors: Colors, scale: number) {
       gap: spacing[3],
       paddingVertical: spacing[2],
     },
-    comingText: { flex: 1, fontFamily: fonts.base, fontSize: 16 * scale, color: colors.foreground },
-    comingWhen: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    comingText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
+    comingWhen: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     seeAll: { paddingVertical: spacing[1] },
-    seeAllText: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
+    seeAllText: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.primary },
     doneHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     doneToggle: { flexDirection: "row", alignItems: "center", gap: spacing[1], paddingVertical: spacing[1] },
     chevronUp: { transform: [{ rotate: "180deg" }] },
     todayEmpty: { paddingVertical: spacing[4] },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[8] },
-    emptyTitle: { fontFamily: fonts.display, fontSize: 24 * scale, color: colors.foreground },
-    emptyText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground, textAlign: "center" },
+    emptyTitle: { fontFamily: fonts.display, fontSize: textSize.title * scale, color: colors.foreground },
+    emptyText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground, textAlign: "center" },
     // Pinned above the tab bar, the way the design puts adding at the bottom.
     addBarWrap: {
       paddingHorizontal: spacing[4],
@@ -751,6 +751,6 @@ function makeStyles(colors: Colors, scale: number) {
       alignItems: "center",
       justifyContent: "center",
     },
-    addText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground },
+    addText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
   });
 }

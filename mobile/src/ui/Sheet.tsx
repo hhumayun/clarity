@@ -23,7 +23,7 @@ import { GentleKeyboardAvoidingView } from "./GentleKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { EASE_OUT, MOTION, fadeInFast } from "./motion";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 type Props = {
@@ -394,14 +394,14 @@ function makeStyles(colors: Colors, scale: number) {
     eyebrow: { marginBottom: spacing[2] },
     title: {
       fontFamily: fonts.display,
-      fontSize: 22 * scale,
+      fontSize: textSize.title * scale,
       lineHeight: 28 * scale,
       color: colors.foreground,
     },
     description: {
       fontFamily: fonts.base,
-      fontSize: 15 * scale,
-      lineHeight: 22 * scale,
+      fontSize: textSize.body * scale,
+      lineHeight: 23 * scale,
       color: colors.mutedForeground,
       marginTop: spacing[1],
     },

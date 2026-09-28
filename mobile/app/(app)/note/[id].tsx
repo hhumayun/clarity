@@ -26,7 +26,7 @@ import { localDrafts } from "../../../src/lib/localDrafts";
 import { wantsTitleIdea, wantsTitleOnLeave } from "../../../src/lib/noteTitle";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { fonts, spacing, type Colors } from "../../../src/theme";
+import { fonts, spacing, type Colors, textSize } from "../../../src/theme";
 import {
   isCompletionSuggestion,
   type BubbleSuggestion,
@@ -833,13 +833,13 @@ function makeStyles(colors: Colors, scale: number) {
       alignSelf: "stretch",
       textAlign: "center",
       fontFamily: fonts.display,
-      fontSize: 20 * scale,
+      fontSize: textSize.title * scale,
       color: colors.foreground,
       paddingVertical: 2,
     },
     status: {
       fontFamily: fonts.base,
-      fontSize: 12 * scale,
+      fontSize: textSize.label * scale,
       lineHeight: 16 * scale,
       color: colors.mutedForeground,
     },
@@ -867,10 +867,10 @@ function makeStyles(colors: Colors, scale: number) {
     titleIdeaText: {
       flexShrink: 1,
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.accentForeground,
     },
-    titleIdeaUse: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary },
+    titleIdeaUse: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.primary },
     titleIdeaDismiss: { padding: spacing[1] },
     areaRow: {
       flexDirection: "row",
@@ -892,11 +892,11 @@ function makeStyles(colors: Colors, scale: number) {
     },
     areaChipAdd: { borderStyle: "dashed", paddingHorizontal: spacing[2] },
     areaDot: { width: 8, height: 8, borderRadius: 4 },
-    areaChipText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.foreground },
-    areaChipMuted: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    areaChipText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.foreground },
+    areaChipMuted: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     menuRow: { flexDirection: "row", alignItems: "center", gap: spacing[3], paddingVertical: spacing[4] },
     menuDivider: { borderTopWidth: 1, borderTopColor: colors.border },
-    menuText: { fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
+    menuText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     menuDanger: { color: colors.error },
     // Bottom padding clears the pinned reflection strip, so the last row of
     // chips can always be scrolled out from behind it.
@@ -911,7 +911,7 @@ function makeStyles(colors: Colors, scale: number) {
       // usable tap target on an empty note.
       minHeight: MIN_BODY_HEIGHT,
       fontFamily: fonts.base,
-      fontSize: 18 * scale,
+      fontSize: textSize.large * scale,
       lineHeight: 28 * scale,
       color: colors.foreground,
     },
@@ -933,7 +933,7 @@ function makeStyles(colors: Colors, scale: number) {
     toolbarLabel: {
       flex: 1,
       fontFamily: fonts.baseSemi,
-      fontSize: 12 * scale,
+      fontSize: textSize.label * scale,
       letterSpacing: 0.4,
       color: colors.mutedForeground,
     },

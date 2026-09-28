@@ -57,7 +57,7 @@ import { hapticDone } from "../../../src/lib/haptics";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { fonts, radius, spacing, type Colors } from "../../../src/theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../../../src/theme";
 import type { TaskRecord } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { ProgressRing } from "../../../src/ui/ProgressRing";
@@ -779,7 +779,7 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[4],
       paddingTop: spacing[2],
     },
-    headerTitle: { fontFamily: fonts.baseSemi, fontSize: 17 * scale, color: colors.foreground },
+    headerTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     roundButton: {
       width: 44,
       height: 44,
@@ -794,13 +794,13 @@ function makeStyles(colors: Colors, scale: number) {
     focusBody: { padding: spacing[4], gap: spacing[3], alignItems: "center", paddingBottom: spacing[6] },
     skeleton: { height: 120, borderRadius: radius.lg },
     gapSm: { gap: spacing[2] },
-    muted: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
+    muted: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
     centerText: { textAlign: "center" },
-    taskTitle: { fontFamily: fonts.display, fontSize: 28 * scale, color: colors.foreground },
-    bigTitle: { fontFamily: fonts.display, fontSize: 30 * scale, color: colors.foreground },
+    taskTitle: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
+    bigTitle: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     area: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     dot: { width: 8, height: 8, borderRadius: 4 },
-    label: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
+    label: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     durations: { flexDirection: "row", gap: spacing[2] },
     duration: {
       flex: 1,
@@ -811,9 +811,9 @@ function makeStyles(colors: Colors, scale: number) {
       borderColor: colors.border,
     },
     durationActive: { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.accent },
-    durationNumber: { fontFamily: fonts.display, fontSize: 30 * scale, color: colors.foreground },
-    durationUnit: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
-    durationLabel: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    durationNumber: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
+    durationUnit: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
+    durationLabel: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     input: {
       minHeight: 52,
       borderRadius: radius.md,
@@ -822,7 +822,7 @@ function makeStyles(colors: Colors, scale: number) {
       backgroundColor: colors.card,
       color: colors.foreground,
       fontFamily: fonts.base,
-      fontSize: 17 * scale,
+      fontSize: textSize.body * scale,
       paddingHorizontal: spacing[4],
       paddingVertical: spacing[3],
     },
@@ -836,7 +836,7 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: spacing[2],
     },
     bubbleActive: { borderColor: colors.primary, backgroundColor: colors.accent },
-    bubbleText: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.foreground },
+    bubbleText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     breakRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -846,8 +846,8 @@ function makeStyles(colors: Colors, scale: number) {
       borderColor: colors.border,
       padding: spacing[4],
     },
-    breakTitle: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.foreground },
-    breakHint: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    breakTitle: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
+    breakHint: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     footer: { paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[3] },
     // Riding on the keyboard it passes over the page, so it needs a floor.
     stickyFooter: { backgroundColor: colors.background },
@@ -860,7 +860,7 @@ function makeStyles(colors: Colors, scale: number) {
       borderRadius: radius.md,
       backgroundColor: colors.primary,
     },
-    primaryText: { fontFamily: fonts.baseBold, fontSize: 17 * scale, color: colors.primaryForeground },
+    primaryText: { fontFamily: fonts.baseBold, fontSize: textSize.body * scale, color: colors.primaryForeground },
     secondary: {
       alignItems: "center",
       justifyContent: "center",
@@ -869,9 +869,9 @@ function makeStyles(colors: Colors, scale: number) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    secondaryText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.foreground },
+    secondaryText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     textLink: { alignItems: "center", paddingVertical: spacing[2] },
-    textLinkText: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
+    textLinkText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
     pill: {
       flexDirection: "row",
       alignItems: "center",
@@ -885,7 +885,7 @@ function makeStyles(colors: Colors, scale: number) {
       marginBottom: spacing[3],
     },
     pillRest: { backgroundColor: colors.restSurface, borderColor: colors.restSurface },
-    pillText: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    pillText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     stepChip: {
       flexDirection: "row",
       alignItems: "center",
@@ -896,10 +896,10 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: spacing[2],
       maxWidth: "100%",
     },
-    stepChipText: { flexShrink: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.accentForeground },
+    stepChipText: { flexShrink: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.accentForeground },
     ring: { marginVertical: spacing[6] },
     ringNumber: { fontFamily: fonts.display, fontSize: 72 * scale, color: colors.foreground },
-    ringUnit: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground },
+    ringUnit: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
     restNumber: { fontFamily: fonts.display, fontSize: 52 * scale, color: colors.foreground },
     controls: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-around", alignSelf: "stretch" },
     control: { alignItems: "center", gap: spacing[2], width: 110 },
@@ -913,7 +913,7 @@ function makeStyles(colors: Colors, scale: number) {
       justifyContent: "center",
     },
     controlMain: { width: 78, height: 78, borderRadius: 39, backgroundColor: colors.primary, borderWidth: 0 },
-    controlLabel: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.foreground, textAlign: "center" },
+    controlLabel: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.foreground, textAlign: "center" },
     controlLabelStrong: { fontFamily: fonts.baseSemi },
     parkPanel: {
       alignSelf: "stretch",
@@ -958,7 +958,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     radioOn: { borderColor: colors.primary },
     radioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary },
-    radioText: { fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
+    radioText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     leftOffInput: { minHeight: 76, textAlignVertical: "top" },
     ideas: {
       alignSelf: "stretch",
@@ -969,7 +969,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     idea: { flexDirection: "row", alignItems: "center", gap: spacing[3], padding: spacing[4] },
     ideaDivider: { borderTopWidth: 1, borderTopColor: colors.border },
-    ideaText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.foreground },
+    ideaText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     backCard: {
       alignSelf: "stretch",
       gap: 4,
@@ -979,10 +979,10 @@ function makeStyles(colors: Colors, scale: number) {
     },
     backLabel: {
       fontFamily: fonts.baseSemi,
-      fontSize: 12 * scale,
+      fontSize: textSize.label * scale,
       letterSpacing: 1,
       color: colors.accentForeground,
     },
-    backText: { fontFamily: fonts.base, fontSize: 16 * scale, lineHeight: 22 * scale, color: colors.foreground },
+    backText: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 22 * scale, color: colors.foreground },
   });
 }

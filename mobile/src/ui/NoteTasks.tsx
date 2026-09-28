@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CalendarDays, Sparkles } from "lucide-react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useToast } from "../providers/ToastProvider";
@@ -461,11 +461,11 @@ function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     section: { gap: spacing[3], paddingBottom: spacing[8] },
     addedOverlay: { justifyContent: "flex-start", paddingTop: spacing[12] },
-    title: { fontFamily: fonts.display, fontSize: 22 * scale, color: colors.foreground },
-    subtitle: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
+    title: { fontFamily: fonts.display, fontSize: textSize.title * scale, color: colors.foreground },
+    subtitle: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
-    changed: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.warning },
-    intro: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.foreground },
+    changed: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.warning },
+    intro: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     box: {
       backgroundColor: colors.surface,
       borderRadius: radius.md,
@@ -483,20 +483,20 @@ function makeStyles(colors: Colors, scale: number) {
     },
     checkOn: { backgroundColor: colors.primary },
     flex: { flex: 1 },
-    suggestionText: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
+    suggestionText: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     meta: { flexDirection: "row", gap: spacing[2], marginTop: 4 },
-    chip: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    chip: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     due: { flexDirection: "row", alignItems: "center", gap: 4 },
     list: { gap: spacing[2] },
     skeleton: { height: 72 },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[6] },
     emptyText: {
       fontFamily: fonts.base,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
       textAlign: "center",
     },
     doneToggle: { paddingVertical: spacing[2] },
-    doneLabel: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.mutedForeground },
+    doneLabel: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.mutedForeground },
   });
 }

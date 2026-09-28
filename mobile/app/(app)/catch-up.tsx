@@ -11,7 +11,7 @@ import { hapticDone } from "../../src/lib/haptics";
 import { recordMovedFrom } from "../../src/lib/movedFrom";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
 import { useToast } from "../../src/providers/ToastProvider";
-import { fonts, radius, spacing, type Colors } from "../../src/theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../../src/theme";
 import type { TaskRecord } from "../../src/types";
 import { Button } from "../../src/ui/Button";
 import { SegmentBar } from "../../src/ui/SegmentBar";
@@ -245,12 +245,12 @@ function makeStyles(colors: Colors, scale: number) {
       alignItems: "center",
       justifyContent: "center",
     },
-    headerTitle: { fontFamily: fonts.baseBold, fontSize: 17 * scale, color: colors.foreground },
+    headerTitle: { fontFamily: fonts.baseBold, fontSize: textSize.body * scale, color: colors.foreground },
     count: {
       width: 44,
       textAlign: "right",
       fontFamily: fonts.base,
-      fontSize: 15 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
     },
     progress: { paddingHorizontal: spacing[4], paddingTop: spacing[3] },
@@ -267,11 +267,11 @@ function makeStyles(colors: Colors, scale: number) {
     },
     area: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     dot: { width: 8, height: 8, borderRadius: 4 },
-    areaText: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
-    taskTitle: { fontFamily: fonts.display, fontSize: 28 * scale, color: colors.foreground },
+    areaText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
+    taskTitle: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     planned: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
-    plannedText: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
-    prompt: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground },
+    plannedText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
+    prompt: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
     primary: {
       flexDirection: "row",
       alignItems: "center",
@@ -281,7 +281,7 @@ function makeStyles(colors: Colors, scale: number) {
       borderRadius: radius.md,
       backgroundColor: colors.primary,
     },
-    primaryText: { fontFamily: fonts.baseBold, fontSize: 18 * scale, color: colors.primaryForeground },
+    primaryText: { fontFamily: fonts.baseBold, fontSize: textSize.large * scale, color: colors.primaryForeground },
     pressed: { opacity: 0.8 },
     pickBox: {
       borderRadius: radius.md,
@@ -290,7 +290,7 @@ function makeStyles(colors: Colors, scale: number) {
       padding: spacing[4],
       gap: spacing[3],
     },
-    pickTitle: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
+    pickTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     pickRow: { flexDirection: "row", gap: spacing[2] },
     pick: {
       flex: 1,
@@ -302,14 +302,14 @@ function makeStyles(colors: Colors, scale: number) {
       alignItems: "center",
       justifyContent: "center",
     },
-    pickText: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.foreground },
+    pickText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     letGo: { alignItems: "center", paddingVertical: spacing[2], gap: 2 },
-    letGoText: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
-    letGoHint: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    letGoText: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
+    letGoHint: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     skip: { alignItems: "center", paddingVertical: spacing[3] },
     skipText: {
       fontFamily: fonts.base,
-      fontSize: 15 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
       textDecorationLine: "underline",
     },
@@ -329,15 +329,15 @@ function makeStyles(colors: Colors, scale: number) {
       justifyContent: "center",
       marginBottom: spacing[2],
     },
-    summaryTitle: { fontFamily: fonts.display, fontSize: 30 * scale, color: colors.foreground },
+    summaryTitle: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     summaryLead: {
       fontFamily: fonts.base,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
       textAlign: "center",
     },
     summaryList: { alignItems: "center", gap: 4, marginTop: spacing[2] },
-    summaryLine: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.foreground },
+    summaryLine: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     summaryButton: { alignSelf: "stretch", marginTop: spacing[6] },
   });
 }

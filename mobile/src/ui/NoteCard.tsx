@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaTag } from "../lib/lifeCenter";
 import { displayTitle, noteTimeLabel } from "../lib/notesList";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import type { NoteRecord } from "../types";
 
 type Props = {
@@ -107,8 +107,8 @@ function makeStyles(colors: Colors, scale: number) {
       gap: spacing[2],
     },
     pressed: { opacity: 0.85 },
-    title: { fontFamily: fonts.baseSemi, fontSize: 18 * scale, color: colors.foreground },
-    preview: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 21 * scale, color: colors.mutedForeground },
+    title: { fontFamily: fonts.baseSemi, fontSize: textSize.large * scale, color: colors.foreground },
+    preview: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 22 * scale, color: colors.mutedForeground },
     footer: {
       flexDirection: "row",
       alignItems: "center",
@@ -117,11 +117,11 @@ function makeStyles(colors: Colors, scale: number) {
       gap: spacing[2],
       marginTop: spacing[1],
     },
-    when: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    when: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     areas: { flexDirection: "row", flexWrap: "wrap", columnGap: spacing[3], rowGap: 2 },
     area: { flexDirection: "row", alignItems: "center", gap: 5 },
     areaDot: { width: 7, height: 7, borderRadius: 4 },
-    areaText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    areaText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
     tag: {
       flexDirection: "row",
@@ -133,7 +133,7 @@ function makeStyles(colors: Colors, scale: number) {
     },
     tagTask: { backgroundColor: colors.accent },
     tagParked: { backgroundColor: colors.restSurface },
-    tagText: { fontFamily: fonts.baseSemi, fontSize: 13 * scale },
+    tagText: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale },
     tagTaskText: { color: colors.accentForeground },
     tagParkedText: { color: colors.rest },
     timelineBody: { gap: spacing[1], paddingBottom: spacing[6] },

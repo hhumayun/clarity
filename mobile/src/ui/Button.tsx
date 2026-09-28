@@ -9,7 +9,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive";
@@ -88,12 +88,12 @@ function makeStyles(colors: Colors, scale: number) {
     pressed: { opacity: 0.85 },
     label: {
       fontFamily: fonts.baseSemi,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
     },
     primaryLabel: { color: colors.primaryForeground },
     secondaryLabel: { color: colors.secondaryForeground },
     ghostLabel: { color: colors.foreground },
     destructiveLabel: { color: colors.errorForeground },
-    iconLabel: { fontSize: 18 * scale },
+    iconLabel: { fontSize: textSize.large * scale },
   });
 }

@@ -110,3 +110,14 @@ export function nextWeekend(now: Date = new Date()): Date {
   const ahead = day === 6 ? 7 : 6 - day;
   return daysFromToday(ahead, now);
 }
+
+/** The quick choices for a task's day, wherever one is moved or set. */
+export function dueDayOptions(now: Date = new Date()): { label: string; value: Date | null }[] {
+  return [
+    { label: "Today", value: daysFromToday(0, now) },
+    { label: "Tomorrow", value: daysFromToday(1, now) },
+    { label: "Weekend", value: nextWeekend(now) },
+    { label: "Next week", value: daysFromToday(7, now) },
+    { label: "No date", value: null },
+  ];
+}

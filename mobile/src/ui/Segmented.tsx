@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { EASE_OUT, MOTION } from "./motion";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 type Option<T extends string> = {
@@ -128,16 +128,16 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[4],
       borderRadius: radius.full,
     },
-    labelSm: { fontSize: 13 * scale },
+    labelSm: { fontSize: textSize.small * scale },
     label: {
       fontFamily: fonts.baseSemi,
-      fontSize: 15 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
     },
     labelActive: { color: colors.foreground },
     count: {
       fontFamily: fonts.base,
-      fontSize: 13 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
   });

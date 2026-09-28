@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { useToast } from "../providers/ToastProvider";
 import { sortProjects } from "../lib/taskSort";
@@ -246,16 +246,16 @@ function makeStyles(colors: Colors, scale: number) {
     flex: { flex: 1 },
     name: {
       fontFamily: fonts.baseSemi,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
       color: colors.foreground,
     },
     meta: {
       fontFamily: fonts.base,
-      fontSize: 13 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
     addRow: { flexDirection: "row", gap: spacing[2], alignItems: "center" },
-    error: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.error },
+    error: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.error },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
     chip: {
       borderRadius: radius.full,
@@ -268,7 +268,7 @@ function makeStyles(colors: Colors, scale: number) {
     chipActive: { backgroundColor: colors.accent, borderColor: colors.primary },
     chipText: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
     chipTextActive: { color: colors.accentForeground, fontFamily: fonts.baseSemi },

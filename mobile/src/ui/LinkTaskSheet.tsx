@@ -6,7 +6,7 @@ import { areaTag } from "../lib/lifeCenter";
 import { formatDue } from "../lib/taskDates";
 import { sortTasks } from "../lib/taskSort";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import type { TaskRecord } from "../types";
 import { Input } from "./Input";
 import { Sheet } from "./Sheet";
@@ -142,7 +142,7 @@ function makeStyles(colors: Colors, scale: number) {
     loading: { paddingVertical: spacing[6] },
     empty: {
       fontFamily: fonts.base,
-      fontSize: 15 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
       paddingVertical: spacing[4],
     },
@@ -154,13 +154,13 @@ function makeStyles(colors: Colors, scale: number) {
     },
     divider: { borderTopWidth: 1, borderTopColor: colors.border },
     pressed: { opacity: 0.6 },
-    text: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.foreground },
+    text: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     meta: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 4 },
     dot: { width: 8, height: 8, borderRadius: radius.full },
-    metaText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    metaText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     more: {
       fontFamily: fonts.base,
-      fontSize: 13 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
       paddingTop: spacing[3],
     },

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaTag } from "../lib/lifeCenter";
 import { sortProjects } from "../lib/taskSort";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, spacing, type Colors } from "../theme";
+import { fonts, spacing, type Colors, textSize } from "../theme";
 import type { ProjectRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -116,7 +116,7 @@ function makeStyles(colors: Colors, scale: number) {
     row: { flexDirection: "row", alignItems: "center", gap: spacing[3], paddingVertical: spacing[3] },
     divider: { borderTopWidth: 1, borderTopColor: colors.border },
     dot: { width: 10, height: 10, borderRadius: 5 },
-    name: { flex: 1, fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
+    name: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     nameOn: { fontFamily: fonts.baseSemi },
     box: {
       width: 26,
@@ -130,7 +130,7 @@ function makeStyles(colors: Colors, scale: number) {
     boxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
     addRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     newRow: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingVertical: spacing[2] },
-    newText: { fontFamily: fonts.baseSemi, fontSize: 16 * scale, color: colors.primary },
-    error: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.error },
+    newText: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.primary },
+    error: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.error },
   });
 }

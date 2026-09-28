@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 
 type Props = {
@@ -39,16 +39,16 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[3],
       paddingVertical: spacing[2],
     },
-    mark: { color: colors.mutedForeground, fontSize: 14 * scale },
+    mark: { color: colors.mutedForeground, fontSize: textSize.small * scale },
     question: {
       flex: 1,
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
     hint: {
       fontFamily: fonts.baseSemi,
-      fontSize: 12 * scale,
+      fontSize: textSize.label * scale,
       color: colors.mutedForeground,
     },
   });

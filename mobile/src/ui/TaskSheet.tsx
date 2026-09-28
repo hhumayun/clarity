@@ -16,11 +16,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
-import { atNoon, dateChipLabel, daysFromToday, isSameDay, nextWeekend } from "../lib/dates";
+import { atNoon, dateChipLabel, dueDayOptions, isSameDay } from "../lib/dates";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import {
   type ProjectRecord,
   type TaskRecord,
@@ -98,16 +98,6 @@ function draftFrom(
   };
 }
 
-/** The quick choices for a task's day, shared by Move and the edit form. */
-function dayOptions(): { label: string; value: Date | null }[] {
-  return [
-    { label: "Today", value: daysFromToday(0) },
-    { label: "Tomorrow", value: daysFromToday(1) },
-    { label: "Weekend", value: nextWeekend() },
-    { label: "Next week", value: daysFromToday(7) },
-    { label: "No date", value: null },
-  ];
-}
 
 export function TaskSheet({
   open,
@@ -377,7 +367,7 @@ export function TaskSheet({
         ) : panel === "move" && task ? (
           <>
             <View style={styles.chips}>
-              {dayOptions().map((option) => {
+              {dueDayOptions().map((option) => {
                 const active =
                   option.value === null
                     ? task.completeBy === null
@@ -567,7 +557,7 @@ export function TaskSheet({
         ) : (
           <>
             <View style={styles.chips}>
-              {dayOptions().map((option) => {
+              {dueDayOptions().map((option) => {
                 const active =
                   option.value === null
                     ? draft.completeBy === null
@@ -631,7 +621,7 @@ function makeStyles(colors: Colors, scale: number) {
     chipActive: { backgroundColor: colors.accent, borderColor: colors.primary },
     chipText: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
     chipTextActive: { color: colors.accentForeground, fontFamily: fonts.baseSemi },
@@ -639,7 +629,7 @@ function makeStyles(colors: Colors, scale: number) {
     // The task's text, editable where the sheet's title would be.
     titleInput: {
       fontFamily: fonts.display,
-      fontSize: 22 * scale,
+      fontSize: textSize.title * scale,
       lineHeight: 28 * scale,
       color: colors.foreground,
       padding: 0,
@@ -662,7 +652,7 @@ function makeStyles(colors: Colors, scale: number) {
       backgroundColor: colors.surface,
     },
     pickPressed: { opacity: 0.7 },
-    pickText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.foreground },
+    pickText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.foreground },
     pickTextEmpty: { color: colors.mutedForeground, fontFamily: fonts.base },
     optionRow: {
       flexDirection: "row",
@@ -670,7 +660,7 @@ function makeStyles(colors: Colors, scale: number) {
       gap: spacing[3],
       minHeight: 52,
     },
-    optionText: { flex: 1, fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
+    optionText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     optionTextActive: { fontFamily: fonts.baseSemi },
     optionTextMuted: { color: colors.mutedForeground },
     // The inline calendar draws its own padding; this just keeps it off the
@@ -687,8 +677,8 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: 0,
       paddingTop: 0,
       paddingBottom: 0,
-      fontSize: 17 * scale,
-      lineHeight: 24 * scale,
+      fontSize: textSize.body * scale,
+      lineHeight: 23 * scale,
     },
     flexShrink: { flexShrink: 1 },
     focusButton: {
@@ -705,14 +695,14 @@ function makeStyles(colors: Colors, scale: number) {
     focusPressed: { transform: [{ scale: 0.98 }] },
     focusTitle: {
       fontFamily: fonts.baseBold,
-      fontSize: 18 * scale,
+      fontSize: textSize.large * scale,
       lineHeight: 23 * scale,
       color: colors.primaryForeground,
     },
     focusHint: {
       fontFamily: fonts.base,
-      fontSize: 14.5 * scale,
-      lineHeight: 20 * scale,
+      fontSize: textSize.small * scale,
+      lineHeight: 19 * scale,
       marginTop: 2,
       color: colors.primaryForeground,
       opacity: 0.85,
@@ -724,15 +714,15 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: spacing[4],
     },
     actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
-    actionText: { fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
+    actionText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     backText: {
       fontFamily: fonts.baseSemi,
-      fontSize: 15 * scale,
+      fontSize: textSize.body * scale,
       color: colors.foreground,
     },
     error: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.error,
     },
   });

@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { MOTION } from "./motion";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { Button } from "./Button";
 
@@ -88,12 +88,12 @@ function makeStyles(colors: Colors, scale: number) {
     },
     title: {
       fontFamily: fonts.display,
-      fontSize: 22 * scale,
+      fontSize: textSize.title * scale,
       color: colors.foreground,
     },
     description: {
       fontFamily: fonts.base,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
       lineHeight: 24 * scale,
       color: colors.mutedForeground,
     },

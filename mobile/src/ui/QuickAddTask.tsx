@@ -23,7 +23,7 @@ import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
 import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import type { ProjectRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -507,11 +507,11 @@ function makeStyles(colors: Colors, scale: number) {
       borderRadius: radius.full,
     },
     pressedDim: { opacity: 0.6 },
-    calendarTitle: { fontFamily: fonts.baseSemi, fontSize: 15 * scale, color: colors.foreground },
+    calendarTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     slotContent: { position: "absolute", top: 0, left: 0, right: 0, paddingTop: spacing[3] },
     input: {
       fontFamily: fonts.base,
-      fontSize: 18 * scale,
+      fontSize: textSize.large * scale,
       color: colors.foreground,
       paddingVertical: spacing[2],
       minHeight: 44,
@@ -536,7 +536,7 @@ function makeStyles(colors: Colors, scale: number) {
     chipDashed: { borderStyle: "dashed" },
     chipText: {
       fontFamily: fonts.baseSemi,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.foreground,
     },
     chipTextSet: { color: colors.accentForeground },
@@ -552,7 +552,7 @@ function makeStyles(colors: Colors, scale: number) {
     error: {
       marginTop: spacing[2],
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.error,
     },
   });

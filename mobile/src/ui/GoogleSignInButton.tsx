@@ -4,7 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, spacing, type Colors } from "../theme";
+import { fonts, spacing, type Colors, textSize } from "../theme";
 import { Button } from "./Button";
 
 export function GoogleSignInButton({
@@ -69,7 +69,7 @@ function makeStyles(colors: Colors, scale: number) {
     line: { flex: 1, height: 1, backgroundColor: colors.border },
     or: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
   });

@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors, type ThemeMode } from "../../src/theme";
+import { fonts, radius, spacing, type Colors, type ThemeMode, textSize } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 import { ConfirmModal } from "../../src/ui/ConfirmModal";
 import { Switch } from "../../src/ui/Switch";
@@ -125,7 +125,7 @@ function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingHorizontal: spacing[2] },
-    title: { fontFamily: fonts.display, fontSize: 28 * scale, color: colors.foreground },
+    title: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[12] },
     card: {
       backgroundColor: colors.card,
@@ -135,11 +135,11 @@ function makeStyles(colors: Colors, scale: number) {
       padding: spacing[4],
       gap: spacing[3],
     },
-    cardTitle: { fontFamily: fonts.baseSemi, fontSize: 13 * scale, color: colors.mutedForeground },
+    cardTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.mutedForeground },
     settingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing[3] },
     settingText: { flex: 1, gap: 4 },
-    settingLabel: { fontFamily: fonts.baseSemi, fontSize: 17 * scale, color: colors.foreground },
-    settingHint: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
+    settingLabel: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
+    settingHint: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     choiceRow: { flexDirection: "row", gap: spacing[2] },
     choice: {
       flex: 1,
@@ -152,7 +152,7 @@ function makeStyles(colors: Colors, scale: number) {
       paddingHorizontal: spacing[2],
     },
     choiceActive: { backgroundColor: colors.accent, borderColor: colors.primary },
-    choiceText: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground, textAlign: "center" },
+    choiceText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground, textAlign: "center" },
     choiceTextActive: { color: colors.accentForeground, fontFamily: fonts.baseSemi },
     linkRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
   });

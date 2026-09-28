@@ -87,8 +87,29 @@ export const fonts = {
   base: "NunitoSans_400Regular",
   baseSemi: "NunitoSans_600SemiBold",
   baseBold: "NunitoSans_700Bold",
-  display: "Fraunces_600SemiBold",
+  // Headings are set in the same family as the text under them, in bold.
+  display: "NunitoSans_700Bold",
 };
+
+/**
+ * Every text size in the app, before the reader's own text size (`scale`).
+ * Screens choose from these rather than picking their own numbers, so the
+ * same kind of text is the same size on every screen.
+ */
+export const textSize = {
+  /** Small labels: section labels, weekday letters, tab names. */
+  label: 12,
+  /** Secondary lines: areas, times, hints, chips, errors. */
+  small: 14,
+  /** Body text: tasks, notes, inputs, buttons, menus. */
+  body: 16,
+  /** Text that leads: a note being written, a focused task. */
+  large: 18,
+  /** Sheet, dialog and section titles. */
+  title: 22,
+  /** Screen headings. */
+  display: 30,
+} as const;
 
 export function palette(darkMode: boolean): Colors {
   return darkMode ? dark : light;

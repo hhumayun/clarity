@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Minus, Plus, X } from "lucide-react-native";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import {
   SUGGESTION_CATEGORIES,
@@ -214,12 +214,12 @@ function makeStyles(colors: Colors, scale: number) {
     status: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingVertical: spacing[2] },
     statusText: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
     sectionLabel: {
       fontFamily: fonts.baseSemi,
-      fontSize: 11 * scale,
+      fontSize: textSize.label * scale,
       letterSpacing: 0.8,
       color: colors.mutedForeground,
       marginBottom: spacing[2],
@@ -233,7 +233,7 @@ function makeStyles(colors: Colors, scale: number) {
       backgroundColor: colors.card,
     },
     chip: { paddingVertical: 8, paddingLeft: spacing[3], paddingRight: spacing[1] },
-    chipText: { fontFamily: fonts.base, fontSize: 15 * scale, maxWidth: 240 },
+    chipText: { fontFamily: fonts.base, fontSize: textSize.body * scale, maxWidth: 240 },
     dismiss: { paddingHorizontal: spacing[2], paddingVertical: 8 },
     expander: {
       flexDirection: "row",
@@ -244,13 +244,13 @@ function makeStyles(colors: Colors, scale: number) {
     },
     expanderText: {
       fontFamily: fonts.baseSemi,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
     },
     group: { marginBottom: spacing[3] },
     groupLabel: {
       fontFamily: fonts.baseSemi,
-      fontSize: 11 * scale,
+      fontSize: textSize.label * scale,
       letterSpacing: 0.8,
       marginBottom: spacing[2],
     },

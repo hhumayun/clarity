@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../../src/theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 
 const STEPS = [
@@ -86,13 +86,13 @@ function makeStyles(colors: Colors, scale: number) {
     },
     title: {
       fontFamily: fonts.display,
-      fontSize: 32 * scale,
+      fontSize: textSize.display * scale,
       color: colors.foreground,
       textAlign: "center",
     },
     body: {
       fontFamily: fonts.base,
-      fontSize: 18 * scale,
+      fontSize: textSize.large * scale,
       lineHeight: 28 * scale,
       color: colors.mutedForeground,
       textAlign: "center",

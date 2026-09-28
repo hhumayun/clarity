@@ -41,7 +41,6 @@ import { Collapse } from "../../../src/ui/Collapse";
 import { DayTasks } from "../../../src/ui/DayTasks";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TaskMenu } from "../../../src/ui/TaskMenu";
-import { TaskSheet } from "../../../src/ui/TaskSheet";
 import { hapticDone, hapticUndone } from "../../../src/lib/haptics";
 import Svg, { Line } from "react-native-svg";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
@@ -71,7 +70,7 @@ import {
 import { taskCountByNote } from "../../../src/lib/taskSort";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
-import { fonts, radius, spacing, type Colors } from "../../../src/theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../../../src/theme";
 import type { NoteRecord, TaskRecord } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { NoteCard } from "../../../src/ui/NoteCard";
@@ -106,9 +105,8 @@ export default function NotesListScreen() {
   const [jumpOpen, setJumpOpen] = useState(false);
   // The day view's dates fold away when its title is tapped (4a).
   const [stripOpen, setStripOpen] = useState(true);
-  // A task's press-and-hold menu, and the sheet its Date row opens.
+  // A task's press-and-hold menu; its Date row picks a new day in place.
   const [menuTask, setMenuTask] = useState<TaskRecord | null>(null);
-  const [moveTask, setMoveTask] = useState<TaskRecord | null>(null);
   // The day's + opens the task box, dated to the day shown.
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const autoPick = useRef(false);
@@ -763,10 +761,14 @@ export default function NotesListScreen() {
         task={menuTask}
         dueLabel={menuTask?.completeBy ? dateChipLabel(menuTask.completeBy) : "None"}
         onClose={() => setMenuTask(null)}
-        onDate={(task) => {
+        onMove={(task, date) => {
           setMenuTask(null);
-          // After the menu has gone: two Modals must never be up together.
-          setTimeout(() => setMoveTask(task), MOTION.fast + 40);
+          tasks.update.mutate(
+            { id: task.id, completeBy: date },
+            { onError: () => toast.show("That task could not be moved. Please try again.") },
+          );
+          // It leaves this day's list, so say where it went.
+          toast.show(date ? `Moved to ${dateChipLabel(date)}.` : "Date removed.");
         }}
         onFocus={(task) => {
           setMenuTask(null);
@@ -776,25 +778,6 @@ export default function NotesListScreen() {
           setMenuTask(null);
           if (task.noteId) router.push(`/note/${task.noteId}`);
         }}
-      />
-      <TaskSheet
-        open={moveTask !== null}
-        onClose={() => setMoveTask(null)}
-        task={moveTask}
-        projects={tasks.query.data?.projects ?? []}
-        onSave={async (draft) => {
-          if (!moveTask) return;
-          await tasks.update.mutateAsync({
-            id: moveTask.id,
-            text: draft.text,
-            ...(draft.description !== undefined ? { description: draft.description } : {}),
-            ...(draft.projectId ? { projectId: draft.projectId } : {}),
-            completeBy: draft.completeBy,
-            status: draft.status,
-          });
-        }}
-        onCreateProject={async (name) => (await tasks.createProject.mutateAsync({ name })).project}
-        startPanel="move"
       />
       {TASKS_ENABLED ? (
         <QuickAddTask
@@ -835,7 +818,7 @@ function makeStyles(colors: Colors, scale: number) {
     content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     body: { gap: spacing[4] },
-    title: { fontFamily: fonts.display, fontSize: 32 * scale, color: colors.foreground },
+    title: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     iconButton: {
       width: 40,
       height: 40,
@@ -858,20 +841,20 @@ function makeStyles(colors: Colors, scale: number) {
       flex: 1,
       minHeight: 48,
       fontFamily: fonts.base,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
       color: colors.foreground,
     },
     group: { gap: spacing[2] },
     loadingMore: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
       textAlign: "center",
       paddingVertical: spacing[3],
     },
     groupLabel: {
       fontFamily: fonts.baseSemi,
-      fontSize: 12 * scale,
+      fontSize: textSize.label * scale,
       letterSpacing: 1,
       color: colors.mutedForeground,
       marginTop: spacing[1],
@@ -888,9 +871,9 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: spacing[3],
       marginTop: spacing[2],
     },
-    archivedText: { flex: 1, fontFamily: fonts.base, fontSize: 15 * scale, color: colors.mutedForeground },
+    archivedText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[12] },
-    emptyText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground, textAlign: "center" },
+    emptyText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground, textAlign: "center" },
     // Day view (4a): a pinned header with a hairline under it.
     dayHeader: {
       paddingHorizontal: spacing[4],
@@ -903,22 +886,22 @@ function makeStyles(colors: Colors, scale: number) {
     dayHeaderRow: { flexDirection: "row", alignItems: "center", gap: spacing[1], paddingTop: 6 },
     dayTitleButton: { flex: 1, minWidth: 0, gap: 2 },
     dayTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-    dayTitle: { flexShrink: 1, fontFamily: fonts.display, fontSize: 22 * scale, color: colors.foreground },
-    daySub: { fontFamily: fonts.base, fontSize: 14 * scale, color: colors.mutedForeground },
-    todayLink: { fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.primary, paddingHorizontal: spacing[1] },
+    dayTitle: { flexShrink: 1, fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
+    daySub: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
+    todayLink: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.primary, paddingHorizontal: spacing[1] },
     stripWrap: { flexDirection: "row", marginTop: spacing[4] },
     stripDay: { flex: 1, alignItems: "center", gap: 6 },
-    stripLetter: { fontFamily: fonts.baseSemi, fontSize: 12 * scale, color: colors.mutedForeground },
+    stripLetter: { fontFamily: fonts.baseSemi, fontSize: textSize.label * scale, color: colors.mutedForeground },
     stripCircle: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
     stripCircleActive: { backgroundColor: colors.primary },
-    stripNumber: { fontFamily: fonts.baseSemi, fontSize: 17 * scale, color: colors.foreground },
+    stripNumber: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     // Days without notes are quieter than days with them.
     stripNumberQuiet: { fontFamily: fonts.base, color: colors.mutedForeground },
     stripNumberActive: { color: colors.primaryForeground },
     dayBlock: { gap: spacing[1] },
     noNotes: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
       paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -931,10 +914,10 @@ function makeStyles(colors: Colors, scale: number) {
     railDot: { width: 9, height: 9, borderRadius: 5 },
     railLine: { flex: 1, width: 2, minHeight: 20, marginTop: 6 },
     noteBody: { flex: 1, minWidth: 0, gap: 4, paddingBottom: 22 },
-    noteTime: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
-    noteTitle: { fontFamily: fonts.baseSemi, fontSize: 17 * scale, lineHeight: 22 * scale, color: colors.foreground },
-    notePreview: { fontFamily: fonts.base, fontSize: 14 * scale, lineHeight: 20 * scale, color: colors.mutedForeground },
-    noteMeta: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground, marginTop: 2 },
+    noteTime: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
+    noteTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
+    notePreview: { fontFamily: fonts.base, fontSize: textSize.small * scale, lineHeight: 20 * scale, color: colors.mutedForeground },
+    noteMeta: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground, marginTop: 2 },
     noteLinked: { color: colors.primary },
     writeWrap: {
       paddingHorizontal: spacing[4],
@@ -951,6 +934,6 @@ function makeStyles(colors: Colors, scale: number) {
       backgroundColor: colors.card,
       paddingHorizontal: 14,
     },
-    writeText: { fontFamily: fonts.base, fontSize: 16 * scale, color: colors.mutedForeground },
+    writeText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
   });
 }

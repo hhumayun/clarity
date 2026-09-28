@@ -14,7 +14,7 @@ import {
 } from "../../src/hooks/usePreferences";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
 import { useToast } from "../../src/providers/ToastProvider";
-import { fonts, radius, spacing, type Colors } from "../../src/theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 import { ConfirmModal } from "../../src/ui/ConfirmModal";
 import { Skeleton } from "../../src/ui/Skeleton";
@@ -178,7 +178,7 @@ function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2], paddingHorizontal: spacing[2] },
-    title: { fontFamily: fonts.display, fontSize: 28 * scale, color: colors.foreground },
+    title: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[12] },
     card: {
       backgroundColor: colors.card,
@@ -188,11 +188,11 @@ function makeStyles(colors: Colors, scale: number) {
       padding: spacing[4],
       gap: spacing[3],
     },
-    cardTitle: { fontFamily: fonts.baseSemi, fontSize: 18 * scale, color: colors.foreground },
-    hint: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 22 * scale, color: colors.mutedForeground },
+    cardTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.large * scale, color: colors.foreground },
+    hint: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 23 * scale, color: colors.mutedForeground },
     settingRow: { flexDirection: "row", alignItems: "center", gap: spacing[3] },
     settingText: { flex: 1, gap: 4 },
-    settingLabel: { fontFamily: fonts.baseSemi, fontSize: 17 * scale, color: colors.foreground },
+    settingLabel: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
     switchSkeleton: { width: 52, height: 32 },
   });
 }

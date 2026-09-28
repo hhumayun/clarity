@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { fonts, spacing, type Colors } from "../theme";
+import { fonts, spacing, type Colors, textSize } from "../theme";
 import type { TaskRecord } from "../types";
 
 type Props = {
@@ -99,11 +99,11 @@ function makeStyles(colors: Colors, scale: number) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
-    heading: { fontFamily: fonts.baseSemi, fontSize: 13 * scale, color: colors.foreground },
+    heading: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.foreground },
     add: { width: 30, height: 30, alignItems: "center", justifyContent: "center", marginRight: -6 },
     empty: {
       fontFamily: fonts.base,
-      fontSize: 14 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
       paddingVertical: spacing[3],
     },
@@ -127,8 +127,8 @@ function makeStyles(colors: Colors, scale: number) {
       marginTop: 1,
     },
     checkDone: { backgroundColor: colors.primary },
-    title: { fontFamily: fonts.base, fontSize: 15 * scale, lineHeight: 20 * scale, color: colors.foreground },
+    title: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
     titleDone: { color: colors.mutedForeground, textDecorationLine: "line-through" },
-    area: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground, marginTop: 3 },
+    area: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground, marginTop: 3 },
   });
 }

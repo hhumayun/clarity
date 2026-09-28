@@ -4,7 +4,7 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-na
 import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { areaTag } from "../lib/lifeCenter";
-import { fonts, radius, spacing, type Colors } from "../theme";
+import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 
 /** How long the confirmation stays up before the screen moves on to the card. */
 export const TASK_ADDED_MS = 1_100;
@@ -103,16 +103,16 @@ function makeStyles(colors: Colors, scale: number) {
     },
     text: {
       fontFamily: fonts.base,
-      fontSize: 17 * scale,
+      fontSize: textSize.body * scale,
       color: colors.foreground,
       textAlign: "center",
     },
     project: { fontFamily: fonts.baseSemi },
-    doneTitle: { fontFamily: fonts.display, fontSize: 24 * scale, color: colors.foreground },
+    doneTitle: { fontFamily: fonts.display, fontSize: textSize.title * scale, color: colors.foreground },
     doneTask: {
       maxWidth: 260,
       fontFamily: fonts.base,
-      fontSize: 15 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
       textAlign: "center",
     },

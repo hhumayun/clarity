@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { Feather, LayoutDashboard } from "lucide-react-native";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
-import { fonts } from "../../../src/theme";
+import { fonts, textSize } from "../../../src/theme";
 
 export default function TabsLayout() {
   const { colors, scale } = useAppTheme();
@@ -25,7 +25,7 @@ export default function TabsLayout() {
           : { display: "none" },
         tabBarLabelStyle: {
           fontFamily: fonts.baseSemi,
-          fontSize: 12 * scale,
+          fontSize: textSize.label * scale,
         },
       }}
     >

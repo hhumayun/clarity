@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from "react";
 import { Animated, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { textSize } from "../theme";
 
 type ToastContextValue = {
   show: (message: string) => void;
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
   text: {
     color: "#f6f2ea", // Morning Paper bg
     fontFamily: "NunitoSans_600SemiBold",
-    fontSize: 15,
+    fontSize: textSize.body,
     textAlign: "center",
   },
 });

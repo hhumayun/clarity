@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
-import { fonts, spacing, type Colors } from "../../src/theme";
+import { fonts, spacing, type Colors, textSize } from "../../src/theme";
 import { Button } from "../../src/ui/Button";
 import { GoogleSignInButton } from "../../src/ui/GoogleSignInButton";
 import { Input } from "../../src/ui/Input";
@@ -124,26 +124,26 @@ function makeStyles(colors: Colors, scale: number) {
     card: { gap: spacing[4] },
     wordmark: {
       fontFamily: fonts.display,
-      fontSize: 32 * scale,
+      fontSize: textSize.display * scale,
       color: colors.foreground,
     },
     tagline: {
       fontFamily: fonts.base,
-      fontSize: 17 * scale,
-      lineHeight: 26 * scale,
+      fontSize: textSize.body * scale,
+      lineHeight: 24 * scale,
       color: colors.mutedForeground,
     },
-    error: { fontFamily: fonts.base, fontSize: 15 * scale, color: colors.error },
+    error: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.error },
     switch: {
       fontFamily: fonts.base,
-      fontSize: 16 * scale,
+      fontSize: textSize.body * scale,
       color: colors.mutedForeground,
       textAlign: "center",
     },
     link: { color: colors.primary, fontFamily: fonts.baseSemi },
     disclaimer: {
       fontFamily: fonts.base,
-      fontSize: 13 * scale,
+      fontSize: textSize.small * scale,
       color: colors.mutedForeground,
       textAlign: "center",
     },
