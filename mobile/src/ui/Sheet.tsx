@@ -29,6 +29,11 @@ import { useAppTheme } from "../providers/AppThemeProvider";
 type Props = {
   open: boolean;
   title: string;
+  /**
+   * Drawn in the title's place when given, e.g. a field that edits what the
+   * title names. `title` still labels the sheet for screen readers.
+   */
+  titleInput?: React.ReactNode;
   description?: string;
   /** A small line above the title, e.g. a task's area and date. */
   eyebrow?: React.ReactNode;
@@ -49,7 +54,17 @@ type Props = {
 const CLOSE_DRAG = 120;
 const CLOSE_FLICK = 900;
 
-export function Sheet({ open, title, description, eyebrow, onClose, onBack, headerAction, children }: Props) {
+export function Sheet({
+  open,
+  title,
+  titleInput,
+  description,
+  eyebrow,
+  onClose,
+  onBack,
+  headerAction,
+  children,
+}: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { colors, scale } = useAppTheme();
@@ -60,7 +75,7 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
   // new renderer (RN clears it only from an old-renderer event).
   const { mounted, progress } = usePresence(open);
   // Keep showing what was there while it slides away.
-  const shown = useHeldWhileOpen(open, { title, description, eyebrow, headerAction, children });
+  const shown = useHeldWhileOpen(open, { title, titleInput, description, eyebrow, headerAction, children });
 
   // Slide by the sheet's own height once known; until then, off the screen.
   const sheetHeight = useSharedValue(windowHeight);
@@ -260,9 +275,15 @@ export function Sheet({ open, title, description, eyebrow, onClose, onBack, head
               <View style={styles.headerText}>
                 {shown.eyebrow ? <View style={styles.eyebrow}>{shown.eyebrow}</View> : null}
                 {/* A new title fades in with the page it names. */}
-                <Animated.Text key={shown.title} entering={fadeInFast} style={styles.title}>
-                  {shown.title}
-                </Animated.Text>
+                {shown.titleInput ? (
+                  <Animated.View key="titleInput" entering={fadeInFast}>
+                    {shown.titleInput}
+                  </Animated.View>
+                ) : (
+                  <Animated.Text key={shown.title} entering={fadeInFast} style={styles.title}>
+                    {shown.title}
+                  </Animated.Text>
+                )}
               </View>
               {shown.headerAction ? <View style={styles.headerAction}>{shown.headerAction}</View> : null}
             </View>

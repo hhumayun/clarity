@@ -25,6 +25,7 @@ export async function getTasksList(
 export async function postTaskCreate(
   body: {
     text: string;
+    description?: string;
     projectId?: string;
     projectName?: string;
     completeBy?: Date | null;
@@ -46,6 +47,7 @@ export async function postTaskUpdate(
   body: {
     id: string;
     text?: string;
+    description?: string;
     projectId?: string;
     completeBy?: Date | null;
     status?: TaskStatus;

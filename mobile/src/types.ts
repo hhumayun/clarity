@@ -34,6 +34,8 @@ export type ProjectRecord = {
 export type TaskRecord = {
   id: string;
   text: string;
+  /** Longer detail under the one line. Missing from servers older than it. */
+  description?: string;
   status: TaskStatus;
   projectId: string;
   projectName: string;

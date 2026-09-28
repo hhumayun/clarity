@@ -139,6 +139,7 @@ export default function LifeCenterScreen() {
     await update.mutateAsync({
       id: editing.id,
       text: draft.text,
+      ...(draft.description !== undefined ? { description: draft.description } : {}),
       projectId: draft.projectId,
       completeBy: draft.completeBy,
       status: draft.status,

@@ -1,12 +1,22 @@
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { CalendarDays, ChevronLeft, CircleCheck, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react-native";
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  CalendarDays,
+  CircleCheck,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
-import { atNoon, daysFromToday, formatShortDate, isSameDay, nextWeekend } from "../lib/dates";
+import { atNoon, dateChipLabel, daysFromToday, isSameDay, nextWeekend } from "../lib/dates";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -24,6 +34,11 @@ import { TextArea } from "./TextArea";
 
 export type TaskDraft = {
   text: string;
+  /**
+   * Only the edit form sends this. The quick actions (Mark done, Move) leave
+   * it out, so they can never blank a description they did not show.
+   */
+  description?: string;
   projectId: string | null;
   completeBy: Date | null;
   status: TaskStatus;
@@ -58,7 +73,7 @@ type Props = {
  * delete, which once opened a dialog over the sheet and froze the screen
  * behind it after both closed.
  */
-type Panel = "actions" | "move" | "task" | "project" | "date" | "confirmDelete";
+type Panel = "actions" | "move" | "task" | "chooseProject" | "project" | "date" | "confirmDelete";
 
 function draftFrom(
   task: TaskRecord | null | undefined,
@@ -68,6 +83,7 @@ function draftFrom(
   if (task) {
     return {
       text: task.text,
+      description: task.description ?? "",
       projectId: task.projectId,
       completeBy: task.completeBy,
       status: task.status,
@@ -75,17 +91,22 @@ function draftFrom(
   }
   return {
     text: "",
+    description: "",
     projectId: defaultProjectId ?? projects[0]?.id ?? null,
     completeBy: null,
     status: "todo",
   };
 }
 
-function addDays(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  date.setHours(12, 0, 0, 0);
-  return date;
+/** The quick choices for a task's day, shared by Move and the edit form. */
+function dayOptions(): { label: string; value: Date | null }[] {
+  return [
+    { label: "Today", value: daysFromToday(0) },
+    { label: "Tomorrow", value: daysFromToday(1) },
+    { label: "Weekend", value: nextWeekend() },
+    { label: "Next week", value: daysFromToday(7) },
+    { label: "No date", value: null },
+  ];
 }
 
 export function TaskSheet({
@@ -113,6 +134,8 @@ export function TaskSheet({
   const [deleting, setDeleting] = useState(false);
   const [panel, setPanel] = useState<Panel>("task");
   const [movePickerOpen, setMovePickerOpen] = useState(false);
+  // Android's calendar is a dialog of its own, opened from the date page.
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const editing = Boolean(task);
   // Where "back" goes from a sub-face: the panel the sheet opened on.
   // "move" opens straight on Move to another day (e.g. from a task's menu).
@@ -125,21 +148,13 @@ export function TaskSheet({
       setNewProject("");
       setPanel(task && (startPanel === "actions" || startPanel === "move") ? startPanel : "task");
       setMovePickerOpen(false);
+      setDatePickerOpen(false);
     }
   }, [open, task?.id, defaultProjectId, projects, startPanel]);
 
-  // The quick options, and whether completeBy is a day none of them covers.
-  const shortcuts = [
-    { label: "No date", value: null as Date | null },
-    { label: "Today", value: addDays(0) },
-    { label: "Tomorrow", value: addDays(1) },
-    { label: "Next week", value: addDays(7) },
-  ];
-  const customDate =
-    draft.completeBy &&
-    !shortcuts.some((option) => isSameDay(option.value, draft.completeBy))
-      ? draft.completeBy
-      : null;
+  const projectName =
+    projects.find((project) => project.id === draft.projectId)?.name ??
+    (task && task.projectId === draft.projectId ? task.projectName : null);
 
   const canSave = draft.text.trim().length > 0 && Boolean(draft.projectId) && !saving;
 
@@ -148,7 +163,11 @@ export function TaskSheet({
     setSaving(true);
     setError("");
     try {
-      await onSave({ ...draft, text: draft.text.trim().replace(/\s+/g, " ") });
+      await onSave({
+        ...draft,
+        text: draft.text.trim().replace(/\s+/g, " "),
+        description: (draft.description ?? "").trim(),
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That task could not be saved. Please try again.");
@@ -168,7 +187,7 @@ export function TaskSheet({
       setPanel("task");
     } catch (err) {
       setError(err instanceof Error ? err.message : "That project could not be added.");
-      setPanel("task");
+      setPanel("chooseProject");
     } finally {
       setCreatingProject(false);
     }
@@ -182,7 +201,9 @@ export function TaskSheet({
     setSaving(true);
     setError("");
     try {
-      await onSave({ ...draftFrom(task, defaultProjectId, projects), ...change });
+      // Everything but the description, which this path never showed.
+      const { description: _unshown, ...current } = draftFrom(task, defaultProjectId, projects);
+      await onSave({ ...current, ...change });
       onClose();
       if (change.status === "done" && task.status !== "done") {
         hapticDone();
@@ -203,28 +224,31 @@ export function TaskSheet({
     void commit({ completeBy: atNoon(date.getFullYear(), date.getMonth(), date.getDate()) });
   };
 
+  // A day chosen on the date page goes straight back to the task.
+  const chooseDate = (date: Date | null) => {
+    setDate(date);
+    setPanel("task");
+  };
+
   const handlePicked = (event: DateTimePickerEvent, date?: Date) => {
-    if (event.type === "dismissed") {
-      setPanel("task");
-      return;
-    }
+    setDatePickerOpen(false);
+    if (event.type === "dismissed" || !date) return;
     // Midday, matching the quick options, so a stored day cannot slide
     // backwards across a timezone.
-    if (date) setDate(atNoon(date.getFullYear(), date.getMonth(), date.getDate()));
-    // Android's picker is a dialog of its own and closes itself; iOS shows a
-    // calendar inline, so it stays until Done.
-    if (Platform.OS !== "ios") setPanel("task");
+    chooseDate(atNoon(date.getFullYear(), date.getMonth(), date.getDate()));
   };
 
   const titles: Record<Panel, { title: string; description?: string }> = {
     actions: { title: task?.text ?? "" },
     move: { title: "Move to another day" },
-    task: { title: editing ? "Edit task" : "Add a task" },
+    // Drawn as the task's own text, editable, in the title's place.
+    task: { title: draft.text || (editing ? "Edit task" : "Add a task") },
+    chooseProject: { title: "Project" },
     project: {
-      title: "Add a project",
+      title: "New project",
       description: "A short name is easiest to recognise later.",
     },
-    date: { title: "Pick a date" },
+    date: { title: "Due date" },
     confirmDelete: {
       title: "Delete this task?",
       description: "It will stay hidden even if you refresh tasks from the note it came from.",
@@ -236,6 +260,24 @@ export function TaskSheet({
       <Sheet
         open={open}
         title={titles[panel].title}
+        titleInput={
+          panel === "task" ? (
+            <TextInput
+              value={draft.text}
+              // One line of task: a return finishes it rather than breaking it.
+              onChangeText={(text) => setDraft((current) => ({ ...current, text: text.replace(/\n/g, " ") }))}
+              placeholder="New task"
+              placeholderTextColor={colors.mutedForeground}
+              multiline
+              scrollEnabled={false}
+              submitBehavior="blurAndSubmit"
+              returnKeyType="done"
+              maxLength={500}
+              style={styles.titleInput}
+              accessibilityLabel="Task"
+            />
+          ) : undefined
+        }
         description={titles[panel].description}
         // The ×, a drag down or a tap outside closes the whole sheet. Android's
         // back button steps back a page: to the actions from Move or Edit,
@@ -244,7 +286,14 @@ export function TaskSheet({
         onBack={
           panel === home
             ? onClose
-            : () => setPanel(panel === "move" || panel === "task" ? "actions" : "task")
+            : () =>
+                setPanel(
+                  panel === "move" || panel === "task"
+                    ? "actions"
+                    : panel === "project"
+                      ? "chooseProject"
+                      : "task",
+                )
         }
         headerAction={
           panel === "task" && editing && onDelete ? (
@@ -326,13 +375,7 @@ export function TaskSheet({
         ) : panel === "move" && task ? (
           <>
             <View style={styles.chips}>
-              {[
-                { label: "Today", value: daysFromToday(0) as Date | null },
-                { label: "Tomorrow", value: daysFromToday(1) },
-                { label: "Weekend", value: nextWeekend() },
-                { label: "Next week", value: daysFromToday(7) },
-                { label: "No date", value: null },
-              ].map((option) => {
+              {dayOptions().map((option) => {
                 const active =
                   option.value === null
                     ? task.completeBy === null
@@ -379,78 +422,40 @@ export function TaskSheet({
           </>
         ) : panel === "task" ? (
           <>
-            <Text style={styles.label}>What needs doing?</Text>
             <TextArea
-              value={draft.text}
-              onChangeText={(text) => setDraft((current) => ({ ...current, text }))}
-              placeholder="For example, call Dr. Lee to book a check-up"
-              maxLength={500}
+              value={draft.description ?? ""}
+              onChangeText={(description) => setDraft((current) => ({ ...current, description }))}
+              placeholder="Add a description"
+              maxLength={5000}
+              accessibilityLabel="Description"
             />
 
-            <Text style={styles.label}>Project</Text>
+            {/* Just what is chosen; each opens its own page of choices. */}
             <View style={styles.chips}>
-              {projects.map((project) => {
-                const active = draft.projectId === project.id;
-                return (
-                  <Pressable
-                    key={project.id}
-                    onPress={() => setDraft((current) => ({ ...current, projectId: project.id }))}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {areaTag(project.name)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
               <Pressable
-                onPress={() => {
-                  setNewProject("");
-                  setPanel("project");
-                }}
-                accessibilityLabel="Add a project"
-                style={[styles.chip, styles.chipAdd]}
+                onPress={() => setPanel("chooseProject")}
+                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={projectName ? `Project: ${projectName}. Change project` : "Choose a project"}
               >
-                <Plus size={16} color={colors.mutedForeground} />
+                <Text style={styles.pickText} numberOfLines={1}>
+                  {projectName ? areaTag(projectName) : "Choose a project"}
+                </Text>
+                <ChevronDown size={15} color={colors.mutedForeground} />
               </Pressable>
-            </View>
-
-            <Text style={styles.label}>Complete by</Text>
-            <View style={styles.chips}>
-              {shortcuts.map((option) => {
-                const active =
-                  option.value === null
-                    ? draft.completeBy === null
-                    : isSameDay(option.value, draft.completeBy);
-                return (
-                  <Pressable
-                    key={option.label}
-                    onPress={() => setDate(option.value)}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              {/* Shows the chosen day once it is one the shortcuts cannot
-                  express, so a custom date is never invisible behind a
-                  generic label. */}
               <Pressable
                 onPress={() => setPanel("date")}
+                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
+                accessibilityRole="button"
                 accessibilityLabel={
-                  customDate ? `Change date: ${formatShortDate(customDate)}` : "Pick a date"
+                  draft.completeBy ? `Due ${dateChipLabel(draft.completeBy)}. Change date` : "No date. Set a date"
                 }
-                style={[styles.chip, styles.chipWithIcon, customDate && styles.chipActive]}
               >
-                <CalendarDays
-                  size={14}
-                  color={customDate ? colors.accentForeground : colors.mutedForeground}
-                />
-                <Text style={[styles.chipText, customDate && styles.chipTextActive]}>
-                  {customDate ? formatShortDate(customDate) : "Pick a date"}
+                <CalendarDays size={15} color={draft.completeBy ? colors.foreground : colors.mutedForeground} />
+                <Text style={[styles.pickText, !draft.completeBy && styles.pickTextEmpty]}>
+                  {draft.completeBy ? dateChipLabel(draft.completeBy) : "No date"}
                 </Text>
+                <ChevronDown size={15} color={colors.mutedForeground} />
               </Pressable>
             </View>
 
@@ -459,6 +464,53 @@ export function TaskSheet({
             <Button size="lg" loading={saving} disabled={!canSave} onPress={() => void save()}>
               {editing ? "Save changes" : "Add task"}
             </Button>
+          </>
+        ) : panel === "chooseProject" ? (
+          <>
+            <View>
+              {projects.map((project, index) => {
+                const active = draft.projectId === project.id;
+                return (
+                  <Pressable
+                    key={project.id}
+                    onPress={() => {
+                      setDraft((current) => ({ ...current, projectId: project.id }));
+                      setPanel("task");
+                    }}
+                    style={({ pressed }) => [
+                      styles.optionRow,
+                      index > 0 && styles.actionDivider,
+                      pressed && styles.pickPressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={project.name}
+                  >
+                    <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>
+                      {areaTag(project.name)}
+                    </Text>
+                    {active ? <Check size={20} color={colors.primary} /> : null}
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                onPress={() => {
+                  setNewProject("");
+                  setPanel("project");
+                }}
+                style={({ pressed }) => [
+                  styles.optionRow,
+                  projects.length > 0 && styles.actionDivider,
+                  pressed && styles.pickPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Add a new project"
+              >
+                <Plus size={20} color={colors.mutedForeground} />
+                <Text style={[styles.optionText, styles.optionTextMuted]}>New project</Text>
+              </Pressable>
+            </View>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
           </>
         ) : panel === "confirmDelete" ? (
           <>
@@ -502,40 +554,55 @@ export function TaskSheet({
             >
               Add project
             </Button>
-            <Button variant="ghost" onPress={() => setPanel("task")}>
+            <Button variant="ghost" onPress={() => setPanel("chooseProject")}>
               <ChevronLeft size={18} color={colors.foreground} />
-              <Text style={styles.backText}>Back to the task</Text>
+              <Text style={styles.backText}>Back</Text>
             </Button>
           </>
         ) : (
           <>
-            {/* On Android this renders its own dialog rather than anything
-                inline, so the panel behind it stays empty for a moment. */}
-            <View style={styles.picker}>
-              <DateTimePicker
-                value={draft.completeBy ?? new Date()}
-                mode="date"
-                display={Platform.OS === "ios" ? "inline" : "default"}
-                accentColor={colors.primary}
-                themeVariant={dark ? "dark" : "light"}
-                onChange={handlePicked}
-              />
-            </View>
-            {Platform.OS === "ios" ? (
-              <>
-                <Button size="lg" onPress={() => setPanel("task")}>
-                  Done
-                </Button>
-                <Button
-                  variant="secondary"
-                  onPress={() => {
-                    setDate(null);
-                    setPanel("task");
-                  }}
+            <View style={styles.chips}>
+              {dayOptions().map((option) => {
+                const active =
+                  option.value === null
+                    ? draft.completeBy === null
+                    : isSameDay(option.value, draft.completeBy);
+                return (
+                  <Pressable
+                    key={option.label}
+                    onPress={() => chooseDate(option.value)}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {Platform.OS === "ios" ? null : (
+                <Pressable
+                  onPress={() => setDatePickerOpen(true)}
+                  style={[styles.chip, styles.chipWithIcon]}
+                  accessibilityLabel="Pick a date"
                 >
-                  Clear date
-                </Button>
-              </>
+                  <CalendarDays size={14} color={colors.mutedForeground} />
+                  <Text style={styles.chipText}>Pick a date</Text>
+                </Pressable>
+              )}
+            </View>
+            {/* iOS shows the calendar in the page: tapping a day chooses it.
+                Android's is a dialog of its own, opened from the chip. */}
+            {Platform.OS === "ios" || datePickerOpen ? (
+              <View style={styles.picker}>
+                <DateTimePicker
+                  value={draft.completeBy ?? new Date()}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  accentColor={colors.primary}
+                  themeVariant={dark ? "dark" : "light"}
+                  onChange={handlePicked}
+                />
+              </View>
             ) : null}
           </>
         )}
@@ -547,11 +614,6 @@ export function TaskSheet({
 
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
-    label: {
-      fontFamily: fonts.baseSemi,
-      fontSize: 15 * scale,
-      color: colors.foreground,
-    },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
     chip: {
       borderRadius: radius.full,
@@ -569,7 +631,43 @@ function makeStyles(colors: Colors, scale: number) {
     },
     chipTextActive: { color: colors.accentForeground, fontFamily: fonts.baseSemi },
     chipWithIcon: { flexDirection: "row", alignItems: "center", gap: spacing[1] },
-    chipAdd: { paddingHorizontal: spacing[3], borderStyle: "dashed" },
+    // The task's text, editable where the sheet's title would be.
+    titleInput: {
+      fontFamily: fonts.display,
+      fontSize: 22 * scale,
+      lineHeight: 28 * scale,
+      color: colors.foreground,
+      padding: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
+      margin: 0,
+    },
+    // The chosen project and day, each opening its page of choices.
+    pick: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[1],
+      maxWidth: "100%",
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingLeft: spacing[3],
+      paddingRight: spacing[2],
+      paddingVertical: spacing[2],
+      backgroundColor: colors.surface,
+    },
+    pickPressed: { opacity: 0.7 },
+    pickText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: 14 * scale, color: colors.foreground },
+    pickTextEmpty: { color: colors.mutedForeground, fontFamily: fonts.base },
+    optionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[3],
+      minHeight: 52,
+    },
+    optionText: { flex: 1, fontFamily: fonts.base, fontSize: 17 * scale, color: colors.foreground },
+    optionTextActive: { fontFamily: fonts.baseSemi },
+    optionTextMuted: { color: colors.mutedForeground },
     // The inline calendar draws its own padding; this just keeps it off the
     // sheet's edges on narrow screens.
     picker: { marginHorizontal: -spacing[2] },

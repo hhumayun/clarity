@@ -43,6 +43,7 @@ export function useTasks(noteId?: string, enabled = true) {
   const create = useMutation({
     mutationFn: (body: {
       text: string;
+      description?: string;
       projectId?: string;
       projectName?: string;
       completeBy?: Date | null;
@@ -68,6 +69,7 @@ export function useTasks(noteId?: string, enabled = true) {
     mutationFn: (body: {
       id: string;
       text?: string;
+      description?: string;
       projectId?: string;
       completeBy?: Date | null;
       status?: TaskStatus;
@@ -90,6 +92,7 @@ export function useTasks(noteId?: string, enabled = true) {
                     ...task,
                     ...(input.status !== undefined ? { status: input.status } : {}),
                     ...(input.text !== undefined ? { text: input.text } : {}),
+                    ...(input.description !== undefined ? { description: input.description } : {}),
                     ...(input.completeBy !== undefined
                       ? { completeBy: input.completeBy }
                       : {}),

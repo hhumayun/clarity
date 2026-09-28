@@ -66,6 +66,7 @@ export async function handle(request: Request) {
           projectId,
           noteId: input.noteId ?? null,
           text: input.text.trim().replace(/\s+/g, " "),
+          description: input.description?.trim() ?? "",
           completeBy: input.completeBy ?? null,
           status: input.status ?? "todo",
           sourceFingerprint: null,
@@ -77,7 +78,7 @@ export async function handle(request: Request) {
         .selectFrom("tasks")
         .innerJoin("projects", "projects.id", "tasks.projectId")
         .select([
-          "tasks.id as id", "tasks.noteId as noteId", "tasks.projectId as projectId", "tasks.text as text",
+          "tasks.id as id", "tasks.noteId as noteId", "tasks.projectId as projectId", "tasks.text as text", "tasks.description as description",
           "tasks.completeBy as completeBy", "tasks.status as status", "tasks.createdAt as createdAt",
           "tasks.updatedAt as updatedAt", "projects.name as projectName",
         ])

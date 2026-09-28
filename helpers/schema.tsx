@@ -102,6 +102,7 @@ export interface Tasks {
   completeBy: Timestamp | null;
   createdAt: Generated<Timestamp>;
   deletedAt: Timestamp | null;
+  description: Generated<string>;
   id: string;
   noteId: string | null;
   projectId: string;

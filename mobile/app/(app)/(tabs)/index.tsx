@@ -787,6 +787,7 @@ export default function NotesListScreen() {
           await tasks.update.mutateAsync({
             id: moveTask.id,
             text: draft.text,
+            ...(draft.description !== undefined ? { description: draft.description } : {}),
             ...(draft.projectId ? { projectId: draft.projectId } : {}),
             completeBy: draft.completeBy,
             status: draft.status,

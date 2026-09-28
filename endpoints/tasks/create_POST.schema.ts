@@ -7,6 +7,7 @@ import { apiFetch } from "../../helpers/apiFetch";
 export const schema = z
   .object({
     text: z.string().trim().min(1).max(500),
+    description: z.string().max(5000).optional(),
     projectId: z.string().uuid().optional(),
     projectName: z.string().trim().min(1).max(120).optional(),
     completeBy: z.date().nullable().optional(),

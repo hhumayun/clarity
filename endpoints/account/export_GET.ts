@@ -33,7 +33,7 @@ export async function handle(request: Request) {
         .innerJoin("projects", "projects.id", "tasks.projectId")
         .select([
           "tasks.id as id", "tasks.noteId as noteId", "tasks.projectId as projectId",
-          "tasks.text as text", "tasks.completeBy as completeBy", "tasks.status as status",
+          "tasks.text as text", "tasks.description as description", "tasks.completeBy as completeBy", "tasks.status as status",
           "tasks.createdAt as createdAt", "tasks.updatedAt as updatedAt",
           "projects.name as projectName",
         ])

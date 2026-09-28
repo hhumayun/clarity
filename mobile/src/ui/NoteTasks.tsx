@@ -183,6 +183,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
     await update.mutateAsync({
       id: taskDialog.task.id,
       text: draft.text,
+      ...(draft.description !== undefined ? { description: draft.description } : {}),
       projectId: draft.projectId,
       completeBy: draft.completeBy,
       status: draft.status,

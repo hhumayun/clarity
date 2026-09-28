@@ -7,6 +7,8 @@ import { apiFetch } from "../../helpers/apiFetch";
 export const schema = z.object({
   id: z.string().uuid(),
   text: z.string().trim().min(1).max(500).optional(),
+  /** Longer detail under the task's one line; "" clears it. */
+  description: z.string().max(5000).optional(),
   projectId: z.string().uuid().optional(),
   completeBy: z.date().nullable().optional(),
   status: z.enum(TASK_STATUS_VALUES).optional(),
