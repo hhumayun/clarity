@@ -54,10 +54,10 @@ type Props = {
 /** Which row is unfolded under the text, if any. Never more than one. */
 type Expander = "project" | "newProject" | "date" | null;
 /**
- * Who set the date. The model's reading follows the text until the writer
+ * Who set the date. The date read from the text follows it until the writer
  * chooses for themselves, after which it is left alone.
  */
-type DateSource = "none" | "default" | "ai" | "manual";
+type DateSource = "none" | "default" | "read" | "manual";
 
 function addDays(days: number): Date {
   const now = new Date();
@@ -66,7 +66,7 @@ function addDays(days: number): Date {
 
 /**
  * One box above the keyboard: the task, a project chip, a date chip, send.
- * A due date typed into the line is read out by the model and lands in the
+ * A due date typed into the line is read out on the phone and lands in the
  * date chip on its own. Everything unfolds inside this one box — there is no
  * second dialog, because a Modal presented over a Modal is how a screen ends
  * up drawn right but deaf to touch.
@@ -109,7 +109,7 @@ export function QuickAddTask({
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  const { parsed, pending, settle } = useTaskLineParse(text, { enabled: open });
+  const { parsed, settle } = useTaskLineParse(text, { enabled: open });
 
   // Reset on open only. Reading the defaults through a ref keeps a project
   // created mid-session from wiping the line the writer is typing.
@@ -132,22 +132,21 @@ export function QuickAddTask({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Let the model's reading drive the date chip until the writer takes over.
-  // A pending parse (parsed === null) leaves the chip alone, so the date does
-  // not blink off and on between keystrokes.
+  // Let the date read from the line drive the date chip until the writer
+  // takes over.
   useEffect(() => {
     if (dateSource === "manual" || parsed === null) return;
     if (parsed.completeBy) {
       const found = fromIsoDay(parsed.completeBy);
       if (found && !isSameDay(found, date)) {
         setDate(found);
-        setDateSource("ai");
-      } else if (found && dateSource !== "ai") {
-        setDateSource("ai");
+        setDateSource("read");
+      } else if (found && dateSource !== "read") {
+        setDateSource("read");
       }
       return;
     }
-    if (dateSource === "ai") {
+    if (dateSource === "read") {
       // The date words were deleted: fall back to what the box opened with.
       const fallback = defaultsRef.current.defaultDate;
       setDate(fallback);
@@ -167,8 +166,7 @@ export function QuickAddTask({
       let finalText = raw;
       let completeBy = date;
       if (dateSource !== "manual") {
-        // Use the model's reading of the final text, not of whatever it last
-        // saw while typing. Bounded, so a slow model cannot stall the add.
+        // Read the final text, in case it changed since the chip last did.
         const line = await settle(raw);
         const found = line.completeBy ? fromIsoDay(line.completeBy) : null;
         completeBy = found ?? defaultsRef.current.defaultDate;
@@ -406,7 +404,7 @@ export function QuickAddTask({
               style={[styles.chip, date && styles.chipSet, expander === "date" && styles.chipOpen]}
               accessibilityLabel={date ? `Due ${dateChipLabel(date)}. Change date` : "Set a due date"}
             >
-              {dateSource === "ai" ? (
+              {dateSource === "read" ? (
                 <Sparkles size={14} color={colors.accentForeground} />
               ) : (
                 <CalendarDays size={14} color={date ? colors.accentForeground : colors.mutedForeground} />
@@ -415,7 +413,6 @@ export function QuickAddTask({
                 {date ? dateChipLabel(date) : "Date"}
               </Text>
             </Pressable>
-            {pending ? <ActivityIndicator size="small" color={colors.mutedForeground} /> : null}
             <View style={styles.flex} />
             <Pressable
               onPress={() => void submit()}

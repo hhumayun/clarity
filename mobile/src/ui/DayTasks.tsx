@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { Check } from "lucide-react-native";
+import { Check, Plus } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaTag } from "../lib/lifeCenter";
@@ -13,13 +13,15 @@ type Props = {
   onToggle: (task: TaskRecord) => void;
   /** Tap or press and hold a task for its menu. */
   onOpenMenu: (task: TaskRecord) => void;
+  /** Add a task due on this day. */
+  onAdd: () => void;
 };
 
 /**
  * The day's tasks, under its notes: open ones first, finished ones struck
  * through below them, as rows on hairlines rather than cards.
  */
-export function DayTasks({ tasks, onToggle, onOpenMenu }: Props) {
+export function DayTasks({ tasks, onToggle, onOpenMenu, onAdd }: Props) {
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
@@ -39,7 +41,18 @@ export function DayTasks({ tasks, onToggle, onOpenMenu }: Props) {
     <View>
       <View style={styles.header}>
         <Text style={styles.heading}>Tasks</Text>
-        <Text style={styles.summary}>{summary}</Text>
+        <View style={styles.headerEnd}>
+          <Text style={styles.summary}>{summary}</Text>
+          <Pressable
+            onPress={onAdd}
+            hitSlop={10}
+            style={({ pressed }) => [styles.add, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Add a task for this day"
+          >
+            <Plus size={18} color={colors.primary} strokeWidth={2.2} />
+          </Pressable>
+        </View>
       </View>
       {sorted.length === 0 ? (
         <Text style={styles.empty}>Nothing was scheduled.</Text>
@@ -85,14 +98,16 @@ function makeStyles(colors: Colors, scale: number) {
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
-      alignItems: "baseline",
-      paddingTop: 26,
-      paddingBottom: 6,
+      alignItems: "center",
+      paddingTop: 22,
+      paddingBottom: 2,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
     heading: { fontFamily: fonts.baseSemi, fontSize: 13 * scale, color: colors.foreground },
     summary: { fontFamily: fonts.base, fontSize: 13 * scale, color: colors.mutedForeground },
+    headerEnd: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
+    add: { width: 30, height: 30, alignItems: "center", justifyContent: "center", marginRight: -6 },
     empty: {
       fontFamily: fonts.base,
       fontSize: 14 * scale,

@@ -1,3 +1,5 @@
+import { readDueDate } from "./dueDate";
+
 type ParsedTask = {
   text: string;
   projectName: string;
@@ -35,8 +37,12 @@ export function dueDayAsDate(isoDay: string): Date {
   return new Date(`${isoDay}T12:00:00.000Z`);
 }
 
-/** Validate and normalize the model's JSON before any database write. */
-export function parseExtractedTasks(value: Record<string, unknown>): ParsedTask[] {
+/**
+ * Validate and normalize the model's JSON before any database write. Each
+ * task's "when" (the note's own words, like "on Friday") is read into a day
+ * against `today`, the writer's date.
+ */
+export function parseExtractedTasks(value: Record<string, unknown>, today: Date): ParsedTask[] {
   const rawTasks = Array.isArray(value.tasks) ? value.tasks : [];
   const seen = new Set<string>();
   const tasks: ParsedTask[] = [];
@@ -53,7 +59,11 @@ export function parseExtractedTasks(value: Record<string, unknown>): ParsedTask[
       typeof item.projectName === "string" ? item.projectName : "General";
     const projectName =
       proposedProject.trim().replace(/\s+/g, " ").slice(0, 120) || "General";
-    tasks.push({ text, projectName, completeBy: validDate(item.completeBy) });
+    const completeBy =
+      typeof item.when === "string" && item.when.trim()
+        ? readDueDate(item.when.slice(0, 120), today).completeBy
+        : null;
+    tasks.push({ text, projectName, completeBy });
     if (tasks.length >= 30) break;
   }
   return tasks;

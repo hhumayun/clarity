@@ -1,5 +1,6 @@
 import { aiChatJson, DEFAULT_MODEL } from "./ai";
 import { parseModelJson } from "./parseModelJson";
+import { dayAtNoon } from "./dueDate";
 import { describeDay, parseExtractedTasks } from "./parseExtractedTasks";
 
 const SYSTEM_PROMPT = `You extract concrete, actionable tasks from a personal note.
@@ -11,10 +12,10 @@ Rules:
 - Write each task as a short, clear action in the writer's plain language.
 - Classify each task into the best existing project when one clearly fits. Return that existing project name exactly.
 - If no existing project fits, propose a calm, concise new project name of 1 to 4 words.
-- Set completeBy to YYYY-MM-DD whenever the note says when a task is due: a date ("Oct 3", "the 25th"), a weekday, or a time from now ("tomorrow", "next week", "in 3 days", "in 6 months", "end of the month"). Resolve it from the supplied current date and weekday. A bare weekday means the next such day, counting today if today is that day. "Next week" means seven days from today. "In N months" means the same day of the month N months on, or that month's last day if it is shorter. When the note gives no timing, or only a vague one ("someday", "soon", "at some point"), still include the task, with completeBy null.
+- Set "when" to the words in the note that say when a task is due, copied exactly as written: a date ("Oct 3", "the 25th"), a weekday ("on Friday"), or a time from now ("tomorrow", "next week", "in 6 months", "end of the month"). Do not work out the date yourself. When the note gives no timing, or only a vague one ("someday", "soon", "at some point"), still include the task, with "when" null.
 - Do not duplicate near-identical tasks.
 - Return no more than 30 tasks.
-- Respond ONLY with JSON: {"tasks":[{"text":"...","projectName":"...","completeBy":null}]}`;
+- Respond ONLY with JSON: {"tasks":[{"text":"...","projectName":"...","when":null}]}`;
 
 export async function extractTasks(input: {
   title: string;
@@ -35,5 +36,6 @@ export async function extractTasks(input: {
     userPrompt,
     maxOutputTokens: 4_000,
   });
-  return parseExtractedTasks(parseModelJson(raw));
+  // The model only quotes the timing; chrono turns it into a day.
+  return parseExtractedTasks(parseModelJson(raw), dayAtNoon(input.currentDate));
 }

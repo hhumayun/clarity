@@ -39,6 +39,7 @@ import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { Collapse } from "../../../src/ui/Collapse";
 import { DayTasks } from "../../../src/ui/DayTasks";
+import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TaskMenu } from "../../../src/ui/TaskMenu";
 import { TaskSheet } from "../../../src/ui/TaskSheet";
 import { hapticDone, hapticUndone } from "../../../src/lib/haptics";
@@ -55,7 +56,8 @@ import {
   useReindexNotes,
 } from "../../../src/hooks/useNotes";
 import { useTasks } from "../../../src/hooks/useTasks";
-import { dateChipLabel, formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
+import { useToast } from "../../../src/providers/ToastProvider";
+import { atNoon, dateChipLabel, formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
 import {
   dayHeading,
   displayTitle,
@@ -107,6 +109,8 @@ export default function NotesListScreen() {
   // A task's press-and-hold menu, and the sheet its Date row opens.
   const [menuTask, setMenuTask] = useState<TaskRecord | null>(null);
   const [moveTask, setMoveTask] = useState<TaskRecord | null>(null);
+  // The day's + opens the task box, dated to the day shown.
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const autoPick = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const motion = useFocusedMotion();
@@ -155,6 +159,7 @@ export default function NotesListScreen() {
     useNotesPages(params);
   const noteCounts = useNoteCounts();
   const tasks = useTasks(undefined, TASKS_ENABLED);
+  const toast = useToast();
   const queryClient = useQueryClient();
   const firstFocus = useRef(true);
   useFocusEffect(
@@ -235,6 +240,13 @@ export default function NotesListScreen() {
         : [],
     [tasks.query.data?.tasks, selectedDay],
   );
+  const addDayTask = async (draft: QuickAddDraft) => {
+    const { task } = await tasks.create.mutateAsync({ ...draft, status: "todo" });
+    setQuickAddOpen(false);
+    // A date typed into the line can send the task to another day: say where.
+    if (!task.completeBy) toast.show("Task added, with no date.");
+    else if (!isSameDay(task.completeBy, selectedDay)) toast.show(`Task added for ${dateChipLabel(task.completeBy)}.`);
+  };
   const toggleTask = (task: TaskRecord) => {
     const done = task.status !== "done";
     if (done) hapticDone();
@@ -679,7 +691,12 @@ export default function NotesListScreen() {
             </View>
           )}
           {TASKS_ENABLED ? (
-            <DayTasks tasks={dayTasks} onToggle={toggleTask} onOpenMenu={setMenuTask} />
+            <DayTasks
+              tasks={dayTasks}
+              onToggle={toggleTask}
+              onOpenMenu={setMenuTask}
+              onAdd={() => setQuickAddOpen(true)}
+            />
           ) : null}
         </FadeSwitch>
       </Animated.View>
@@ -778,6 +795,18 @@ export default function NotesListScreen() {
         onCreateProject={async (name) => (await tasks.createProject.mutateAsync({ name })).project}
         startPanel="move"
       />
+      {TASKS_ENABLED ? (
+        <QuickAddTask
+          open={quickAddOpen}
+          onClose={() => setQuickAddOpen(false)}
+          projects={tasks.query.data?.projects ?? []}
+          defaultProjectId={tasks.query.data?.projects[0]?.id ?? null}
+          defaultDate={atNoon(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate())}
+          placeholder="e.g., Call Dr. Lee"
+          onCreateProject={async (name) => (await tasks.createProject.mutateAsync({ name })).project}
+          onSubmit={addDayTask}
+        />
+      ) : null}
 
       {!showArchived ? (
         <View style={styles.writeWrap}>
