@@ -21,6 +21,7 @@ import { useKeyboardSlot } from "../hooks/useKeyboardSlot";
 import { usePresence } from "../hooks/usePresence";
 import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
+import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import type { ProjectRecord } from "../types";
@@ -318,7 +319,7 @@ export function QuickAddTask({
                     style={[styles.chip, active && styles.chipSet]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextSet]}>
-                      {project.name}
+                      {areaTag(project.name)}
                     </Text>
                   </Pressable>
                 );

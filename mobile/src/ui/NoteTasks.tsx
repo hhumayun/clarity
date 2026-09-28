@@ -8,6 +8,7 @@ import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-
 import { useToast } from "../providers/ToastProvider";
 import { useTasks } from "../hooks/useTasks";
 import { formatDue } from "../lib/taskDates";
+import { areaTag } from "../lib/lifeCenter";
 import { sortProjects, sortTasks } from "../lib/taskSort";
 import type { SuggestedTask, TaskRecord, TaskStatus } from "../types";
 import { Button } from "./Button";
@@ -282,7 +283,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
                   <View style={styles.flex}>
                     <Text style={styles.suggestionText}>{item.text}</Text>
                     <View style={styles.meta}>
-                      <Text style={styles.chip}>{item.projectName}</Text>
+                      <Text style={styles.chip}>{areaTag(item.projectName)}</Text>
                       {item.completeBy ? (
                         <View style={styles.due}>
                           <CalendarDays size={12} color={colors.mutedForeground} />

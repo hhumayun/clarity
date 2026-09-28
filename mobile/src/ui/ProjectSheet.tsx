@@ -4,6 +4,7 @@ import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { useToast } from "../providers/ToastProvider";
 import { sortProjects } from "../lib/taskSort";
+import { areaTag } from "../lib/lifeCenter";
 import type { ProjectRecord, TaskRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -106,7 +107,7 @@ export function ProjectSheet({
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {project.name}
+                      {areaTag(project.name)}
                     </Text>
                   </Pressable>
                 );
@@ -158,7 +159,7 @@ export function ProjectSheet({
                   />
                 ) : (
                   <View style={styles.flex}>
-                    <Text style={styles.name}>{project.name}</Text>
+                    <Text style={styles.name}>{areaTag(project.name)}</Text>
                     <Text style={styles.meta}>
                       {(count?.open ?? 0) + (count?.done ?? 0)} tasks
                     </Text>

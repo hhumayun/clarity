@@ -67,6 +67,7 @@ import {
   weekStrip,
 } from "../../../src/lib/notesList";
 import { taskCountByNote } from "../../../src/lib/taskSort";
+import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../../../src/theme";
 import type { NoteRecord, TaskRecord } from "../../../src/types";
@@ -616,7 +617,7 @@ export default function NotesListScreen() {
             <View>
               {dayNotes.map((note, i) => {
                 const { title, preview } = displayTitle(note);
-                const areaNames = areasOf(note).map((area) => area.name).join(", ");
+                const areaNames = areasOf(note).map((area) => areaTag(area.name)).join(" ");
                 const linked = counts.get(note.id) ?? 0;
                 const parked = note.source === "focus";
                 return (

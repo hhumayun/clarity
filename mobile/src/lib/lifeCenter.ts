@@ -101,25 +101,10 @@ export function slippedLabel(count: number, more = false): string {
     : `${count} ${noun} slipped past ${count === 1 ? "its date" : "their dates"}`;
 }
 
-// One dot colour per area, in the same order in both themes so an area keeps
-// its hue when the theme changes. Teal, coral, purple and blue are the
-// redesign's area dots and gold is its warm amber, deeper on Morning Paper
-// (light) and softer on Evening Sage (dark). The design has no green or pink,
-// so those two are unchanged.
-const AREA_DOTS = {
-  light: ["#2f8a80", "#c46a55", "#7d62b8", "#b7791f", "#4a73b0", "#8fbf8a", "#d58db0"],
-  dark: ["#7fc1b9", "#e0a08f", "#b8a6de", "#dcaa62", "#94b4de", "#8fbf8a", "#d58db0"],
-};
-
 /**
- * A stable colour per area: hashed from its id, so adding or renaming an area
- * never repaints the others.
+ * How an area (a project) is shown: its name after a #, with no colour.
+ * Screen-reader labels use the plain name.
  */
-export function areaColor(projectId: string, dark: boolean): string {
-  let hash = 0;
-  for (let i = 0; i < projectId.length; i++) {
-    hash = (hash * 31 + projectId.charCodeAt(i)) | 0;
-  }
-  const dots = dark ? AREA_DOTS.dark : AREA_DOTS.light;
-  return dots[Math.abs(hash) % dots.length];
+export function areaTag(name: string): string {
+  return `#${name}`;
 }

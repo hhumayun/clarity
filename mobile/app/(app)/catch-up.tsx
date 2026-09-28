@@ -6,7 +6,7 @@ import Animated, { FadeIn, FadeInRight, FadeOutLeft } from "react-native-reanima
 import { InsetView } from "../../src/ui/InsetView";
 import { useTasks } from "../../src/hooks/useTasks";
 import { daysFromToday, formatPlannedDateLong, nextWeekend } from "../../src/lib/dates";
-import { areaColor, overdueQueue } from "../../src/lib/lifeCenter";
+import { areaTag, overdueQueue } from "../../src/lib/lifeCenter";
 import { hapticDone } from "../../src/lib/haptics";
 import { recordMovedFrom } from "../../src/lib/movedFrom";
 import { useAppTheme } from "../../src/providers/AppThemeProvider";
@@ -116,10 +116,7 @@ export default function CatchUpScreen() {
             exiting={FadeOutLeft.duration(180)}
             style={styles.card}
           >
-            <View style={styles.area}>
-              <View style={[styles.dot, { backgroundColor: areaColor(current.projectId, dark) }]} />
-              <Text style={styles.areaText}>{current.projectName}</Text>
-            </View>
+            <Text style={styles.areaText}>{areaTag(current.projectName)}</Text>
             <Text style={styles.taskTitle}>{current.text}</Text>
             {current.completeBy ? (
               <View style={styles.planned}>

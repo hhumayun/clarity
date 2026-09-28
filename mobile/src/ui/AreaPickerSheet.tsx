@@ -1,7 +1,7 @@
 import { Check, Plus } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { areaColor } from "../lib/lifeCenter";
+import { areaTag } from "../lib/lifeCenter";
 import { sortProjects } from "../lib/taskSort";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, spacing, type Colors } from "../theme";
@@ -70,8 +70,7 @@ export function AreaPickerSheet({ open, onClose, projects, selected, onToggle, o
               accessibilityState={{ checked: on }}
               accessibilityLabel={project.name}
             >
-              <View style={[styles.dot, { backgroundColor: areaColor(project.id, dark) }]} />
-              <Text style={[styles.name, on && styles.nameOn]}>{project.name}</Text>
+              <Text style={[styles.name, on && styles.nameOn]}>{areaTag(project.name)}</Text>
               <View style={[styles.box, on && styles.boxOn]}>
                 {on ? <Check size={16} color={colors.primaryForeground} strokeWidth={3} /> : null}
               </View>

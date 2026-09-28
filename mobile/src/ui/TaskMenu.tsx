@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
+import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, spacing, type Colors } from "../theme";
 import type { TaskRecord } from "../types";
@@ -56,7 +57,7 @@ export function TaskMenu({ task, dueLabel, onClose, onDate, onFocus, onViewNote 
             <View style={styles.check} />
             <View style={styles.flex}>
               <Text style={styles.taskTitle}>{current.text}</Text>
-              <Text style={styles.taskArea}>{current.projectName}</Text>
+              <Text style={styles.taskArea}>{areaTag(current.projectName)}</Text>
             </View>
           </View>
           {/* Shadow outside, clipping inside: a clipped view drops its own shadow. */}

@@ -20,7 +20,7 @@ import {
   isSameDay,
 } from "../../../src/lib/dates";
 import {
-  areaColor,
+  areaTag,
   greeting,
   groupAllTasks,
   slippedLabel,
@@ -290,11 +290,8 @@ export default function LifeCenterScreen() {
                 style={[styles.areaPill, areaMenuOpen && styles.areaPillOpen]}
                 accessibilityLabel={`Area: ${activeArea?.name ?? "All areas"}. Change area`}
               >
-                {activeArea ? (
-                  <View style={[styles.dot, { backgroundColor: areaColor(activeArea.id, dark) }]} />
-                ) : null}
                 <Text style={styles.areaPillText} numberOfLines={1}>
-                  {activeArea?.name ?? "All areas"}
+                  {activeArea ? areaTag(activeArea.name) : "All areas"}
                 </Text>
                 <ChevronDown size={16} color={colors.mutedForeground} />
               </Pressable>
@@ -313,11 +310,8 @@ export default function LifeCenterScreen() {
                         setAreaMenuOpen(false);
                       }}
                     >
-                      {area.id !== ALL ? (
-                        <View style={[styles.dot, { backgroundColor: areaColor(area.id, dark) }]} />
-                      ) : null}
                       <Text style={[styles.areaItemText, active && styles.areaItemActive]}>
-                        {area.name}
+                        {area.id === ALL ? area.name : areaTag(area.name)}
                       </Text>
                       {active ? <Check size={16} color={colors.primary} /> : null}
                     </Pressable>

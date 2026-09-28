@@ -54,7 +54,7 @@ import {
   softHaptic,
 } from "../../../src/lib/focusAlerts";
 import { hapticDone } from "../../../src/lib/haptics";
-import { areaColor } from "../../../src/lib/lifeCenter";
+import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { fonts, radius, spacing, type Colors } from "../../../src/theme";
@@ -364,10 +364,7 @@ export default function FocusScreen() {
             <View style={styles.gapSm}>
               <Text style={styles.muted}>You'll work on</Text>
               <Text style={styles.taskTitle}>{task.text}</Text>
-              <View style={styles.area}>
-                <View style={[styles.dot, { backgroundColor: areaColor(task.projectId, dark) }]} />
-                <Text style={styles.muted}>{task.projectName}</Text>
-              </View>
+              <Text style={styles.muted}>{areaTag(task.projectName)}</Text>
             </View>
 
             <Text style={styles.label}>How long?</Text>

@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import { useAppTheme } from "../providers/AppThemeProvider";
+import { areaTag } from "../lib/lifeCenter";
 import { fonts, radius, spacing, type Colors } from "../theme";
 
 /** How long the confirmation stays up before the screen moves on to the card. */
@@ -57,7 +58,7 @@ export function TaskAddedOverlay({ visible, kind = "added", projectName = "", ta
           </>
         ) : (
           <Text style={styles.text}>
-            Task added to <Text style={styles.project}>{projectName}</Text>
+            Task added to <Text style={styles.project}>{projectName ? areaTag(projectName) : ""}</Text>
           </Text>
         )}
       </Animated.View>

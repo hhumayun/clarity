@@ -1,7 +1,7 @@
 import { CircleCheck, Timer } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { areaColor } from "../lib/lifeCenter";
+import { areaTag } from "../lib/lifeCenter";
 import { displayTitle, noteTimeLabel } from "../lib/notesList";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../theme";
@@ -52,10 +52,9 @@ export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "
     areas.length > 0 ? (
       <View style={styles.areas}>
         {areas.map((area) => (
-          <View key={area.id} style={styles.area}>
-            <View style={[styles.areaDot, { backgroundColor: areaColor(area.id, dark) }]} />
-            <Text style={styles.areaText}>{area.name}</Text>
-          </View>
+          <Text key={area.id} style={styles.areaText}>
+            {areaTag(area.name)}
+          </Text>
         ))}
       </View>
     ) : null;

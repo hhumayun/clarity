@@ -19,7 +19,7 @@ import { CalendarDays, Check, FileText, Play, Timer } from "lucide-react-native"
 import { fonts, radius, spacing, type Colors } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatClockTime, formatPlannedDate } from "../lib/dates";
-import { areaColor } from "../lib/lifeCenter";
+import { areaTag } from "../lib/lifeCenter";
 import { focusMetaLabel } from "../lib/focus";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
@@ -255,10 +255,7 @@ export function TaskCard({
           </View>
           <View style={styles.meta}>
             {showProject ? (
-              <View style={styles.metaItem}>
-                <View style={[styles.dot, { backgroundColor: areaColor(task.projectId, dark) }]} />
-                <Text style={styles.chip}>{task.projectName}</Text>
-              </View>
+              <Text style={styles.chip}>{areaTag(task.projectName)}</Text>
             ) : null}
             {focus && shownDone ? (
               <>

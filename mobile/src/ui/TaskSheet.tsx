@@ -8,6 +8,7 @@ import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
 import { atNoon, daysFromToday, formatShortDate, isSameDay, nextWeekend } from "../lib/dates";
 import { hapticDone, hapticUndone } from "../lib/haptics";
+import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors } from "../theme";
 import {
@@ -397,7 +398,7 @@ export function TaskSheet({
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {project.name}
+                      {areaTag(project.name)}
                     </Text>
                   </Pressable>
                 );

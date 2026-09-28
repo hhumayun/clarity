@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { CalendarDays, Link2 } from "lucide-react-native";
 import { useTasks } from "../hooks/useTasks";
-import { areaColor } from "../lib/lifeCenter";
+import { areaTag } from "../lib/lifeCenter";
 import { formatDue } from "../lib/taskDates";
 import { sortTasks } from "../lib/taskSort";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -110,8 +110,7 @@ export function LinkTaskSheet({ open, noteId, excludeIds = [], onClose, onLink }
                   {task.text}
                 </Text>
                 <View style={styles.meta}>
-                  <View style={[styles.dot, { backgroundColor: areaColor(task.projectId, dark) }]} />
-                  <Text style={styles.metaText}>{task.projectName}</Text>
+                  <Text style={styles.metaText}>{areaTag(task.projectName)}</Text>
                   {task.completeBy ? (
                     <>
                       <CalendarDays size={12} color={colors.mutedForeground} />

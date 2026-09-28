@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import { Check } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, spacing, type Colors } from "../theme";
 import type { TaskRecord } from "../types";
@@ -68,7 +69,7 @@ export function DayTasks({ tasks, onToggle, onOpenMenu }: Props) {
               </Pressable>
               <View style={styles.flex}>
                 <Text style={[styles.title, done && styles.titleDone]}>{task.text}</Text>
-                <Text style={styles.area}>{task.projectName}</Text>
+                <Text style={styles.area}>{areaTag(task.projectName)}</Text>
               </View>
             </Pressable>
           );

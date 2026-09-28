@@ -39,7 +39,7 @@ import { fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
 import { useTasks } from "../../../src/hooks/useTasks";
-import { areaColor } from "../../../src/lib/lifeCenter";
+import { areaTag } from "../../../src/lib/lifeCenter";
 import { InlineSuggestions } from "../../../src/ui/InlineSuggestions";
 import { NoteTasks } from "../../../src/ui/NoteTasks";
 import { ReflectionStrip } from "../../../src/ui/ReflectionStrip";
@@ -548,8 +548,7 @@ export default function NoteEditorScreen() {
                     style={styles.areaChip}
                     accessibilityLabel={`Area: ${project.name}. Change areas`}
                   >
-                    <View style={[styles.areaDot, { backgroundColor: areaColor(project.id, dark) }]} />
-                    <Text style={styles.areaChipText}>{project.name}</Text>
+                    <Text style={styles.areaChipText}>{areaTag(project.name)}</Text>
                   </Pressable>
                 </Animated.View>
               ))}
