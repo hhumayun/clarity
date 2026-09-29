@@ -42,7 +42,6 @@ import { DayTasks } from "../../../src/ui/DayTasks";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TaskMenu } from "../../../src/ui/TaskMenu";
 import { hapticDone, hapticUndone } from "../../../src/lib/haptics";
-import Svg, { Line } from "react-native-svg";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
@@ -625,7 +624,7 @@ export default function NotesListScreen() {
             <Text style={styles.noNotes}>No notes this day.</Text>
           ) : (
             <View>
-              {dayNotes.map((note, i) => {
+              {dayNotes.map((note) => {
                 const { title, preview } = displayTitle(note);
                 const areaNames = areasOf(note).map((area) => areaTag(area.name)).join(" ");
                 const linked = counts.get(note.id) ?? 0;
@@ -638,26 +637,6 @@ export default function NotesListScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`${title}, ${formatClockTime(note.createdAt)}`}
                   >
-                    <View style={styles.rail}>
-                      <View style={[styles.railDot, { backgroundColor: parked ? colors.rest : colors.primary }]} />
-                      {i < dayNotes.length - 1 ? (
-                        <View style={styles.railLine}>
-                          <Svg width={2} height="100%">
-                            <Line
-                              x1={1}
-                              y1={1}
-                              x2={1}
-                              y2="100%"
-                              stroke={colors.mutedForeground}
-                              strokeOpacity={0.55}
-                              strokeWidth={2}
-                              strokeDasharray="0.1 5"
-                              strokeLinecap="round"
-                            />
-                          </Svg>
-                        </View>
-                      ) : null}
-                    </View>
                     <View style={styles.noteBody}>
                       <Text style={styles.noteTime}>{formatClockTime(note.createdAt)}</Text>
                       <Text style={styles.noteTitle}>{title}</Text>
@@ -907,12 +886,9 @@ function makeStyles(colors: Colors, scale: number) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
-    // A note on the day's timeline: a dot, a dotted line to the next, then
-    // its time, title, two lines of it, and its area and linked tasks.
-    noteRow: { flexDirection: "row", gap: spacing[3] },
-    rail: { width: 20, alignItems: "center", paddingTop: 5 },
-    railDot: { width: 9, height: 9, borderRadius: 5 },
-    railLine: { flex: 1, width: 2, minHeight: 20, marginTop: 6 },
+    // A note in the day: its time, title, two lines of it, and its area
+    // and linked tasks.
+    noteRow: { flexDirection: "row" },
     noteBody: { flex: 1, minWidth: 0, gap: 4, paddingBottom: 22 },
     noteTime: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     noteTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
