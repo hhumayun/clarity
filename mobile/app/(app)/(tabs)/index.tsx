@@ -40,6 +40,7 @@ import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { Collapse } from "../../../src/ui/Collapse";
 import { DayTasks } from "../../../src/ui/DayTasks";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
+import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
 import { TaskMenu } from "../../../src/ui/TaskMenu";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -110,6 +111,14 @@ export default function NotesListScreen() {
   const afterMenu = useAfterExit();
   // The day's + opens the task box, dated to the day shown.
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [added, setAdded] = useState<TaskRecord | null>(null);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (addedTimer.current) clearTimeout(addedTimer.current);
+    },
+    [],
+  );
   const autoPick = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const motion = useFocusedMotion();
@@ -242,9 +251,13 @@ export default function NotesListScreen() {
   const addDayTask = async (draft: QuickAddDraft) => {
     const { task } = await tasks.create.mutateAsync({ ...draft, status: "todo" });
     setQuickAddOpen(false);
+    // The same confirmation as Life Center and a note's tasks.
+    setAdded(task);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(null), TASK_ADDED_MS);
     // A date typed into the line can send the task to another day: say where.
-    if (!task.completeBy) toast.show("Task added, with no date.");
-    else if (!isSameDay(task.completeBy, selectedDay)) toast.show(`Task added for ${dateChipLabel(task.completeBy)}.`);
+    if (!task.completeBy) toast.show("It has no date, so it is in Life Center.");
+    else if (!isSameDay(task.completeBy, selectedDay)) toast.show(`It is due ${dateChipLabel(task.completeBy)}.`);
   };
   // The row has already played its own settle and haptic by the time this runs.
   const setTaskStatus = (task: TaskRecord, status: TaskStatus) => {
@@ -739,12 +752,14 @@ export default function NotesListScreen() {
         onClose={() => setMenuTask(null)}
         onMove={(task, date) => {
           setMenuTask(null);
+          // It leaves this day's list, so say where it went once it has.
           tasks.update.mutate(
             { id: task.id, completeBy: date },
-            { onError: () => toast.show("That task could not be moved. Please try again.") },
+            {
+              onSuccess: () => toast.show(date ? `Moved to ${dateChipLabel(date)}.` : "Date removed."),
+              onError: () => toast.show("That task could not be moved. Please try again."),
+            },
           );
-          // It leaves this day's list, so say where it went.
-          toast.show(date ? `Moved to ${dateChipLabel(date)}.` : "Date removed.");
         }}
         onFocus={(task) => {
           setMenuTask(null);
@@ -787,6 +802,7 @@ export default function NotesListScreen() {
           </Pressable>
         </View>
       ) : null}
+      <TaskAddedOverlay visible={added !== null} projectName={added?.projectName ?? ""} />
     </SafeAreaView>
   );
 }

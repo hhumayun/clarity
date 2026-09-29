@@ -23,6 +23,7 @@ import { atNoon, dateChipLabel, dueDayOptions, isSameDay } from "../lib/dates";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaTag } from "../lib/lifeCenter";
 import { linkedNoteIds } from "../lib/taskLinks";
+import { useToast } from "../providers/ToastProvider";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import {
@@ -76,6 +77,11 @@ type Props = {
   /** Once the sheet has fully gone; anything that presents next waits for it. */
   onExited?: () => void;
 };
+
+/** Whether two due days are the same day (or both none). */
+function sameDue(a: Date | null, b: Date | null): boolean {
+  return a === null || b === null ? a === b : isSameDay(a, b);
+}
 
 /**
  * Which face of the sheet is showing. Deliberately one sheet with faces
@@ -131,6 +137,7 @@ export function TaskSheet({
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const { height: windowHeight } = useWindowDimensions();
+  const toast = useToast();
   const [draft, setDraft] = useState<TaskDraft>(() =>
     draftFrom(task, defaultProjectId, projects),
   );
@@ -177,6 +184,7 @@ export function TaskSheet({
         description: (draft.description ?? "").trim(),
       });
       onClose();
+      if (task && !sameDue(task.completeBy, draft.completeBy)) confirmMoved(draft.completeBy);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That task could not be saved. Please try again.");
     } finally {
@@ -203,6 +211,12 @@ export function TaskSheet({
 
   const setDate = (date: Date | null) => setDraft((current) => ({ ...current, completeBy: date }));
 
+  // A new day, once saved, is said out loud: the task has usually just left
+  // the list on screen.
+  const confirmMoved = (date: Date | null) => {
+    toast.show(date ? `Moved to ${dateChipLabel(date)}.` : "Date removed.");
+  };
+
   // Save one change straight from the action panel, without the edit form.
   const commit = async (change: Partial<TaskDraft>) => {
     if (!task || saving) return;
@@ -213,6 +227,9 @@ export function TaskSheet({
       const { description: _unshown, ...current } = draftFrom(task, defaultProjectId, projects);
       await onSave({ ...current, ...change });
       onClose();
+      if (change.completeBy !== undefined && !sameDue(task.completeBy, change.completeBy)) {
+        confirmMoved(change.completeBy);
+      }
       if (change.status === "done" && task.status !== "done") {
         hapticDone();
         onMarkedDone?.(task);

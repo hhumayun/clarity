@@ -35,8 +35,8 @@ import {
 import { Button } from "../../../src/ui/Button";
 import { Collapse } from "../../../src/ui/Collapse";
 import { Sheet } from "../../../src/ui/Sheet";
-import Animated from "react-native-reanimated";
-import { fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
+import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { EASE_OUT, MOTION, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
 import { useTasks } from "../../../src/hooks/useTasks";
@@ -77,6 +77,17 @@ export default function NoteEditorScreen() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [loaded, setLoaded] = useState(false);
+  // The note's words settle in as they arrive instead of popping in: a short
+  // fade and a few points' rise, the title with them.
+  const reveal = useSharedValue(0);
+  useEffect(() => {
+    reveal.value = loaded ? withTiming(1, { duration: MOTION.slow, easing: EASE_OUT }) : 0;
+  }, [loaded, reveal]);
+  const revealStyle = useAnimatedStyle(() => ({
+    opacity: reveal.value,
+    transform: [{ translateY: (1 - reveal.value) * 8 }],
+  }));
+  const titleRevealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const [status, setStatus] = useState<SaveStatus>("idle");
   // Archive and delete live here now that the notes list has no "…" menu.
   const [archived, setArchived] = useState(false);
@@ -542,6 +553,7 @@ export default function NoteEditorScreen() {
             <ChevronLeft size={26} color={colors.foreground} />
           </Button>
           <View style={styles.headerCenter}>
+            <Animated.View style={[styles.titleWrap, titleRevealStyle]}>
             <TextInput
               value={title}
               onChangeText={(value) => {
@@ -561,6 +573,7 @@ export default function NoteEditorScreen() {
               accessibilityLabel="Note title"
               returnKeyType="done"
             />
+            </Animated.View>
             {/* Reserved height even when blank, so the header never shifts. */}
             <Text style={styles.status} numberOfLines={1}>
               {statusLabel}
@@ -670,13 +683,13 @@ export default function NoteEditorScreen() {
               contentContainerStyle={styles.notePanel}
             >
               {!loaded ? (
-                <View style={styles.bodySkeleton}>
+                <Animated.View style={styles.bodySkeleton} exiting={FadeOut.duration(MOTION.fast)}>
                   <Skeleton style={styles.skeletonLine} />
                   <Skeleton style={styles.skeletonLine} />
                   <Skeleton style={styles.skeletonLineShort} />
-                </View>
+                </Animated.View>
               ) : (
-                <>
+                <Animated.View style={revealStyle}>
               <TextInput
                 ref={bodyRef}
                 multiline
@@ -711,7 +724,7 @@ export default function NoteEditorScreen() {
                 style={styles.body}
                 textAlignVertical="top"
               />
-                </>
+                </Animated.View>
               )}
             </ScrollView>
             <View style={[styles.footer, trayOpen && styles.footerTray]}>
@@ -921,6 +934,7 @@ function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },
+    titleWrap: { alignSelf: "stretch" },
     bodySkeleton: { gap: spacing[3], paddingTop: spacing[2] },
     skeletonLine: { height: 18 * scale },
     skeletonLineShort: { height: 18 * scale, width: "60%" },

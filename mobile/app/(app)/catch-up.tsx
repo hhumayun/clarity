@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, FadeInRight, FadeOutLeft } from "react-native-reanimated";
 import { InsetView } from "../../src/ui/InsetView";
 import { useTasks } from "../../src/hooks/useTasks";
-import { daysFromToday, formatPlannedDateLong, nextWeekend } from "../../src/lib/dates";
+import { dateChipLabel, daysFromToday, formatPlannedDateLong, nextWeekend } from "../../src/lib/dates";
 import { areaTag, overdueQueue } from "../../src/lib/lifeCenter";
 import { hapticDone } from "../../src/lib/haptics";
 import { recordMovedFrom } from "../../src/lib/movedFrom";
@@ -61,7 +61,10 @@ export default function CatchUpScreen() {
     recordMovedFrom(task.id, task.completeBy);
     update.mutate(
       { id: task.id, completeBy: date },
-      { onError: () => toast.show("That change could not be saved. Please try again.") },
+      {
+        onSuccess: () => toast.show(`Moved to ${dateChipLabel(date)}.`),
+        onError: () => toast.show("That change could not be saved. Please try again."),
+      },
     );
     advance(outcome);
   };
