@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Plus, Sparkles, Trash2, X } from "lucide-react-native";
+import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Plus, RotateCw, Sparkles, Trash2, X } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,9 +41,8 @@ import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { areaTag } from "../../../src/lib/lifeCenter";
-import { InlineSuggestions } from "../../../src/ui/InlineSuggestions";
 import { NoteTasks } from "../../../src/ui/NoteTasks";
-import { ReflectionStrip } from "../../../src/ui/ReflectionStrip";
+import { SuggestionTray } from "../../../src/ui/SuggestionTray";
 import { Skeleton } from "../../../src/ui/Skeleton";
 import { Segmented } from "../../../src/ui/Segmented";
 
@@ -90,7 +90,11 @@ export default function NoteEditorScreen() {
   const allProjects = tasksQuery.data?.projects ?? [];
   const [cursorPos, setCursorPos] = useState(0);
   const [editorTab, setEditorTab] = useState<"note" | "tasks">("note");
-  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
+  // The suggestion tray, in the keyboard's place. Closing it with the
+  // keyboard coming back lets the two swap without the note moving.
+  const [trayOpen, setTrayOpen] = useState(false);
+  const [trayKeyboardComing, setTrayKeyboardComing] = useState(false);
+  const bodyRef = useRef<TextInput>(null);
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
 
@@ -291,11 +295,11 @@ export default function NoteEditorScreen() {
   const {
     suggestions,
     completionSuggestions,
-    reflectionQuestion,
+    reflectionQuestions,
     loading,
     refresh,
+    refreshIfStale,
     accept,
-    dismiss,
   } = useSuggestions({
     noteId: noteId ?? undefined,
     title,
@@ -333,7 +337,11 @@ export default function NoteEditorScreen() {
       const midClause = /[,;:({["'‘“–—-]$/.test(trimmedBefore);
 
       let text = suggestion.text;
-      if (isCompletionSuggestion(suggestion) || shouldCapitalize(before)) {
+      if (isCompletionSuggestion(suggestion)) {
+        // Finishes the sentence it follows: the model's own casing, unless
+        // there is no sentence left to finish.
+        if (shouldCapitalize(before)) text = text.charAt(0).toUpperCase() + text.slice(1);
+      } else if (shouldCapitalize(before)) {
         text = text.charAt(0).toUpperCase() + text.slice(1);
       } else if (midClause) {
         text = text.charAt(0).toLowerCase() + text.slice(1);
@@ -348,24 +356,72 @@ export default function NoteEditorScreen() {
       const inserted = (needsSpaceBefore ? " " : "") + text + (needsSpaceAfter ? " " : "");
 
       const next = before + inserted + after;
+      const caret = before.length + inserted.length;
       contentRef.current = next;
       setContent(next);
-      setPendingSelection(before.length + inserted.length);
-      setSuggestionsExpanded(false);
+      setPendingSelection(caret);
       accept(suggestion);
+      return caret;
     },
     [accept, cursorPos],
   );
 
-  const answerQuestion = useCallback(() => {
-    if (!reflectionQuestion) return;
-    const current = contentRef.current;
-    const trimmed = current.replace(/\s+$/, "");
-    const next = (trimmed.length > 0 ? trimmed + "\n\n" : "") + reflectionQuestion + "\n";
-    contentRef.current = next;
-    setContent(next);
-    setPendingSelection(next.length);
-  }, [reflectionQuestion]);
+  // A question goes in as its own line where the cursor is, with the cursor
+  // on the line below it, ready for the answer.
+  const insertQuestion = useCallback(
+    (question: string) => {
+      const current = contentRef.current;
+      const before = current.slice(0, cursorPos).replace(/\s+$/, "");
+      const after = current.slice(cursorPos).replace(/^\s+/, "");
+      const block = (before ? "\n\n" : "") + question + "\n";
+      const next = before + block + (after ? "\n" + after : "");
+      const caret = before.length + block.length;
+      contentRef.current = next;
+      setContent(next);
+      setPendingSelection(caret);
+      return caret;
+    },
+    [cursorPos],
+  );
+
+  const openTray = useCallback(() => {
+    Keyboard.dismiss();
+    setTrayKeyboardComing(false);
+    setTrayOpen(true);
+    // What is on hand may be for words since written, or another spot.
+    void refreshIfStale().then((ok) => {
+      if (!ok) toast.show("Couldn't get suggestions right now. Please try again in a moment.");
+    });
+  }, [refreshIfStale, toast]);
+
+  /**
+   * Back to typing: the keyboard comes up as the tray goes down. With a
+   * caret position, the cursor lands there (after an added suggestion).
+   */
+  const backToKeyboard = useCallback((caret?: number) => {
+    setTrayKeyboardComing(true);
+    setTrayOpen(false);
+    setTimeout(() => {
+      bodyRef.current?.focus();
+      if (caret !== undefined) bodyRef.current?.setSelection(caret, caret);
+    }, 30);
+  }, []);
+
+  // Something else took the keyboard (a tap in the note or the title): the
+  // tray gives way to it the same way.
+  const trayGivesWay = useCallback(() => {
+    if (!trayOpen) return;
+    setTrayKeyboardComing(true);
+    setTrayOpen(false);
+  }, [trayOpen]);
+
+  // Nothing to show it for: the Tasks tab, or suggestions turned off.
+  useEffect(() => {
+    if (editorTab !== "note" || !aiSuggestions) {
+      setTrayKeyboardComing(false);
+      setTrayOpen(false);
+    }
+  }, [editorTab, aiSuggestions]);
 
   // Offer a title once an untitled note has a little text and the writer
   // pauses. Once per visit: leaving asks again if the text has moved on.
@@ -480,6 +536,7 @@ export default function NoteEditorScreen() {
                 setTitle(value);
               }}
               editable={loaded}
+              onFocus={trayGivesWay}
               placeholder={loaded ? "Untitled" : ""}
               placeholderTextColor={colors.mutedForeground}
               maxLength={300}
@@ -604,8 +661,10 @@ export default function NoteEditorScreen() {
               ) : (
                 <>
               <TextInput
+                ref={bodyRef}
                 multiline
                 autoFocus={isNew}
+                onFocus={trayGivesWay}
                 value={content}
                 onChangeText={(value) => setContent(value)}
                 onSelectionChange={(event) => {
@@ -630,55 +689,77 @@ export default function NoteEditorScreen() {
                 style={styles.body}
                 textAlignVertical="top"
               />
-              {aiSuggestions ? (
-                <InlineSuggestions
-                  suggestions={suggestions}
-                  completionSuggestions={completionSuggestions}
-                  loading={loading}
-                  expanded={suggestionsExpanded}
-                  onToggleExpanded={() => setSuggestionsExpanded((value) => !value)}
-                  onAccept={insertSuggestion}
-                  onDismiss={dismiss}
-                />
-              ) : null}
                 </>
               )}
             </ScrollView>
-            <View style={styles.footer}>
-              <View style={styles.toolbar}>
-                <Text style={styles.toolbarLabel}>
-                  {aiSuggestions ? "AI suggestions" : "AI suggestions off"}
-                </Text>
-                {aiSuggestions ? (
+            <View style={[styles.footer, trayOpen && styles.footerTray]}>
+              {trayOpen ? (
+                // The tray's own bar: what to do, a fresh set, and the way back.
+                <View style={styles.toolbar}>
+                  <Text style={styles.trayHint}>Tap one to add it</Text>
                   <Button
                     variant="ghost"
                     size="icon"
                     style={styles.toolButton}
                     onPress={requestSuggestions}
                     loading={loading}
-                    accessibilityLabel="Get new suggestions for what you are writing"
+                    accessibilityLabel="Get new suggestions"
                   >
-                    <Sparkles size={18} color={colors.foreground} />
+                    <RotateCw size={17} color={colors.mutedForeground} />
                   </Button>
-                ) : null}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  style={styles.toolButton}
-                  onPress={() => setAiSuggestions(!aiSuggestions)}
-                  accessibilityLabel={aiSuggestions ? "Hide AI suggestions" : "Show AI suggestions"}
-                >
+                  <Pressable
+                    onPress={() => backToKeyboard()}
+                    style={({ pressed }) => [styles.keyboardButton, pressed && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back to the keyboard"
+                  >
+                    <Text style={styles.keyboardButtonText}>Keyboard</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.toolbar}>
                   {aiSuggestions ? (
-                    <EyeOff size={18} color={colors.foreground} />
+                    <Pressable
+                      onPress={openTray}
+                      style={({ pressed }) => [styles.suggestButton, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Suggestions: words to keep going, and questions"
+                    >
+                      <Sparkles size={15} color={colors.accentForeground} />
+                      <Text style={styles.suggestButtonText}>Suggestions</Text>
+                    </Pressable>
                   ) : (
-                    <Eye size={18} color={colors.foreground} />
+                    <Text style={styles.toolbarLabel}>AI suggestions off</Text>
                   )}
-                </Button>
-              </View>
-              {aiSuggestions && reflectionQuestion ? (
-                <ReflectionStrip question={reflectionQuestion} onPress={answerQuestion} />
-              ) : null}
+                  <View style={styles.flex} />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style={styles.toolButton}
+                    onPress={() => setAiSuggestions(!aiSuggestions)}
+                    accessibilityLabel={aiSuggestions ? "Hide AI suggestions" : "Show AI suggestions"}
+                  >
+                    {aiSuggestions ? (
+                      <EyeOff size={18} color={colors.mutedForeground} />
+                    ) : (
+                      <Eye size={18} color={colors.foreground} />
+                    )}
+                  </Button>
+                </View>
+              )}
             </View>
+            {aiSuggestions ? (
+              <SuggestionTray
+                open={trayOpen}
+                keyboardComing={trayKeyboardComing}
+                completions={completionSuggestions}
+                stems={suggestions}
+                questions={reflectionQuestions}
+                loading={loading}
+                onPick={(suggestion) => backToKeyboard(insertSuggestion(suggestion))}
+                onPickQuestion={(question) => backToKeyboard(insertQuestion(question))}
+              />
+            ) : null}
           </View>
         ) : (
           <View style={styles.flex}>
@@ -938,5 +1019,34 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.mutedForeground,
     },
     toolButton: { width: 36, height: 36 },
+    pressed: { opacity: 0.7 },
+    // Above the open tray the bar joins it: its colour, a hairline above.
+    footerTray: {
+      backgroundColor: colors.card,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: spacing[2],
+    },
+    trayHint: { flex: 1, fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
+    keyboardButton: {
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing[3],
+      paddingVertical: 7,
+      marginLeft: spacing[1],
+    },
+    keyboardButtonText: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.foreground },
+    suggestButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 999,
+      backgroundColor: colors.accent,
+      paddingHorizontal: spacing[3],
+      paddingVertical: 7,
+    },
+    suggestButtonText: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.accentForeground },
   });
 }

@@ -18,6 +18,7 @@ export type OutputType = {
   suggestions: Suggestion[];
   completionSuggestions: CompletionSuggestion[];
   reflectionQuestion: string;
+  reflectionQuestions: string[];
 };
 
 export const postSuggestionsGenerate = async (

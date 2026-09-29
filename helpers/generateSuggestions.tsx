@@ -41,7 +41,10 @@ const RECENT_EVENT_SAMPLE = 200;
 export type SuggestionsResult = {
   suggestions: Suggestion[];
   completionSuggestions: CompletionSuggestion[];
+  /** The first of reflectionQuestions, for clients older than the list. */
   reflectionQuestion: string;
+  /** A few gentle questions about what was just written; 0 to 4. */
+  reflectionQuestions: string[];
 };
 
 type Excerpt = { title: string; excerpt: string };
@@ -245,7 +248,7 @@ function excerptAround(content: string, terms: string[]): string {
 }
 
 const SYSTEM_PROMPT = `You help people who sometimes have trouble finding words while writing personal notes.
-Given the text a person has written so far, offer two kinds of short word help: phrases that complete the current unfinished sentence, and sentence-starter stems that open the next sentence. Also offer one gentle reflective question.
+Given the text a person has written so far, offer two kinds of short word help: phrases that complete the current unfinished sentence, and sentence-starter stems that open the next sentence. Also offer a few gentle reflective questions.
 
 Current-sentence completions:
 - Return exactly 5 short fragments in "complete" when the cursor is inside an unfinished sentence.
@@ -267,9 +270,9 @@ Rules:
 - Give exactly 2 stems per mood. Vary them; no near-duplicates.
 - Never repeat a phrase the writer dismissed.
 - Never give advice or corrections.
-- The question is one short, gentle, open question about what they just wrote — curious, never probing or clinical.
+- "questions" are 4 short, gentle, open questions about what they just wrote — curious, never probing or clinical. Each asks about something different (a moment, a person, a feeling, a detail), in under 12 words, and can be answered by writing more.
 - Respond ONLY with JSON:
-{"complete": ["...", "...", "...", "...", "..."], "deeper": ["...", "..."], "continue": ["...", "..."], "forward": ["...", "..."], "question": "..."}`;
+{"complete": ["...", "...", "...", "...", "..."], "deeper": ["...", "..."], "continue": ["...", "..."], "forward": ["...", "..."], "questions": ["...", "...", "...", "..."]}`;
 
 function buildPrompt(
   title: string,
@@ -382,17 +385,37 @@ export async function generateSuggestions(opts: {
     if (completionSuggestions.length >= 5) break;
   }
 
-  const question =
-    typeof parsed.question === "string" && parsed.question.trim().length > 0
-      ? normalize(parsed.question).slice(0, 120)
-      : "";
+  // Up to four distinct questions; a lone "question" (older answer shape)
+  // still counts.
+  const rawQuestions = Array.isArray(parsed.questions)
+    ? (parsed.questions as unknown[])
+    : typeof parsed.question === "string"
+      ? [parsed.question]
+      : [];
+  const questions: string[] = [];
+  const seenQuestions = new Set<string>();
+  for (const item of rawQuestions) {
+    if (typeof item !== "string") continue;
+    const text = normalize(item).slice(0, 120);
+    const key = text.toLowerCase();
+    if (!text || seenQuestions.has(key) || dismissed.has(key)) continue;
+    seenQuestions.add(key);
+    questions.push(text);
+    if (questions.length >= 4) break;
+  }
 
-  if (suggestions.length === 0 && completionSuggestions.length === 0) {
+  if (suggestions.length === 0 && completionSuggestions.length === 0 && questions.length === 0) {
     return {
       suggestions: [],
       completionSuggestions: [],
       reflectionQuestion: "",
+      reflectionQuestions: [],
     };
   }
-  return { suggestions, completionSuggestions, reflectionQuestion: question };
+  return {
+    suggestions,
+    completionSuggestions,
+    reflectionQuestion: questions[0] ?? "",
+    reflectionQuestions: questions,
+  };
 }

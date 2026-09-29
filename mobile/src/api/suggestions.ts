@@ -15,6 +15,8 @@ export async function postSuggestionsGenerate(
   suggestions: Suggestion[];
   completionSuggestions: CompletionSuggestion[];
   reflectionQuestion: string;
+  /** A few questions; missing from servers older than the tray. */
+  reflectionQuestions?: string[];
 }> {
   const result = await apiFetch("/_api/suggestions/generate", {
     method: "POST",

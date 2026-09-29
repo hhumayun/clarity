@@ -32,6 +32,7 @@ export function useSuggestions(opts: {
   // Only ever what the model returned. Null means nothing to show — there is
   // no local list to fall back on, by design.
   const [reflectionQuestion, setReflectionQuestion] = useState<string | null>(null);
+  const [reflectionQuestions, setReflectionQuestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const seqRef = useRef(0);
@@ -48,6 +49,9 @@ export function useSuggestions(opts: {
   // slice grows when the caret is merely moved towards the end, which is not
   // writing and must not trigger a fetch.
   const autoBaselineRef = useRef<string | null>(null);
+  // The text before the cursor at the last fetch: what the suggestions on
+  // hand were made for.
+  const fetchedForRef = useRef<string | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Read inside refresh() so the callback stays stable and never fires with the
@@ -79,9 +83,11 @@ export function useSuggestions(opts: {
     clearAutoTimer();
     dismissedRef.current = new Set();
     autoBaselineRef.current = null;
+    fetchedForRef.current = null;
     setSuggestions([]);
     setCompletionSuggestions([]);
     setReflectionQuestion(null);
+    setReflectionQuestions([]);
     setLoading(false);
   }, [noteId]);
 
@@ -110,6 +116,7 @@ export function useSuggestions(opts: {
 
     clearAutoTimer();
     autoBaselineRef.current = current.text;
+    fetchedForRef.current = current.textBeforeCursor;
 
     const seq = ++seqRef.current;
     controllerRef.current?.abort();
@@ -140,6 +147,10 @@ export function useSuggestions(opts: {
       );
       const question = result.reflectionQuestion?.trim();
       setReflectionQuestion(question ? question : null);
+      const questions = (result.reflectionQuestions ?? (question ? [question] : []))
+        .map((item) => item.trim())
+        .filter((item) => item && !dismissedRef.current.has(dismissalKey(item)));
+      setReflectionQuestions(questions);
       return true;
     } catch (error) {
       if (seq !== seqRef.current) return false;
@@ -151,6 +162,7 @@ export function useSuggestions(opts: {
       setSuggestions([]);
       setCompletionSuggestions([]);
       setReflectionQuestion(null);
+      setReflectionQuestions([]);
       return false;
     } finally {
       if (seq === seqRef.current) setLoading(false);
@@ -226,12 +238,23 @@ export function useSuggestions(opts: {
     [noteId],
   );
 
+  /**
+   * Fetch only if what is on hand was made for other words: the writer has
+   * typed since, or moved the cursor to write somewhere else.
+   */
+  const refreshIfStale = useCallback(async (): Promise<boolean> => {
+    if (fetchedForRef.current === optsRef.current.textBeforeCursor) return true;
+    return refresh();
+  }, [refresh]);
+
   return {
     suggestions,
     completionSuggestions,
     reflectionQuestion,
+    reflectionQuestions,
     loading,
     refresh,
+    refreshIfStale,
     accept,
     dismiss,
   };
