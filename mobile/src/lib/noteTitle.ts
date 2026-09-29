@@ -4,7 +4,7 @@
  */
 
 /** An idea is offered once the note has this much text (and the writer pauses). */
-export const TITLE_IDEA_MIN_CHARS = 20;
+export const TITLE_IDEA_MIN_CHARS = 40;
 
 type TitleState = {
   /** The title as it stands. */
