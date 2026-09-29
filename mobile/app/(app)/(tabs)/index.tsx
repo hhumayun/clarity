@@ -41,7 +41,6 @@ import { Collapse } from "../../../src/ui/Collapse";
 import { DayTasks } from "../../../src/ui/DayTasks";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TaskMenu } from "../../../src/ui/TaskMenu";
-import { hapticDone, hapticUndone } from "../../../src/lib/haptics";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
@@ -70,7 +69,7 @@ import { taskCountByNote } from "../../../src/lib/taskSort";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../../../src/theme";
-import type { NoteRecord, TaskRecord } from "../../../src/types";
+import type { NoteRecord, TaskRecord, TaskStatus } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { NoteCard } from "../../../src/ui/NoteCard";
 import { Skeleton } from "../../../src/ui/Skeleton";
@@ -244,11 +243,12 @@ export default function NotesListScreen() {
     if (!task.completeBy) toast.show("Task added, with no date.");
     else if (!isSameDay(task.completeBy, selectedDay)) toast.show(`Task added for ${dateChipLabel(task.completeBy)}.`);
   };
-  const toggleTask = (task: TaskRecord) => {
-    const done = task.status !== "done";
-    if (done) hapticDone();
-    else hapticUndone();
-    tasks.update.mutate({ id: task.id, status: done ? "done" : "todo" });
+  // The row has already played its own settle and haptic by the time this runs.
+  const setTaskStatus = (task: TaskRecord, status: TaskStatus) => {
+    tasks.update.mutate(
+      { id: task.id, status },
+      { onError: () => toast.show("That change could not be saved. Please try again.") },
+    );
   };
 
   // After paging, land on the most recent day of that week that has notes,
@@ -670,7 +670,7 @@ export default function NotesListScreen() {
           {TASKS_ENABLED ? (
             <DayTasks
               tasks={dayTasks}
-              onToggle={toggleTask}
+              onStatusChange={setTaskStatus}
               onOpenMenu={setMenuTask}
               onAdd={() => setQuickAddOpen(true)}
             />

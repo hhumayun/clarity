@@ -86,7 +86,6 @@ export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onViewNote 
         <Animated.View style={[styles.column, lift]} pointerEvents="box-none">
           {/* The task, lifted above the blur. */}
           <View style={styles.taskCard}>
-            <View style={styles.check} />
             <View style={styles.flex}>
               <Text style={styles.taskTitle}>{current.text}</Text>
               <Text style={styles.taskArea}>{areaTag(current.projectName)}</Text>
@@ -205,14 +204,6 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: 14,
       paddingHorizontal: spacing[4],
       ...shadow,
-    },
-    check: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      borderWidth: 1.5,
-      borderColor: colors.primary,
-      marginTop: 1,
     },
     taskTitle: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
     taskArea: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground, marginTop: 3 },

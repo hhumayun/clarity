@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppThemeProvider, useAppTheme } from "../src/providers/AppThemeProvider";
@@ -57,6 +58,8 @@ export default function RootLayout() {
   }
 
   return (
+    // Native gestures (a task row's swipe to done) need this at the root.
+    <GestureHandlerRootView style={styles.root}>
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
@@ -74,6 +77,7 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </QueryClientProvider>
     </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -123,6 +127,7 @@ function RootNav() {
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   boot: { flex: 1, alignItems: "center", justifyContent: "center" },
   missing: {
     flex: 1,

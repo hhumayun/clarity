@@ -377,7 +377,6 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
             doneTasks.map((task) => (
               <Animated.View
                 key={task.id}
-                style={{ marginBottom: spacing[2] }}
                 layout={LinearTransition.duration(220)}
                 entering={FadeInDown.duration(180)}
                 exiting={FadeOutUp.duration(140)}
@@ -487,7 +486,8 @@ function makeStyles(colors: Colors, scale: number) {
     meta: { flexDirection: "row", gap: spacing[2], marginTop: 4 },
     chip: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     due: { flexDirection: "row", alignItems: "center", gap: 4 },
-    list: { gap: spacing[2] },
+    // Rows share hairlines, so no gap between them.
+    list: {},
     skeleton: { height: 72 },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[6] },
     emptyText: {

@@ -15,3 +15,8 @@ export function hapticDone() {
 export function hapticUndone() {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
+
+/** A swipe has gone far enough to count if let go: a small tick. */
+export function hapticTick() {
+  void Haptics.selectionAsync().catch(() => {});
+}

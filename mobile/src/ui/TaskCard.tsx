@@ -1,99 +1,73 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type TextLayoutLine,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
-  type SharedValue,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { CalendarDays, Check, FileText, Timer } from "lucide-react-native";
-import { fonts, radius, spacing, type Colors, textSize } from "../theme";
+import { fonts, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
-import { formatClockTime, formatPlannedDate } from "../lib/dates";
+import { formatPlannedDate } from "../lib/dates";
 import { areaTag } from "../lib/lifeCenter";
 import { focusMetaLabel } from "../lib/focus";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
 import type { TaskFocusSummary, TaskRecord, TaskStatus } from "../types";
+import { SwipeToComplete } from "./SwipeToComplete";
 
-const TICK_SPRING = { damping: 13, stiffness: 240, mass: 0.6 };
-const STRIKE_MS = 260;
-// Long enough for the tick to land and the line to finish before the card
-// moves to the done section.
+// How long a row takes to settle into, or lift out of, its done field.
+const SETTLE_MS = 280;
+// Long enough to see the row settle before it moves to the done section.
 const COMPLETE_DELAY_MS = 460;
-
-/**
- * One line drawn across one line of text. Separate component because each
- * needs its own animated width, and hooks cannot be called from a map.
- */
-function StrikeLine({
-  progress,
-  line,
-  color,
-}: {
-  progress: SharedValue<number>;
-  line: { x: number; y: number; width: number; height: number };
-  color: string;
-}) {
-  const style = useAnimatedStyle(() => ({ width: progress.value * line.width }));
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        {
-          position: "absolute",
-          left: line.x,
-          top: line.y + line.height / 2 - 1,
-          height: 2,
-          borderRadius: 1,
-          backgroundColor: color,
-        },
-        style,
-      ]}
-    />
-  );
-}
+// Done rows are soft fields with rounded corners; open rows are bare lines.
+const FIELD_RADIUS = 12;
+// Rows reach this far past the text column on each side, so a done field
+// frames its words and the text of open and done rows lines up.
+const ROW_BLEED = 12;
 
 type Props = {
   task: TaskRecord;
   showProject?: boolean;
   showNoteLink?: boolean;
-  /** Change this value to make the card pulse twice — used to point at a task just added. */
+  /** Off where every row shares the day, like a day's own task list. */
+  showDue?: boolean;
+  /** Change this value to make the row pulse twice — used to point at a task just added. */
   flashKey?: number;
   /**
-   * "row" is the list card. "focus" is the larger card on Today: bigger text,
-   * no due date (it is today), and a finished task shows when it was done.
+   * "row" is the list row. "focus" is a row on Today: no due date (it is
+   * today), its focus sessions, the timer, and where the person left off.
    */
   variant?: "row" | "focus";
   /** The note's title, when the task came from one; falls back to "From your note". */
   noteTitle?: string;
-  /** Where Catch up moved this task from, shown on the Today card. */
+  /** Where Catch up moved this task from, shown on Today. */
   movedFrom?: Date | null;
-  /** Sessions, time, and where the person left off, for the Today card. */
+  /** Sessions, time, and where the person left off, for Today. */
   focusSummary?: TaskFocusSummary;
   onStatusChange: (status: TaskStatus) => void;
-  /**
-   * Tapping the card. Opens the task's action panel, which replaced the old
-   * "…" menu: focus, done, move, edit, and delete from the edit form.
-   */
+  /** Tapping the row: its actions (focus, done, move, edit, delete). */
   onOpen: () => void;
-  /** Today card only: the small timer button, which opens focus setup. */
+  /** Today only: the small timer button, which opens focus setup. */
   onStartFocus?: () => void;
 };
 
+/**
+ * A task as a "settled row" (design 3f). Open tasks are bare text on a
+ * hairline, with their area and day beneath; there is no checkbox. Done tasks
+ * settle into a soft teal field with a check at the end.
+ *
+ * Tapping opens the task's actions, where Mark done is; pulling the row to
+ * the right marks it done (or, when done, not done) straight away.
+ */
 export function TaskCard({
   task,
   showProject = true,
   showNoteLink = true,
+  showDue = true,
   flashKey,
   variant = "row",
   noteTitle,
@@ -104,16 +78,16 @@ export function TaskCard({
   onStartFocus,
 }: Props) {
   const router = useRouter();
-  const { colors, scale, dark } = useAppTheme();
+  const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const done = task.status === "done";
   const focus = variant === "focus";
   const due = task.completeBy ? dueState(task.completeBy) : null;
 
-  // Both lists group cards by status, so changing the status moves the card
-  // under a different parent and React mounts a fresh one there — which would
-  // arrive already done and never animate. So the animation runs here first,
-  // on the card as it sits, and the status change follows once it has played.
+  // The lists group rows by status, so changing the status moves the row
+  // under a different parent and React mounts a fresh one there, already
+  // settled. So the row settles here first, where it sits, and the status
+  // change follows once that has played.
   const [pendingDone, setPendingDone] = useState<boolean | null>(null);
   const shownDone = pendingDone ?? done;
   const completeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,9 +100,8 @@ export function TaskCard({
     },
     [],
   );
-  // Any move into or out of done plays here first — the circle, the tick and
-  // the line run in reverse on the way out — then the status is sent and the
-  // card changes section. Moves between the open columns are immediate.
+  // Any move into or out of done plays here first, then the status is sent
+  // and the row changes section. Moves between the open states are immediate.
   const changeStatus = (next: TaskStatus) => {
     const entering = next === "done" && !done;
     const leaving = next !== "done" && done;
@@ -145,31 +118,33 @@ export function TaskCard({
   };
   const toggleDone = () => changeStatus(done ? "todo" : "done");
 
-  const [textLines, setTextLines] = useState<
-    { x: number; y: number; width: number; height: number }[]
-  >([]);
-
-  // Settled state on first render, animated only on a real change — otherwise
-  // every finished task on the board would tick itself off on load.
-  const tick = useSharedValue(shownDone ? 1 : 0);
-  const strike = useSharedValue(shownDone ? 1 : 0);
-  const settled = useRef(false);
+  // 0 is an open row, 1 a settled done field. Settled on first render and
+  // animated only on a real change, so finished tasks do not settle on load.
+  const settle = useSharedValue(shownDone ? 1 : 0);
+  const settledOnce = useRef(false);
   useEffect(() => {
-    if (!settled.current) {
-      settled.current = true;
+    if (!settledOnce.current) {
+      settledOnce.current = true;
       return;
     }
-    tick.value = withSpring(shownDone ? 1 : 0, TICK_SPRING);
-    strike.value = withTiming(shownDone ? 1 : 0, { duration: STRIKE_MS });
-  }, [shownDone, tick, strike]);
+    settle.value = withTiming(shownDone ? 1 : 0, { duration: SETTLE_MS });
+  }, [shownDone, settle]);
 
-  const fillStyle = useAnimatedStyle(() => ({
-    opacity: tick.value,
-    transform: [{ scale: 0.4 + 0.6 * tick.value }],
+  const fieldStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(settle.value, [0, 1], [colors.background, colors.accent]),
+    borderRadius: FIELD_RADIUS * settle.value,
+  }));
+  const hairlineStyle = useAnimatedStyle(() => ({ opacity: 1 - settle.value }));
+  const textStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(settle.value, [0, 1], [colors.foreground, colors.accentForeground]),
+  }));
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: settle.value,
+    transform: [{ scale: 0.6 + 0.4 * settle.value }],
   }));
 
-  // Two soft pulses of the accent over the card, then gone. Only runs when the
-  // key changes, so a card mounting with a key does not flash on its own.
+  // Two soft pulses of the accent over the row, then gone. Only runs when the
+  // key changes, so a row mounting with a key does not flash on its own.
   const flash = useSharedValue(0);
   const lastFlashKey = useRef(flashKey);
   useEffect(() => {
@@ -182,211 +157,162 @@ export function TaskCard({
       withTiming(0, { duration: 460 }),
     );
   }, [flashKey, flash]);
-  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value * 0.35 }));
-  const tickStyle = useAnimatedStyle(() => ({
-    opacity: tick.value,
-    transform: [{ scale: tick.value }],
-  }));
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value * 0.3 }));
 
   const focusMeta = focus && focusSummary ? focusMetaLabel(focusSummary) : null;
   const leftOff =
     focus && !shownDone && focusSummary?.lastLeftOff.trim() && focusSummary.lastOutcome !== "finished"
       ? focusSummary.lastLeftOff.trim()
       : null;
-  // A task already worked on is a task like any other: the timer to start
-  // again (its setup picks up from where you left off), and the note below.
   const showTimerButton = focus && !shownDone && Boolean(onStartFocus);
 
+  // What sits under an open task's words: its area, then its day, its focus
+  // time or where it was moved from, then the note it came from.
+  const metaParts: React.ReactNode[] = [];
+  if (showProject) {
+    metaParts.push(
+      <Text key="area" style={styles.meta}>
+        {areaTag(task.projectName)}
+      </Text>,
+    );
+  }
+  if (focus && focusMeta) {
+    metaParts.push(
+      <Text key="focus" style={styles.meta}>
+        {focusMeta}
+      </Text>,
+    );
+  } else if (focus && movedFrom) {
+    metaParts.push(
+      <Text key="moved" style={styles.meta}>
+        Moved here from {formatPlannedDate(movedFrom)}
+      </Text>,
+    );
+  } else if (!focus && showDue && task.completeBy && due) {
+    metaParts.push(
+      <View key="due" style={styles.metaItem}>
+        {due === "overdue" ? <CalendarDays size={13} color={colors.warning} /> : null}
+        <Text style={[styles.meta, due === "overdue" && styles.overdueText]}>{formatDue(task.completeBy)}</Text>
+      </View>,
+    );
+  }
+  if (showNoteLink && task.noteId && !(focus && focusMeta)) {
+    metaParts.push(
+      <Pressable
+        key="note"
+        style={styles.metaItem}
+        onPress={() => router.push(`/note/${task.noteId}`)}
+        accessibilityLabel={`Open the note${noteTitle ? `: ${noteTitle}` : ""}`}
+      >
+        <FileText size={13} color={colors.primary} />
+        <Text style={[styles.meta, styles.noteLink]} numberOfLines={1}>
+          {noteTitle?.trim() ? noteTitle.trim() : "From your note"}
+        </Text>
+      </Pressable>,
+    );
+  }
+
   return (
-    <View
-      style={[
-        styles.card,
-        focus && styles.cardFocus,
-        shownDone && (focus ? styles.doneFocus : styles.done),
-      ]}
+    <SwipeToComplete
+      done={shownDone}
+      onSwipe={toggleDone}
+      enabled={pendingDone === null}
+      radius={shownDone ? FIELD_RADIUS : 0}
+      style={[styles.bleed, shownDone && styles.doneSpacing]}
     >
-      <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
-      <View style={[styles.row, focus && styles.rowFocus]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={shownDone ? "Mark as not done" : "Mark as done"}
-          onPress={toggleDone}
-          style={styles.check}
-        >
-          <Animated.View style={[styles.checkFill, fillStyle]} />
-          <Animated.View style={tickStyle}>
-            <Check size={18} color={colors.primaryForeground} />
-          </Animated.View>
-        </Pressable>
-
-        <Pressable
-          style={styles.body}
-          onPress={onOpen}
-          accessibilityRole="button"
-          accessibilityLabel={`${task.text}. Open task`}
-        >
-          <View>
-            <Text
-              style={[styles.text, shownDone && styles.textDone]}
-              onTextLayout={(event) =>
-                setTextLines(
-                  event.nativeEvent.lines.map((line: TextLayoutLine) => ({
-                    x: line.x,
-                    y: line.y,
-                    width: line.width,
-                    height: line.height,
-                  })),
-                )
-              }
-            >
-              {task.text}
-            </Text>
-            {textLines.map((line, index) => (
-              <StrikeLine
-                key={index}
-                progress={strike}
-                line={line}
-                color={colors.mutedForeground}
-              />
-            ))}
-          </View>
-          <View style={styles.meta}>
-            {showProject ? (
-              <Text style={styles.chip}>{areaTag(task.projectName)}</Text>
-            ) : null}
-            {focus && shownDone ? (
-              <>
-                {showProject ? <Text style={styles.sep}>·</Text> : null}
-                <Text style={styles.chip}>Done at {formatClockTime(task.updatedAt)}</Text>
-              </>
-            ) : null}
-            {focus && !shownDone && focusMeta ? (
-              <>
-                {showProject ? <Text style={styles.sep}>·</Text> : null}
-                <Text style={styles.chip}>{focusMeta}</Text>
-              </>
-            ) : null}
-            {focus && !shownDone && !focusMeta && movedFrom ? (
-              <>
-                {showProject ? <Text style={styles.sep}>·</Text> : null}
-                <Text style={styles.chip}>Moved here from {formatPlannedDate(movedFrom)}</Text>
-              </>
-            ) : null}
-            {!focus && task.completeBy && due ? (
-              <>
-                {showProject ? <Text style={styles.sep}>·</Text> : null}
-                <View style={styles.metaItem}>
-                  {due === "overdue" && !done ? (
-                    <CalendarDays size={13} color={colors.warning} />
-                  ) : null}
-                  <Text style={[styles.chip, due === "overdue" && !done && styles.overdueText]}>
-                    {formatDue(task.completeBy)}
-                  </Text>
-                </View>
-              </>
-            ) : null}
-            {showNoteLink && task.noteId && !(focus && (shownDone || focusMeta)) ? (
-              <>
-                <Text style={styles.sep}>·</Text>
-                <Pressable
-                  style={styles.metaItem}
-                  onPress={() => router.push(`/note/${task.noteId}`)}
-                  accessibilityLabel={`Open the note${noteTitle ? `: ${noteTitle}` : ""}`}
-                >
-                  <FileText size={13} color={colors.primary} />
-                  <Text style={[styles.chip, styles.noteLink]} numberOfLines={1}>
-                    {noteTitle?.trim() ? noteTitle.trim() : "From your note"}
-                  </Text>
-                </Pressable>
-              </>
-            ) : null}
-          </View>
-        </Pressable>
-
-        {showTimerButton ? (
+      <Animated.View style={[styles.row, shownDone ? styles.rowDone : styles.rowOpen, fieldStyle]}>
+        <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
+        <View style={styles.line}>
           <Pressable
-            onPress={onStartFocus}
-            style={styles.timerButton}
+            style={({ pressed }) => [styles.body, pressed && styles.pressed]}
+            onPress={onOpen}
             accessibilityRole="button"
-            accessibilityLabel={`Start focus time on ${task.text}`}
+            accessibilityLabel={`${task.text}${shownDone ? ", done" : ""}`}
+            accessibilityHint="Opens the task's actions. Swipe right to mark it done."
+            accessibilityActions={[{ name: "toggle", label: shownDone ? "Mark not done" : "Mark done" }]}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === "toggle") toggleDone();
+            }}
           >
-            <Timer size={20} color={colors.mutedForeground} />
+            <Animated.Text style={[styles.text, textStyle]}>{task.text}</Animated.Text>
+            {!shownDone && metaParts.length > 0 ? (
+              <View style={styles.metaRow}>
+                {metaParts.map((part, index) => (
+                  <React.Fragment key={index}>
+                    {index > 0 ? <Text style={styles.sep}>·</Text> : null}
+                    {part}
+                  </React.Fragment>
+                ))}
+              </View>
+            ) : null}
           </Pressable>
-        ) : null}
-      </View>
 
-      {leftOff ? (
-        <View style={styles.leftOffBox}>
-          <Text style={styles.leftOffLabel}>WHERE YOU LEFT OFF</Text>
-          <Text style={styles.leftOffText}>{leftOff}</Text>
+          {showTimerButton ? (
+            <Pressable
+              onPress={onStartFocus}
+              style={styles.timerButton}
+              accessibilityRole="button"
+              accessibilityLabel={`Start focus time on ${task.text}`}
+            >
+              <Timer size={20} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
+          {shownDone ? (
+            <Animated.View style={[styles.check, checkStyle]} pointerEvents="none">
+              <Check size={18} color={colors.primary} strokeWidth={2.4} />
+            </Animated.View>
+          ) : null}
         </View>
-      ) : null}
-    </View>
+
+        {leftOff ? (
+          <View style={styles.leftOffBox}>
+            <Text style={styles.leftOffLabel}>WHERE YOU LEFT OFF</Text>
+            <Text style={styles.leftOffText}>{leftOff}</Text>
+          </View>
+        ) : null}
+        {/* The open row's hairline, which fades as the row settles. */}
+        <Animated.View pointerEvents="none" style={[styles.hairline, hairlineStyle]} />
+      </Animated.View>
+    </SwipeToComplete>
   );
 }
 
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
-    card: {
-      gap: spacing[3],
-      backgroundColor: colors.card,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: spacing[3],
+    bleed: { marginHorizontal: -ROW_BLEED },
+    // Done fields sit a little apart from each other; open rows share hairlines.
+    doneSpacing: { marginBottom: 6 },
+    row: { paddingHorizontal: ROW_BLEED, gap: spacing[3], overflow: "hidden" },
+    rowOpen: { paddingVertical: 14 },
+    rowDone: { paddingVertical: 12 },
+    line: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
+    body: { flex: 1, gap: 5 },
+    pressed: { opacity: 0.7 },
+    text: {
+      fontFamily: fonts.base,
+      fontSize: textSize.body * scale,
+      lineHeight: 22 * scale,
+      color: colors.foreground,
     },
-    row: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
-    rowFocus: { alignItems: "center" },
-    cardFocus: {
-      paddingVertical: spacing[4],
-      paddingHorizontal: spacing[4],
-      borderRadius: radius.lg,
-    },
-    done: { opacity: 0.72 },
-    // Finished on Today: dashed and set back, so it reads as put down, not gone.
-    doneFocus: { borderStyle: "dashed", backgroundColor: "transparent" },
-    flash: {
-      position: "absolute",
-      top: -1,
-      left: -1,
-      right: -1,
-      bottom: -1,
-      borderRadius: radius.md,
-      backgroundColor: colors.primary,
-    },
-    check: {
-      overflow: "visible",
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      borderWidth: 2,
-      borderColor: colors.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 2,
-    },
-    checkFill: {
-      position: "absolute",
-      top: -2,
-      left: -2,
-      right: -2,
-      bottom: -2,
-      borderRadius: 14,
-      backgroundColor: colors.primary,
-    },
-    body: { flex: 1, gap: spacing[2] },
-    pressed: { opacity: 0.85 },
+    metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: spacing[2], rowGap: 2 },
+    metaItem: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 },
+    meta: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
+    sep: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
+    noteLink: { color: colors.primary },
+    overdueText: { color: colors.warning },
+    // The trailing check of a done field.
+    check: { marginTop: 2 * scale },
     timerButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: "center",
       justifyContent: "center",
     },
     leftOffBox: {
-      borderRadius: radius.sm,
+      borderRadius: 10,
       backgroundColor: colors.surface,
       padding: spacing[3],
       gap: 4,
@@ -398,24 +324,21 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.mutedForeground,
     },
     leftOffText: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 22 * scale, color: colors.foreground },
-    text: {
-      fontFamily: fonts.baseSemi,
-      fontSize: textSize.body * scale,
-      color: colors.foreground,
+    hairline: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
     },
-    textDone: { color: colors.mutedForeground },
-    meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: spacing[2], rowGap: 2 },
-    metaItem: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 },
-    dot: { width: 7, height: 7, borderRadius: 4 },
-    sep: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
-    noteLink: { color: colors.primary },
-    chipWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
-    chip: {
-      fontFamily: fonts.base,
-      fontSize: textSize.small * scale,
-      color: colors.mutedForeground,
+    flash: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.primary,
     },
-    overdue: {},
-    overdueText: { color: colors.warning },
   });
 }

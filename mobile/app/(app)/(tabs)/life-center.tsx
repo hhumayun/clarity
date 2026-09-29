@@ -123,6 +123,8 @@ export default function LifeCenterScreen() {
   );
   const groups = useMemo(() => groupAllTasks(filtered), [filtered]);
   const focus = useMemo(() => todayFocus(allTasks), [allTasks]);
+  const todayOpenTasks = focus.today.filter((task) => task.status !== "done");
+  const todayDoneTasks = focus.today.filter((task) => task.status === "done");
   const todayOpen = groupAllTasks(allTasks).today.length;
   const overdueAll = focus.overdueCount;
 
@@ -220,7 +222,8 @@ export default function LifeCenterScreen() {
         layout={motion.layout}
       >
         <Text style={styles.sectionLabel}>{label}</Text>
-        {tasks.map((task) => renderRow(task))}
+        {/* Rows share hairlines, so no gap between them. */}
+        <View>{tasks.map((task) => renderRow(task))}</View>
       </Animated.View>
     ) : null;
 
@@ -437,7 +440,7 @@ export default function LifeCenterScreen() {
                     </Animated.View>
                   ) : null}
                 </View>
-                {showDone ? groups.done.map((task) => renderRow(task)) : null}
+                {showDone ? <View>{groups.done.map((task) => renderRow(task))}</View> : null}
               </Animated.View>
             ) : null}
           </>
@@ -446,9 +449,23 @@ export default function LifeCenterScreen() {
         {!loading && !query.isError && view === "today" ? (
           <>
             {focus.today.length > 0 ? (
-              <Animated.View layout={motion.layout} style={styles.section}>
-                {focus.today.map((task) => renderRow(task, "focus"))}
-              </Animated.View>
+              <>
+                <Animated.View layout={motion.layout} style={styles.section}>
+                  <View>{todayOpenTasks.map((task) => renderRow(task, "focus"))}</View>
+                </Animated.View>
+                {/* What got finished today settles here, in its fields. */}
+                {todayDoneTasks.length > 0 ? (
+                  <Animated.View
+                    layout={motion.layout}
+                    entering={motion.enter}
+                    exiting={motion.exit}
+                    style={styles.section}
+                  >
+                    <Text style={styles.sectionLabel}>DONE</Text>
+                    <View>{todayDoneTasks.map((task) => renderRow(task, "focus"))}</View>
+                  </Animated.View>
+                ) : null}
+              </>
             ) : (
               <View style={styles.todayEmpty}>
                 <Text style={styles.emptyText}>
