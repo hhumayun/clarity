@@ -42,7 +42,19 @@ function commonProjectId(tasks: TaskRecord[]): string | null {
   return best;
 }
 
-export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled: boolean }) {
+export function NoteTasks({
+  noteId,
+  enabled,
+  ensureSaved,
+}: {
+  noteId: string | null;
+  enabled: boolean;
+  /**
+   * The note's latest words reaching the server. Find tasks reads the saved
+   * note, so it waits for this first.
+   */
+  ensureSaved?: () => Promise<unknown>;
+}) {
   const toast = useToast();
   const router = useRouter();
   const { colors, scale } = useAppTheme();
@@ -52,6 +64,8 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
     enabled && Boolean(noteId),
   );
   const attemptedRef = useRef(false);
+  const ensureSavedRef = useRef(ensureSaved);
+  ensureSavedRef.current = ensureSaved;
   const extractRef = useRef(extract.mutate);
   extractRef.current = extract.mutate;
   const [taskDialog, setTaskDialog] = useState<{ open: boolean; task: TaskRecord | null }>({
@@ -90,8 +104,9 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
     }, TASK_ADDED_MS);
   };
 
-  const runExtract = () => {
+  const runExtract = async () => {
     if (!noteId) return;
+    await ensureSavedRef.current?.().catch(() => {});
     extract.mutate(
       { noteId },
       {
@@ -114,7 +129,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
     if (!enabled || !noteId || !query.data?.extraction) return;
     if (query.data.extraction.hasExtracted || attemptedRef.current) return;
     attemptedRef.current = true;
-    extractRef.current(
+    void (ensureSavedRef.current?.() ?? Promise.resolve()).catch(() => {}).then(() => extractRef.current(
       { noteId },
       {
         onSuccess: ({ suggested }) => {
@@ -127,7 +142,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
           }
         },
       },
-    );
+    ));
   }, [enabled, noteId, query.data?.extraction, toast]);
 
   const projects = useMemo(() => sortProjects(query.data?.projects ?? []), [query.data?.projects]);
@@ -235,7 +250,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
         <Button
           variant="secondary"
           size="sm"
-          onPress={runExtract}
+          onPress={() => void runExtract()}
           disabled={extract.isPending || loading || adding}
         >
           {extract.isPending ? "Looking…" : "Find tasks"}

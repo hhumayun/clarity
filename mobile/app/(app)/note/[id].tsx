@@ -19,11 +19,12 @@ import {
 import { GentleKeyboardAvoidingView } from "../../../src/ui/GentleKeyboardAvoidingView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postNoteCreate, postNoteUpdate, postSuggestTitle } from "../../../src/api/notes";
-import { upsertNoteInLists, useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
+import { findCachedNote, upsertNoteInLists, useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSuggestions } from "../../../src/hooks/useSuggestions";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
-import { localDrafts } from "../../../src/lib/localDrafts";
+import { localDrafts, type LocalDraft } from "../../../src/lib/localDrafts";
+import { getTasksList } from "../../../src/api/tasks";
 import { wantsTitleIdea, wantsTitleOnLeave } from "../../../src/lib/noteTitle";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { useToast } from "../../../src/providers/ToastProvider";
@@ -31,6 +32,7 @@ import { fonts, spacing, type Colors, textSize } from "../../../src/theme";
 import {
   isCompletionSuggestion,
   type BubbleSuggestion,
+  type NoteRecord,
 } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { Collapse } from "../../../src/ui/Collapse";
@@ -39,7 +41,7 @@ import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 
 import { EASE_OUT, MOTION, fadeInFast, fadeOut, layoutTransition } from "../../../src/ui/motion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { AreaPickerSheet } from "../../../src/ui/AreaPickerSheet";
-import { useTasks } from "../../../src/hooks/useTasks";
+import { TASKS_QUERY_KEY, useTasks } from "../../../src/hooks/useTasks";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { NoteTasks } from "../../../src/ui/NoteTasks";
 import { SuggestionTray } from "../../../src/ui/SuggestionTray";
@@ -141,6 +143,10 @@ export default function NoteEditorScreen() {
   // The text as it was when the note opened: leaving only titles a note
   // whose text changed, so just opening and closing one never edits it.
   const baselineContentRef = useRef<string | null>(null);
+  // The title and text as last saved (or loaded) from the server.
+  const lastSavedRef = useRef<{ title: string; content: string } | null>(null);
+  // A save started by switching to Tasks; Find tasks waits for it.
+  const pendingSaveRef = useRef<Promise<void> | null>(null);
   const aiSuggestionsRef = useRef(aiSuggestions);
   aiSuggestionsRef.current = aiSuggestions;
 
@@ -192,33 +198,64 @@ export default function NoteEditorScreen() {
       };
     }
 
+    // Put a copy of the note on screen: the local draft wins if it is newer.
+    // Says whether the draft was used.
+    const applyNote = (note: NoteRecord, draft: LocalDraft | null): boolean => {
+      const useDraft = Boolean(draft && draft.at > note.updatedAt.getTime());
+      if (draft && useDraft) {
+        setTitle(draft.title);
+        setContent(draft.content);
+        baselineContentRef.current = draft.content;
+        setCursorPos(draft.content.length);
+        setStatus("saving");
+      } else {
+        setTitle(note.title);
+        setContent(note.content);
+        baselineContentRef.current = note.content;
+        setCursorPos(note.content.length);
+        setStatus("saved");
+      }
+      lastSavedRef.current = { title: note.title, content: note.content };
+      setNoteId(note.id);
+      noteIdRef.current = note.id;
+      setArchived(note.archived);
+      setTagIds(note.projectIds ?? []);
+      loadedKeyRef.current = draftKey;
+      setLoaded(true);
+      return useDraft;
+    };
+
     void (async () => {
+      // Opened from a list: it already holds the whole note, so show that at
+      // once and check with the server behind it.
+      const cached = findCachedNote(queryClient, routeId as string);
+      let openedFromDraft = false;
+      if (cached) {
+        const draft = await localDrafts.load(draftKey);
+        if (cancelled) return;
+        openedFromDraft = applyNote(cached, draft);
+      }
       try {
         const { note } = await getNote({ id: routeId as string });
         if (cancelled) return;
+        if (cached) {
+          // Only a newer copy matters, and only while the writer has not
+          // started; their words are never swapped out under them.
+          // An unsaved draft on screen is kept too. The draft written a
+          // moment ago is only the list's copy, so it is not consulted.
+          const untouched =
+            contentRef.current === baselineContentRef.current && !titleTouchedRef.current;
+          if (!openedFromDraft && untouched && note.updatedAt.getTime() > cached.updatedAt.getTime()) {
+            applyNote(note, null);
+          }
+          return;
+        }
         const draft = await localDrafts.load(draftKey);
         if (cancelled) return;
-        if (draft && draft.at > note.updatedAt.getTime()) {
-          setTitle(draft.title);
-          setContent(draft.content);
-          baselineContentRef.current = draft.content;
-          setCursorPos(draft.content.length);
-          setStatus("saving");
-        } else {
-          setTitle(note.title);
-          setContent(note.content);
-          baselineContentRef.current = note.content;
-          setCursorPos(note.content.length);
-          setStatus("saved");
-        }
-        setNoteId(note.id);
-        noteIdRef.current = note.id;
-        setArchived(note.archived);
-        setTagIds(note.projectIds ?? []);
-        loadedKeyRef.current = draftKey;
-        setLoaded(true);
+        applyNote(note, draft);
       } catch {
-        if (cancelled) return;
+        // Already showing the list's copy: stay with it quietly.
+        if (cancelled || cached) return;
         const draft = await localDrafts.load(draftKey);
         if (cancelled) return;
         if (draft) {
@@ -239,6 +276,8 @@ export default function NoteEditorScreen() {
     return () => {
       cancelled = true;
     };
+    // queryClient is stable; the note is loaded once per route.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId, isNew, draftKey]);
 
   const persist = useCallback(
@@ -246,6 +285,14 @@ export default function NoteEditorScreen() {
       if (loadedKeyRef.current !== draftKey) return;
       if (nextTitle.trim() === "" && nextContent.trim() === "" && !noteIdRef.current) {
         setStatus("idle");
+        return;
+      }
+      // Nothing changed since it was last saved (or loaded): saving again
+      // would only mark the note edited. Opening and closing it never does.
+      const saved = lastSavedRef.current;
+      if (noteIdRef.current && saved && saved.title === nextTitle && saved.content === nextContent) {
+        setStatus("saved");
+        void localDrafts.clear(draftKey);
         return;
       }
       setStatus("saving");
@@ -261,6 +308,7 @@ export default function NoteEditorScreen() {
             });
             createInFlightRef.current = creating;
             const { note } = await creating;
+            lastSavedRef.current = { title: nextTitle, content: nextContent };
             setNoteId(note.id);
             noteIdRef.current = note.id;
             // Show it in the notes list straight away.
@@ -281,6 +329,7 @@ export default function NoteEditorScreen() {
             title: nextTitle,
             content: nextContent,
           });
+          lastSavedRef.current = { title: nextTitle, content: nextContent };
           upsertNoteInLists(queryClient, note);
         }
         await localDrafts.clear(draftKey);
@@ -308,6 +357,17 @@ export default function NoteEditorScreen() {
     }, REINDEX_DELAY_MS);
     return () => clearTimeout(timer);
   }, [loaded, noteId, title, content]);
+
+  // Load the note's tasks as soon as its id is known, so the Tasks tab has
+  // them ready when it is opened.
+  useEffect(() => {
+    if (!TASKS_ENABLED || !noteId) return;
+    void queryClient.prefetchQuery({
+      queryKey: [...TASKS_QUERY_KEY, noteId],
+      queryFn: () => getTasksList({ noteId }),
+      staleTime: 30_000,
+    });
+  }, [noteId, queryClient]);
 
   const textBeforeCursor = useMemo(() => content.slice(0, cursorPos), [content, cursorPos]);
   const {
@@ -660,7 +720,15 @@ export default function NoteEditorScreen() {
           value={editorTab}
           onChange={(value) => {
             if (value === "tasks") {
-              void persist(titleRef.current, contentRef.current).then(() => setEditorTab("tasks"));
+              // Save in the background (only if anything changed) and switch
+              // at once. A note not yet created needs its id first.
+              const saving = persist(titleRef.current, contentRef.current);
+              pendingSaveRef.current = saving;
+              void saving.finally(() => {
+                if (pendingSaveRef.current === saving) pendingSaveRef.current = null;
+              });
+              if (noteIdRef.current) setEditorTab("tasks");
+              else void saving.then(() => setEditorTab("tasks"));
             } else {
               setEditorTab("note");
             }
@@ -799,7 +867,11 @@ export default function NoteEditorScreen() {
         ) : (
           <View style={styles.flex}>
             <ScrollView contentContainerStyle={styles.notePanel} keyboardShouldPersistTaps="handled">
-              <NoteTasks noteId={noteId} enabled={editorTab === "tasks"} />
+              <NoteTasks
+                noteId={noteId}
+                enabled={editorTab === "tasks"}
+                ensureSaved={() => pendingSaveRef.current ?? Promise.resolve()}
+              />
             </ScrollView>
           </View>
         )}

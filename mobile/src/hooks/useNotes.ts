@@ -219,3 +219,24 @@ export const useReindexNotes = () => {
 };
 
 export { getNote, postNoteCreate, postNoteUpdate };
+
+/**
+ * The note as the lists already hold it, if any list has it: the whole
+ * record, text included, so the editor can open it without waiting.
+ */
+export function findCachedNote(queryClient: QueryClient, id: string): NoteRecord | null {
+  const cached = queryClient.getQueriesData<{ notes?: NoteRecord[]; pages?: NotesPage[] }>({
+    queryKey: NOTES_QUERY_KEY,
+  });
+  let best: NoteRecord | null = null;
+  for (const [, data] of cached) {
+    if (!data) continue;
+    const lists = data.pages ? data.pages.map((page) => page.notes) : data.notes ? [data.notes] : [];
+    for (const notes of lists) {
+      const found = notes.find((note) => note.id === id);
+      // The freshest copy, if several lists hold it.
+      if (found && (!best || found.updatedAt > best.updatedAt)) best = found;
+    }
+  }
+  return best;
+}
