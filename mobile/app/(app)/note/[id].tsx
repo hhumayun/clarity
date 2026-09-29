@@ -56,6 +56,10 @@ const MIN_BODY_HEIGHT = 120;
 // from a thought rather than half a word.
 const TITLE_IDEA_PAUSE_MS = 2_000;
 
+// With the tray open, how long the cursor rests in a new spot before
+// suggestions are fetched for it.
+const CURSOR_REFRESH_MS = 800;
+
 function shouldCapitalize(before: string): boolean {
   const trimmed = before.trimEnd();
   return trimmed.length === 0 || /[.!?]$/.test(trimmed);
@@ -95,6 +99,9 @@ export default function NoteEditorScreen() {
   const [trayOpen, setTrayOpen] = useState(false);
   const [trayKeyboardComing, setTrayKeyboardComing] = useState(false);
   const bodyRef = useRef<TextInput>(null);
+  const titleInputRef = useRef<TextInput>(null);
+  // Where the writer was typing, so Keyboard takes them back there.
+  const lastFieldRef = useRef<"title" | "body">("body");
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
 
@@ -395,25 +402,31 @@ export default function NoteEditorScreen() {
   }, [refreshIfStale, toast]);
 
   /**
-   * Back to typing: the keyboard comes up as the tray goes down. With a
-   * caret position, the cursor lands there (after an added suggestion).
+   * Back to typing, only ever from Keyboard or an added suggestion: the
+   * keyboard comes up as the tray goes down. With a caret position (after an
+   * added suggestion) the cursor lands in the note there; otherwise the
+   * writer goes back to the field they were in.
    */
   const backToKeyboard = useCallback((caret?: number) => {
     setTrayKeyboardComing(true);
     setTrayOpen(false);
+    const field = caret !== undefined || lastFieldRef.current === "body" ? bodyRef : titleInputRef;
+    // A field tapped while the tray was open is focused with no keyboard;
+    // it has to let go and take focus again for the keyboard to come.
+    field.current?.blur();
     setTimeout(() => {
-      bodyRef.current?.focus();
-      if (caret !== undefined) bodyRef.current?.setSelection(caret, caret);
-    }, 30);
+      field.current?.focus();
+      if (caret !== undefined) field.current?.setSelection(caret, caret);
+    }, 60);
   }, []);
 
-  // Something else took the keyboard (a tap in the note or the title): the
-  // tray gives way to it the same way.
-  const trayGivesWay = useCallback(() => {
+  // With the tray open, a tap in the note only moves the cursor (no
+  // keyboard); once it rests somewhere new, fetch for that spot.
+  useEffect(() => {
     if (!trayOpen) return;
-    setTrayKeyboardComing(true);
-    setTrayOpen(false);
-  }, [trayOpen]);
+    const timer = setTimeout(() => void refreshIfStale(), CURSOR_REFRESH_MS);
+    return () => clearTimeout(timer);
+  }, [trayOpen, cursorPos, refreshIfStale]);
 
   // Nothing to show it for: the Tasks tab, or suggestions turned off.
   useEffect(() => {
@@ -535,8 +548,12 @@ export default function NoteEditorScreen() {
                 titleTouchedRef.current = true;
                 setTitle(value);
               }}
+              ref={titleInputRef}
               editable={loaded}
-              onFocus={trayGivesWay}
+              onFocus={() => {
+                lastFieldRef.current = "title";
+              }}
+              showSoftInputOnFocus={!trayOpen}
               placeholder={loaded ? "Untitled" : ""}
               placeholderTextColor={colors.mutedForeground}
               maxLength={300}
@@ -664,7 +681,12 @@ export default function NoteEditorScreen() {
                 ref={bodyRef}
                 multiline
                 autoFocus={isNew}
-                onFocus={trayGivesWay}
+                onFocus={() => {
+                  lastFieldRef.current = "body";
+                }}
+                // With the tray open a tap places the cursor and nothing
+                // more; only Keyboard brings the keyboard back.
+                showSoftInputOnFocus={!trayOpen}
                 value={content}
                 onChangeText={(value) => setContent(value)}
                 onSelectionChange={(event) => {
