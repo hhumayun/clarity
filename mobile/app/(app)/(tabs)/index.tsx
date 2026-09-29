@@ -453,7 +453,6 @@ export default function NotesListScreen() {
   // away, press and hold to go to another day), plain icons on the right,
   // the week's dates below, and one hairline under it all. It stays put
   // while the day's notes and tasks scroll beneath it.
-  const isToday = isSameDay(selectedDay, new Date());
   const dayHeader = (
     <View style={styles.dayHeader}>
       <View style={styles.dayHeaderRow}>
@@ -477,11 +476,6 @@ export default function NotesListScreen() {
             {formatLongDate(selectedDay)}
           </Text>
         </Pressable>
-        {!isToday ? (
-          <Pressable onPress={() => jumpTo(new Date())} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back to today">
-            <Text style={styles.todayLink}>Today</Text>
-          </Pressable>
-        ) : null}
         {headerIcons}
       </View>
       <Collapse open={stripOpen}>
@@ -875,7 +869,6 @@ function makeStyles(colors: Colors, scale: number) {
     dayTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     dayTitle: { flexShrink: 1, fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     daySub: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
-    todayLink: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.primary, paddingHorizontal: spacing[1] },
     stripWrap: { flexDirection: "row", marginTop: spacing[4] },
     stripDay: { flex: 1, alignItems: "center", gap: 6 },
     stripLetter: { fontFamily: fonts.baseSemi, fontSize: textSize.label * scale, color: colors.mutedForeground },
