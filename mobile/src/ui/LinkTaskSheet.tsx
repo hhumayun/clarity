@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { CalendarDays, Link2 } from "lucide-react-native";
 import { useTasks } from "../hooks/useTasks";
 import { areaTag } from "../lib/lifeCenter";
+import { linkedNoteIds } from "../lib/taskLinks";
 import { formatDue } from "../lib/taskDates";
 import { sortTasks } from "../lib/taskSort";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -26,8 +27,8 @@ type Props = {
 };
 
 /**
- * Pick one of your open tasks to keep with this note. Tasks already in this
- * note are left out; one linked to another note moves here.
+ * Pick one of your open tasks to link to this note. Tasks already linked to
+ * it are left out; one linked to other notes stays linked to them too.
  */
 export function LinkTaskSheet({ open, noteId, excludeIds = [], onClose, onLink }: Props) {
   const { colors, scale, dark } = useAppTheme();
@@ -49,7 +50,7 @@ export function LinkTaskSheet({ open, noteId, excludeIds = [], onClose, onLink }
       (query.data?.tasks ?? []).filter(
         (task) =>
           task.status !== "done" &&
-          task.noteId !== noteId &&
+          !linkedNoteIds(task).includes(noteId) &&
           !exclude.has(task.id) &&
           words.every((word) =>
             `${task.text} ${task.projectName}`.toLowerCase().includes(word),
@@ -117,7 +118,11 @@ export function LinkTaskSheet({ open, noteId, excludeIds = [], onClose, onLink }
                       <Text style={styles.metaText}>{formatDue(task.completeBy)}</Text>
                     </>
                   ) : null}
-                  {task.noteId ? <Text style={styles.metaText}>· In another note</Text> : null}
+                  {linkedNoteIds(task).length > 0 ? (
+                    <Text style={styles.metaText}>
+                      · Also in {linkedNoteIds(task).length === 1 ? "1 other note" : `${linkedNoteIds(task).length} other notes`}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
               {linking === task.id ? (

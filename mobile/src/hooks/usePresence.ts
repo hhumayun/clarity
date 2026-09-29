@@ -11,9 +11,28 @@ import { EASE_IN, EASE_OUT, MOTION } from "../ui/motion";
  * This keeps `mounted` true for the exit, drives `progress` 0 -> 1 on the way
  * in and back to 0 on the way out, and only then lets go.
  */
-export function usePresence(open: boolean, opts: { enterMs?: number; exitMs?: number } = {}) {
+// After unmounting, how long to let iOS finish dismissing the Modal.
+const EXIT_SETTLE_MS = 120;
+
+export function usePresence(
+  open: boolean,
+  opts: {
+    enterMs?: number;
+    exitMs?: number;
+    /**
+     * Once it has gone: its exit played, the Modal unmounted, and a moment
+     * more for iOS to finish putting it away. Anything that presents next (a
+     * route, another dialog) waits for this; presenting while iOS is still
+     * dismissing is refused, and leaves the screen deaf to touch.
+     */
+    onExited?: () => void;
+  } = {},
+) {
   const { enterMs = MOTION.slow, exitMs = MOTION.base } = opts;
   const [mounted, setMounted] = useState(open);
+  const onExitedRef = useRef(opts.onExited);
+  onExitedRef.current = opts.onExited;
+  const wasMounted = useRef(open);
   const progress = useSharedValue(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -35,6 +54,17 @@ export function usePresence(open: boolean, opts: { enterMs?: number; exitMs?: nu
     // `mounted` is read, not watched: only a change of `open` starts an exit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  useEffect(() => {
+    if (mounted) {
+      wasMounted.current = true;
+      return;
+    }
+    if (!wasMounted.current) return;
+    wasMounted.current = false;
+    const settle = setTimeout(() => onExitedRef.current?.(), EXIT_SETTLE_MS);
+    return () => clearTimeout(settle);
+  }, [mounted]);
 
   // Animate in once the content is actually on screen.
   useEffect(() => {

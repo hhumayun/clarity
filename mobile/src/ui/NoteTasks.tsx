@@ -6,6 +6,7 @@ import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useToast } from "../providers/ToastProvider";
+import { useAfterExit } from "../hooks/useAfterExit";
 import { useTasks } from "../hooks/useTasks";
 import { formatDue } from "../lib/taskDates";
 import { areaTag } from "../lib/lifeCenter";
@@ -46,7 +47,7 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
   const router = useRouter();
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
-  const { query, extract, addSuggested, create, update, remove, createProject } = useTasks(
+  const { query, extract, addSuggested, create, update, link, remove, createProject } = useTasks(
     noteId ?? undefined,
     enabled && Boolean(noteId),
   );
@@ -62,6 +63,8 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
   const [adding, setAdding] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  // The task sheet's Notes and Link a note open once the sheet has gone.
+  const afterSheet = useAfterExit();
   const [linkOpen, setLinkOpen] = useState(false);
   // After an add: the confirmation, then which card to flash.
   const [added, setAdded] = useState<TaskRecord | null>(null);
@@ -201,21 +204,17 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
     }, TASK_ADDED_MS);
   };
 
-  // Bring one of the writer's existing tasks into this note (from another
-  // note, or from none), then point at its card.
+  // Link one of the writer's existing tasks to this note too (it keeps any
+  // other notes it is linked to), then point at its row.
   const linkTask = async (task: TaskRecord) => {
     if (!noteId) return;
     try {
-      await update.mutateAsync({ id: task.id, noteId });
+      await link.mutateAsync({ taskId: task.id, noteId, linked: true });
       setLinkOpen(false);
       toast.show("Linked to this note");
       setFlash({ id: task.id, key: Date.now() });
-    } catch (error) {
-      toast.show(
-        error instanceof Error && error.message.includes("already in this note")
-          ? error.message
-          : "That task could not be linked. Please try again.",
-      );
+    } catch {
+      toast.show("That task could not be linked. Please try again.");
     }
   };
 
@@ -437,6 +436,40 @@ export function NoteTasks({ noteId, enabled }: { noteId: string | null; enabled:
               }
             : undefined
         }
+        onNotes={
+          taskDialog.task
+            ? () => {
+                const id = taskDialog.task!.id;
+                setTaskDialog((state) => ({ ...state, open: false }));
+                afterSheet.later(() => router.push(`/task/${id}`));
+              }
+            : undefined
+        }
+        onLinkNote={
+          taskDialog.task
+            ? () => {
+                const id = taskDialog.task!.id;
+                setTaskDialog((state) => ({ ...state, open: false }));
+                afterSheet.later(() => router.push(`/task/${id}?link=1`));
+              }
+            : undefined
+        }
+        onUnlink={
+          taskDialog.task && noteId
+            ? () => {
+                const id = taskDialog.task!.id;
+                setTaskDialog((state) => ({ ...state, open: false }));
+                link.mutate(
+                  { taskId: id, noteId, linked: false },
+                  {
+                    onSuccess: () => toast.show("Removed from this note. It is still in Life Center."),
+                    onError: () => toast.show("That task could not be removed. Please try again."),
+                  },
+                );
+              }
+            : undefined
+        }
+        onExited={afterSheet.run}
       />
 
       {/* Sits near the top of the section, where the add button is, rather

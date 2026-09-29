@@ -51,6 +51,8 @@ type Props = {
   onBack?: () => void;
   /** A small button at the top right, e.g. deleting what the sheet edits. */
   headerAction?: React.ReactNode;
+  /** Once the sheet has fully gone; see usePresence. */
+  onExited?: () => void;
   children: React.ReactNode;
 };
 
@@ -69,6 +71,7 @@ export function Sheet({
   showClose = true,
   onBack,
   headerAction,
+  onExited,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -79,7 +82,7 @@ export function Sheet({
   // Mounted only while open or animating out: a Modal left in the tree after
   // closing keeps a transparent window that swallows every touch under the
   // new renderer (RN clears it only from an old-renderer event).
-  const { mounted, progress } = usePresence(open);
+  const { mounted, progress } = usePresence(open, { onExited });
   // Keep showing what was there while it slides away.
   const shown = useHeldWhileOpen(open, {
     title,

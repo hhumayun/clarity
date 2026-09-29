@@ -1,5 +1,6 @@
 import superjson from "superjson";
 import { db } from "../../helpers/db";
+import { linkNoteTask } from "../../helpers/taskRecords";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
@@ -30,6 +31,8 @@ export async function handle(request: Request) {
       if (input.projectIds?.length) {
         await replaceNoteProjects(trx, created.id, user.id, input.projectIds);
       }
+      // A thought parked during focus is linked to the task being worked on.
+      if (input.taskId) await linkNoteTask(trx, { noteId: created.id, taskId: input.taskId, userId: user.id });
       return created;
     });
     const [note] = await attachProjectIds(db, [row], user.id);

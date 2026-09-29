@@ -13,6 +13,7 @@ import { fonts, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatPlannedDate } from "../lib/dates";
 import { areaTag } from "../lib/lifeCenter";
+import { linkedNoteIds } from "../lib/taskLinks";
 import { focusMetaLabel } from "../lib/focus";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
@@ -42,7 +43,7 @@ type Props = {
    * today), its focus sessions, the timer, and where the person left off.
    */
   variant?: "row" | "focus";
-  /** The note's title, when the task came from one; falls back to "From your note". */
+  /** The title of the task's first linked note; falls back to "From your note". */
   noteTitle?: string;
   /** Where Catch up moved this task from, shown on Today. */
   movedFrom?: Date | null;
@@ -196,17 +197,22 @@ export function TaskCard({
       </View>,
     );
   }
-  if (showNoteLink && task.noteId && !(focus && focusMeta)) {
+  // One linked note is named and opens; several are counted and open the
+  // task's notes, with their summary.
+  const noteIds = linkedNoteIds(task);
+  if (showNoteLink && noteIds.length > 0 && !(focus && focusMeta)) {
+    const single = noteIds.length === 1;
+    const label = single ? (noteTitle?.trim() ? noteTitle.trim() : "From your note") : `${noteIds.length} notes`;
     metaParts.push(
       <Pressable
         key="note"
         style={styles.metaItem}
-        onPress={() => router.push(`/note/${task.noteId}`)}
-        accessibilityLabel={`Open the note${noteTitle ? `: ${noteTitle}` : ""}`}
+        onPress={() => router.push(single ? `/note/${noteIds[0]}` : `/task/${task.id}`)}
+        accessibilityLabel={single ? `Open the note: ${label}` : `See this task's ${noteIds.length} notes`}
       >
         <FileText size={13} color={colors.primary} />
         <Text style={[styles.meta, styles.noteLink]} numberOfLines={1}>
-          {noteTitle?.trim() ? noteTitle.trim() : "From your note"}
+          {label}
         </Text>
       </Pressable>,
     );

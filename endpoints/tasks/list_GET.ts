@@ -1,5 +1,6 @@
 import superjson from "superjson";
 import { db } from "../../helpers/db";
+import { selectTaskRecords } from "../../helpers/taskRecords";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { taskContentHash } from "../../helpers/taskContentHash";
@@ -12,39 +13,34 @@ export async function handle(request: Request) {
     const input = schema.parse({ noteId: url.searchParams.get("noteId") ?? undefined });
 
     let extraction: OutputType["extraction"] = null;
-    // A thought parked during focus time also shows the task it was parked from.
-    let parkedFrom: string | null = null;
     if (input.noteId) {
       const [note, record] = await Promise.all([
-        db.selectFrom("notes").select(["title", "content", "taskId"]).where("id", "=", input.noteId).where("userId", "=", user.id).executeTakeFirst(),
+        db.selectFrom("notes").select(["title", "content"]).where("id", "=", input.noteId).where("userId", "=", user.id).executeTakeFirst(),
         db.selectFrom("taskExtractions").select(["contentHash"]).where("noteId", "=", input.noteId).where("userId", "=", user.id).executeTakeFirst(),
       ]);
       if (!note) {
         return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
       }
-      parkedFrom = note.taskId;
       extraction = {
         hasExtracted: Boolean(record),
         needsRefresh: Boolean(record && record.contentHash !== taskContentHash(note.title, note.content)),
       };
     }
 
-    let taskQuery = db
-      .selectFrom("tasks")
-      .innerJoin("projects", "projects.id", "tasks.projectId")
-      .select([
-        "tasks.id as id", "tasks.noteId as noteId", "tasks.projectId as projectId",
-        "tasks.text as text", "tasks.description as description", "tasks.completeBy as completeBy", "tasks.status as status",
-        "tasks.createdAt as createdAt", "tasks.updatedAt as updatedAt",
-        "projects.name as projectName",
-      ])
-      .where("tasks.userId", "=", user.id)
-      .where("tasks.deletedAt", "is", null);
+    // A note's tasks are every task linked to it: found in it, added to it,
+    // linked from elsewhere, or parked from during focus time.
+    let taskQuery = selectTaskRecords(db, user.id);
     if (input.noteId) {
       const noteId = input.noteId;
-      taskQuery = parkedFrom
-        ? taskQuery.where((eb) => eb.or([eb("tasks.noteId", "=", noteId), eb("tasks.id", "=", parkedFrom)]))
-        : taskQuery.where("tasks.noteId", "=", noteId);
+      taskQuery = taskQuery.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom("noteTasks")
+            .select("noteTasks.taskId")
+            .whereRef("noteTasks.taskId", "=", "tasks.id")
+            .where("noteTasks.noteId", "=", noteId),
+        ),
+      );
     }
 
     const [tasks, projects] = await Promise.all([

@@ -4,6 +4,9 @@ import DateTimePicker, {
 import {
   Check,
   ChevronDown,
+  FileText,
+  Link2,
+  Unlink,
   ChevronLeft,
   CalendarDays,
   CircleCheck,
@@ -19,6 +22,7 @@ import { fadeInFast } from "./motion";
 import { atNoon, dateChipLabel, dueDayOptions, isSameDay } from "../lib/dates";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaTag } from "../lib/lifeCenter";
+import { linkedNoteIds } from "../lib/taskLinks";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import {
@@ -63,6 +67,14 @@ type Props = {
   onStartFocus?: () => void;
   /** Called once Mark done has saved, so the screen can confirm it. */
   onMarkedDone?: (task: TaskRecord) => void;
+  /** Shows "Notes" on the action panel: the task's linked notes and summary. */
+  onNotes?: () => void;
+  /** Shows "Link a note" on the action panel. */
+  onLinkNote?: () => void;
+  /** Shows "Remove from this note", when opened from a note's tasks. */
+  onUnlink?: () => void;
+  /** Once the sheet has fully gone; anything that presents next waits for it. */
+  onExited?: () => void;
 };
 
 /**
@@ -111,6 +123,10 @@ export function TaskSheet({
   startPanel = "task",
   onStartFocus,
   onMarkedDone,
+  onNotes,
+  onLinkNote,
+  onUnlink,
+  onExited,
 }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
@@ -128,6 +144,7 @@ export function TaskSheet({
   // Android's calendar is a dialog of its own, opened from the date page.
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const editing = Boolean(task);
+  const noteCount = task ? linkedNoteIds(task).length : 0;
   // Where "back" goes from a sub-face: the panel the sheet opened on.
   // "move" opens straight on Move to another day (e.g. from a task's menu).
   const home: Panel = task && (startPanel === "actions" || startPanel === "move") ? startPanel : "task";
@@ -290,6 +307,7 @@ export function TaskSheet({
         }
         // The edit page gives its title, the task, the whole width.
         showClose={panel !== "task"}
+        onExited={onExited}
       >
         {/* Each face fades in as it replaces the last, while the sheet's
             height glides between them. */}
@@ -347,6 +365,40 @@ export function TaskSheet({
                 <Pencil size={20} color={colors.foreground} />
                 <Text style={styles.actionText}>Edit task</Text>
               </Pressable>
+              {onNotes ? (
+                <Pressable
+                  style={[styles.actionRow, styles.actionDivider]}
+                  onPress={onNotes}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Notes, ${noteCount}. See this task's notes and how it is going`}
+                >
+                  <FileText size={20} color={colors.foreground} />
+                  <Text style={[styles.actionText, styles.flexShrink]}>Notes</Text>
+                  <View style={styles.flexFill} />
+                  <Text style={styles.actionCount}>{noteCount}</Text>
+                </Pressable>
+              ) : null}
+              {onLinkNote ? (
+                <Pressable
+                  style={[styles.actionRow, styles.actionDivider]}
+                  onPress={onLinkNote}
+                  accessibilityRole="button"
+                >
+                  <Link2 size={20} color={colors.foreground} />
+                  <Text style={styles.actionText}>Link a note</Text>
+                </Pressable>
+              ) : null}
+              {onUnlink ? (
+                <Pressable
+                  style={[styles.actionRow, styles.actionDivider]}
+                  onPress={onUnlink}
+                  accessibilityRole="button"
+                  accessibilityHint="The task stays in Life Center and in any other notes"
+                >
+                  <Unlink size={20} color={colors.foreground} />
+                  <Text style={styles.actionText}>Remove from this note</Text>
+                </Pressable>
+              ) : null}
               {onDelete ? (
                 // Last, away from the rest, and it still asks first.
                 <Pressable
@@ -715,6 +767,8 @@ function makeStyles(colors: Colors, scale: number) {
     },
     actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
     actionText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
+    actionCount: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
+    flexFill: { flex: 1 },
     backText: {
       fontFamily: fonts.baseSemi,
       fontSize: textSize.body * scale,

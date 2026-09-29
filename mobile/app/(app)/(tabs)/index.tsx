@@ -52,6 +52,7 @@ import {
   useNotesPages,
   useReindexNotes,
 } from "../../../src/hooks/useNotes";
+import { useAfterExit } from "../../../src/hooks/useAfterExit";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { atNoon, dateChipLabel, formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
@@ -105,6 +106,8 @@ export default function NotesListScreen() {
   const [stripOpen, setStripOpen] = useState(true);
   // A task's press-and-hold menu; its Date row picks a new day in place.
   const [menuTask, setMenuTask] = useState<TaskRecord | null>(null);
+  // Its Notes and Link a note open the task's notes once the menu has gone.
+  const afterMenu = useAfterExit();
   // The day's + opens the task box, dated to the day shown.
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const autoPick = useRef(false);
@@ -753,10 +756,15 @@ export default function NotesListScreen() {
           setMenuTask(null);
           router.push(`/focus/${task.id}`);
         }}
-        onViewNote={(task) => {
+        onNotes={(task) => {
           setMenuTask(null);
-          if (task.noteId) router.push(`/note/${task.noteId}`);
+          afterMenu.later(() => router.push(`/task/${task.id}`));
         }}
+        onLinkNote={(task) => {
+          setMenuTask(null);
+          afterMenu.later(() => router.push(`/task/${task.id}?link=1`));
+        }}
+        onExited={afterMenu.run}
       />
       {TASKS_ENABLED ? (
         <QuickAddTask

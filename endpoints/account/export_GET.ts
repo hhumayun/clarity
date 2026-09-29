@@ -1,5 +1,6 @@
 import superjson from "superjson";
 import { db } from "../../helpers/db";
+import { selectTaskRecords } from "../../helpers/taskRecords";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
@@ -28,17 +29,7 @@ export async function handle(request: Request) {
         .where("userId", "=", user.id)
         .orderBy("updatedAt", "desc")
         .execute(),
-      db
-        .selectFrom("tasks")
-        .innerJoin("projects", "projects.id", "tasks.projectId")
-        .select([
-          "tasks.id as id", "tasks.noteId as noteId", "tasks.projectId as projectId",
-          "tasks.text as text", "tasks.description as description", "tasks.completeBy as completeBy", "tasks.status as status",
-          "tasks.createdAt as createdAt", "tasks.updatedAt as updatedAt",
-          "projects.name as projectName",
-        ])
-        .where("tasks.userId", "=", user.id)
-        .where("tasks.deletedAt", "is", null)
+      selectTaskRecords(db, user.id)
         .orderBy("tasks.updatedAt", "desc")
         .execute(),
       db

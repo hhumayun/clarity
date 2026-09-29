@@ -39,6 +39,25 @@ export interface NoteProjects {
   userId: number;
 }
 
+/** A link between a note and a task; many to many. */
+export interface NoteTasks {
+  createdAt: Generated<Timestamp>;
+  noteId: string;
+  taskId: string;
+  userId: number;
+}
+
+/** The cached AI summary of a task's notes and focus time. */
+export interface TaskSummaries {
+  createdAt: Generated<Timestamp>;
+  inputHash: string;
+  /** JSON text: [{ date: "YYYY-MM-DD", text: string }], oldest first. */
+  progress: Generated<string>;
+  summary: string;
+  taskId: string;
+  userId: number;
+}
+
 export interface Notes {
   archived: Generated<boolean>;
   content: Generated<string>;
@@ -135,9 +154,11 @@ export interface DB {
   noteEntities: NoteEntities;
   noteProjects: NoteProjects;
   notes: Notes;
+  noteTasks: NoteTasks;
   projects: Projects;
   suggestionEvents: SuggestionEvents;
   taskExtractions: TaskExtractions;
+  taskSummaries: TaskSummaries;
   tasks: Tasks;
   userPreferences: UserPreferences;
   users: Users;

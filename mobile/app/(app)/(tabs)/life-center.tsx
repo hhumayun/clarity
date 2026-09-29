@@ -11,7 +11,9 @@ import { Collapse } from "../../../src/ui/Collapse";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusSummary } from "../../../src/hooks/useFocus";
 import { useNotes } from "../../../src/hooks/useNotes";
+import { useAfterExit } from "../../../src/hooks/useAfterExit";
 import { useTasks } from "../../../src/hooks/useTasks";
+import { linkedNoteIds } from "../../../src/lib/taskLinks";
 import {
   daysFromToday,
   dateChipLabel,
@@ -65,6 +67,8 @@ export default function LifeCenterScreen() {
   const [areaFilter, setAreaFilter] = useState<string>(ALL);
   const [areaMenuOpen, setAreaMenuOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  // The task sheet's Notes and Link a note open once the sheet has gone.
+  const afterSheet = useAfterExit();
   const [editing, setEditing] = useState<TaskRecord | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -200,7 +204,7 @@ export default function LifeCenterScreen() {
           task={task}
           variant={variant}
           showProject={variant === "focus" || !activeArea}
-          noteTitle={task.noteId ? noteTitles.get(task.noteId) : undefined}
+          noteTitle={linkedNoteIds(task)[0] ? noteTitles.get(linkedNoteIds(task)[0]) : undefined}
           movedFrom={variant === "focus" ? movedFrom(task.id) : null}
           focusSummary={variant === "focus" ? focusByTask.get(task.id) : undefined}
           flashKey={flash?.id === task.id ? flash.key : undefined}
@@ -578,6 +582,25 @@ export default function LifeCenterScreen() {
               }
             : undefined
         }
+        onNotes={
+          editing
+            ? () => {
+                const id = editing.id;
+                setEditing(null);
+                afterSheet.later(() => router.push(`/task/${id}`));
+              }
+            : undefined
+        }
+        onLinkNote={
+          editing
+            ? () => {
+                const id = editing.id;
+                setEditing(null);
+                afterSheet.later(() => router.push(`/task/${id}?link=1`));
+              }
+            : undefined
+        }
+        onExited={afterSheet.run}
       />
 
       <ProjectSheet

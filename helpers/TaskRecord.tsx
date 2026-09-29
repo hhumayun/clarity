@@ -11,6 +11,12 @@ export type TaskRecord = Omit<
   "userId" | "sourceFingerprint" | "deletedAt"
 > & {
   projectName: string;
+  /**
+   * Every note the task is linked to, oldest link first. `noteId` is only
+   * the note it was found in (if any), which Find tasks uses to avoid
+   * suggesting it twice.
+   */
+  noteIds: string[];
 };
 
 export const TASK_STATUS_VALUES = ["todo", "in_progress", "done"] as const;

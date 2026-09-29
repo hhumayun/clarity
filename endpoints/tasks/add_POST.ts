@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import superjson from "superjson";
 import { db } from "../../helpers/db";
+import { linkNoteTask, selectTaskRecords } from "../../helpers/taskRecords";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { normalizeProjectName } from "../../helpers/normalizeProjectName";
@@ -61,18 +62,12 @@ export async function handle(request: Request) {
         if (inserted) {
           added += 1;
           ids.push(inserted.id);
+          await linkNoteTask(trx, { noteId: input.noteId, taskId: inserted.id, userId: user.id });
         }
       }
 
       const tasks = ids.length
-        ? await trx
-            .selectFrom("tasks")
-            .innerJoin("projects", "projects.id", "tasks.projectId")
-            .select([
-              "tasks.id as id", "tasks.noteId as noteId", "tasks.projectId as projectId", "tasks.text as text", "tasks.description as description",
-              "tasks.completeBy as completeBy", "tasks.status as status", "tasks.createdAt as createdAt",
-              "tasks.updatedAt as updatedAt", "projects.name as projectName",
-            ])
+        ? await selectTaskRecords(trx, user.id)
             .where("tasks.id", "in", ids)
             .execute()
         : [];

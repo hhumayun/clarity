@@ -1,7 +1,7 @@
 import superjson from "superjson";
 import { apiFetch } from "./apiFetch";
 import { jsonHeaders, parseResponse } from "./parse";
-import type { ProjectRecord, SuggestedTask, TaskRecord, TaskStatus } from "../types";
+import type { LinkedNote, ProjectRecord, SuggestedTask, TaskRecord, TaskStatus, TaskSummary } from "../types";
 import { dueDayAtLocalNoon, localIsoDay } from "../lib/dates";
 
 export async function getTasksList(
@@ -51,14 +51,46 @@ export async function postTaskUpdate(
     projectId?: string;
     completeBy?: Date | null;
     status?: TaskStatus;
-    /** Link the task to this note (moving it from any other), or null to unlink. */
-    noteId?: string | null;
   },
   init?: RequestInit,
 ): Promise<{ task: TaskRecord }> {
   const result = await apiFetch("/_api/tasks/update", {
     method: "POST",
     body: superjson.stringify(body),
+    ...init,
+    headers: jsonHeaders(init),
+  });
+  return parseResponse(result);
+}
+
+/** Link a note and a task, or unlink them; neither is ever deleted. */
+export async function postTaskLink(
+  body: { taskId: string; noteId: string; linked: boolean },
+  init?: RequestInit,
+): Promise<{ task: TaskRecord }> {
+  const result = await apiFetch("/_api/tasks/link", {
+    method: "POST",
+    body: superjson.stringify(body),
+    ...init,
+    headers: jsonHeaders(init),
+  });
+  return parseResponse(result);
+}
+
+/** Every note linked to a task, newest first. */
+export async function getTaskNotes(taskId: string, init?: RequestInit): Promise<{ notes: LinkedNote[] }> {
+  const result = await apiFetch(`/_api/tasks/notes?taskId=${encodeURIComponent(taskId)}`, {
+    method: "GET",
+    ...init,
+  });
+  return parseResponse(result);
+}
+
+/** The AI summary of a task's notes and focus time; cached on the server. */
+export async function postTaskSummary(taskId: string, init?: RequestInit): Promise<TaskSummary> {
+  const result = await apiFetch("/_api/tasks/summary", {
+    method: "POST",
+    body: superjson.stringify({ taskId, currentDate: localIsoDay(new Date()) }),
     ...init,
     headers: jsonHeaders(init),
   });

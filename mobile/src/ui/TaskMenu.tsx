@@ -1,12 +1,13 @@
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { BlurView } from "expo-blur";
-import { CalendarDays, FileText, Timer } from "lucide-react-native";
+import { CalendarDays, FileText, Link2, Timer } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
 import { atNoon, dueDayOptions, isSameDay } from "../lib/dates";
 import { areaTag } from "../lib/lifeCenter";
+import { linkedNoteIds } from "../lib/taskLinks";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import type { TaskRecord } from "../types";
@@ -20,8 +21,11 @@ type Props = {
   /** A new day chosen from the Date page, or null for no date. */
   onMove: (task: TaskRecord, date: Date | null) => void;
   onFocus: (task: TaskRecord) => void;
-  /** Only offered when the task came from, or is linked to, a note. */
-  onViewNote: (task: TaskRecord) => void;
+  /** The task's linked notes and how it is going. */
+  onNotes: (task: TaskRecord) => void;
+  onLinkNote: (task: TaskRecord) => void;
+  /** Once the menu has fully gone; anything that presents next waits for it. */
+  onExited?: () => void;
 };
 
 /**
@@ -36,11 +40,11 @@ type Props = {
  * Like the other dialogs, the Modal is unmounted once its exit has played: a
  * hidden Modal left mounted keeps eating touches under the new renderer.
  */
-export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onViewNote }: Props) {
+export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onNotes, onLinkNote, onExited }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const open = task !== null;
-  const { mounted, progress } = usePresence(open, { enterMs: MOTION.base, exitMs: MOTION.fast });
+  const { mounted, progress } = usePresence(open, { enterMs: MOTION.base, exitMs: MOTION.fast, onExited });
   const shown = useHeldWhileOpen(open, { task, dueLabel });
   const [page, setPage] = useState<"menu" | "date">("menu");
   // Android's calendar is a dialog of its own, opened from a chip.
@@ -114,17 +118,24 @@ export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onViewNote 
                   <Timer size={19} color={colors.mutedForeground} />
                   <Text style={styles.itemText}>Focus</Text>
                 </Pressable>
-                {current.noteId ? (
-                  <Pressable
-                    onPress={() => onViewNote(current)}
-                    style={({ pressed }) => [styles.item, styles.divider, pressed && styles.itemPressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="View the note this task came from"
-                  >
-                    <FileText size={19} color={colors.mutedForeground} />
-                    <Text style={styles.itemText}>View note</Text>
-                  </Pressable>
-                ) : null}
+                <Pressable
+                  onPress={() => onNotes(current)}
+                  style={({ pressed }) => [styles.item, styles.divider, pressed && styles.itemPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Notes, ${linkedNoteIds(current).length}. See this task's notes and how it is going`}
+                >
+                  <FileText size={19} color={colors.mutedForeground} />
+                  <Text style={styles.itemText}>Notes</Text>
+                  <Text style={styles.itemValue}>{linkedNoteIds(current).length}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => onLinkNote(current)}
+                  style={({ pressed }) => [styles.item, styles.divider, pressed && styles.itemPressed]}
+                  accessibilityRole="button"
+                >
+                  <Link2 size={19} color={colors.mutedForeground} />
+                  <Text style={styles.itemText}>Link a note</Text>
+                </Pressable>
               </View>
             </View>
           ) : (

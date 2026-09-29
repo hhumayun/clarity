@@ -21,7 +21,13 @@ export async function handle(request: Request) {
     const [note, projects, existingTasks] = await Promise.all([
       db.selectFrom("notes").select(["title", "content"]).where("id", "=", input.noteId).where("userId", "=", user.id).executeTakeFirst(),
       db.selectFrom("projects").select(["id", "name", "normalizedName"]).where("userId", "=", user.id).execute(),
-      db.selectFrom("tasks").select(["text", "sourceFingerprint"]).where("userId", "=", user.id).where("noteId", "=", input.noteId).execute(),
+      // Found in this note, or linked to it from elsewhere.
+      db.selectFrom("tasks").select(["text", "sourceFingerprint"]).where("userId", "=", user.id).where((eb) =>
+        eb.or([
+          eb("noteId", "=", input.noteId),
+          eb.exists(eb.selectFrom("noteTasks").select("noteTasks.taskId").whereRef("noteTasks.taskId", "=", "tasks.id").where("noteTasks.noteId", "=", input.noteId)),
+        ]),
+      ).execute(),
     ]);
     if (!note) return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
 

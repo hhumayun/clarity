@@ -1,3 +1,4 @@
+import { linkedNoteIds } from "./taskLinks";
 import type { ProjectRecord, TaskRecord } from "../types";
 
 export function sortTasks(tasks: TaskRecord[]): TaskRecord[] {
@@ -33,8 +34,8 @@ export function openCountByProject(tasks: TaskRecord[]): Map<string, number> {
 export function taskCountByNote(tasks: TaskRecord[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const task of tasks) {
-    if (task.status === "done" || !task.noteId) continue;
-    counts.set(task.noteId, (counts.get(task.noteId) ?? 0) + 1);
+    if (task.status === "done") continue;
+    for (const noteId of linkedNoteIds(task)) counts.set(noteId, (counts.get(noteId) ?? 0) + 1);
   }
   return counts;
 }

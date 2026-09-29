@@ -39,7 +39,13 @@ export type TaskRecord = {
   status: TaskStatus;
   projectId: string;
   projectName: string;
+  /** The note the task was found in, if any; Find tasks uses it. */
   noteId: string | null;
+  /**
+   * Every note the task is linked to, oldest link first. Missing from servers
+   * older than links; read it through linkedNoteIds().
+   */
+  noteIds?: string[];
   completeBy: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -108,4 +114,24 @@ export type TaskFocusSummary = {
   lastOutcome: "finished" | "progress" | "stuck";
   lastPlannedMinutes: number;
   lastEndedAt: Date;
+};
+
+/** A note linked to a task, as listed under it. */
+export type LinkedNote = {
+  id: string;
+  title: string;
+  preview: string;
+  source: "focus" | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/** How a task is going, from its notes and focus time (made by AI). */
+export type TaskSummary = {
+  /** null when there is nothing to go on yet: no notes, no focus time. */
+  summary: string | null;
+  progress: { date: string; text: string }[];
+  generatedAt: Date | null;
+  noteCount: number;
+  sessionCount: number;
 };
