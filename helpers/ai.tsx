@@ -92,11 +92,35 @@ function mapError(error: unknown): never {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// A provider that stops answering must not hold a request open for minutes:
+// past this, the attempt fails as a timeout (408) and the next one is tried.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 async function generateOnce(
   model: string,
-  opts: { systemPrompt: string; userPrompt: string; maxOutputTokens?: number },
+  opts: { systemPrompt: string; userPrompt: string; maxOutputTokens?: number; timeoutMs?: number },
 ): Promise<string> {
-  const response = await fetch(OPENROUTER_URL, {
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  try {
+    // The time limit covers the whole answer, body included.
+    const response = await postToOpenRouter(model, opts, AbortSignal.timeout(timeoutMs));
+    return await readOpenRouterAnswer(response);
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "TimeoutError" || name === "AbortError") {
+      throw new OpenRouterError(408, `OpenRouter did not answer within ${timeoutMs} ms`);
+    }
+    throw error;
+  }
+}
+
+function postToOpenRouter(
+  model: string,
+  opts: { systemPrompt: string; userPrompt: string; maxOutputTokens?: number },
+  signal: AbortSignal,
+): Promise<Response> {
+  return fetch(OPENROUTER_URL, {
+    signal,
     method: "POST",
     headers: {
       Authorization: `Bearer ${getApiKey()}`,
@@ -126,7 +150,9 @@ async function generateOnce(
       provider: { sort: "latency" },
     }),
   });
+}
 
+async function readOpenRouterAnswer(response: Response): Promise<string> {
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     throw new OpenRouterError(
@@ -162,19 +188,24 @@ export async function aiChatJson(opts: {
   userPrompt: string;
   model?: string;
   maxOutputTokens?: number;
+  /** Per attempt; a stalled provider fails over rather than hanging. */
+  timeoutMs?: number;
+  /** Tries per model before falling back to the next (default 2). */
+  attemptsPerModel?: number;
 }): Promise<string> {
   const primary = opts.model ?? DEFAULT_MODEL;
   const chain = [primary, ...FALLBACK_MODELS.filter((m) => m !== primary)];
 
   let lastError: unknown;
   for (const model of chain) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const attempts = opts.attemptsPerModel ?? 2;
+    for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         return await generateOnce(model, opts);
       } catch (error) {
         lastError = error;
         if (!isRetryable(error)) mapError(error);
-        if (attempt === 0) await sleep(800);
+        if (attempt < attempts - 1) await sleep(800);
       }
     }
     console.warn(`model ${model} unavailable, trying next fallback`);

@@ -206,6 +206,8 @@ export function useTaskNotes(taskId: string, enabled = true) {
     queryKey: [...TASK_NOTES_KEY, taskId],
     queryFn: () => getTaskNotes(taskId),
     enabled,
+    // One more try, then say so, rather than spinning through three.
+    retry: 1,
   });
 }
 
@@ -219,7 +221,9 @@ export function useTaskSummary(taskId: string, enabled: boolean) {
     queryKey: [...TASK_SUMMARY_KEY, taskId],
     queryFn: () => postTaskSummary(taskId),
     enabled,
-    retry: 1,
+    // The server already fails over between models; a retry here would only
+    // double the wait before the person can try again themselves.
+    retry: false,
     staleTime: 60_000,
   });
 }

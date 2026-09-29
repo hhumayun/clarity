@@ -20,6 +20,7 @@ import { Skeleton } from "../../../src/ui/Skeleton";
 // Enough recent notes to find one by scrolling; the search finds the rest.
 const PICKER_LIMIT = 40;
 const SEARCH_DEBOUNCE_MS = 250;
+const SLOW_SUMMARY_MS = 5_000;
 
 /** "2026-09-24" as "Thu, Sep 24". */
 function stepDate(isoDay: string): string {
@@ -62,6 +63,16 @@ export default function TaskNotesScreen() {
   // when asked.
   const [wantSummary, setWantSummary] = useState(aiSuggestions);
   const summary = useTaskSummary(taskId, wantSummary && task !== null);
+  // Usually about a second; past a few, say it is still coming.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!summary.isFetching) {
+      setSlow(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlow(true), SLOW_SUMMARY_MS);
+    return () => clearTimeout(timer);
+  }, [summary.isFetching]);
 
   const [page, setPage] = useState<"overview" | "link">(startOnLink ? "link" : "overview");
   const [search, setSearch] = useState("");
@@ -165,12 +176,14 @@ export default function TaskNotesScreen() {
                   <Skeleton style={styles.lineLong} />
                   <Skeleton style={styles.lineLong} />
                   <Skeleton style={styles.lineShort} />
-                  <Text style={styles.muted}>Reading your notes…</Text>
+                  <Text style={styles.muted}>
+                    {slow ? "Still reading — this is taking longer than usual…" : "Reading your notes…"}
+                  </Text>
                 </View>
               ) : summary.isError && !summary.data ? (
                 <View style={styles.loading}>
-                  <Text style={styles.muted}>The summary could not be made.</Text>
-                  <Pressable onPress={() => void summary.refetch()} accessibilityRole="button">
+                  <Text style={styles.muted}>The summary could not be made just now.</Text>
+                  <Pressable onPress={() => void summary.refetch()} hitSlop={8} accessibilityRole="button">
                     <Text style={styles.link}>Try again</Text>
                   </Pressable>
                 </View>
@@ -212,6 +225,13 @@ export default function TaskNotesScreen() {
               </View>
               {notes.isLoading ? (
                 <ActivityIndicator color={colors.primary} style={styles.spinner} />
+              ) : notes.isError && !notes.data ? (
+                <View style={styles.loading}>
+                  <Text style={styles.muted}>This task's notes could not be loaded.</Text>
+                  <Pressable onPress={() => void notes.refetch()} hitSlop={8} accessibilityRole="button">
+                    <Text style={styles.link}>Try again</Text>
+                  </Pressable>
+                </View>
               ) : (notes.data?.notes ?? []).length === 0 ? (
                 <Text style={styles.muted}>No notes are linked to this task yet.</Text>
               ) : (

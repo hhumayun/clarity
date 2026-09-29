@@ -118,6 +118,10 @@ export async function summarizeTask(input: TaskSummaryInput, currentDate: string
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
     maxOutputTokens: 600,
+    // Someone is watching this load: one quick try per model, not minutes of
+    // retries. It usually answers in about a second.
+    timeoutMs: 12_000,
+    attemptsPerModel: 1,
   });
   return normalizeTaskSummary(parseModelJson(raw));
 }
