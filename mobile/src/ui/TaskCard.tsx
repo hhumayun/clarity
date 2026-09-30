@@ -26,6 +26,8 @@ const SETTLE_MS = 280;
 const COMPLETE_DELAY_MS = 460;
 // Done rows are soft fields with rounded corners; open rows are bare lines.
 const FIELD_RADIUS = 12;
+// The ghost ring's diameter, before the reader's text size.
+const RING_SIZE = 18;
 // Rows reach this far past the text column on each side, so a done field
 // frames its words and the text of open and done rows lines up.
 const ROW_BLEED = 12;
@@ -139,6 +141,12 @@ export function TaskCard({
   const textStyle = useAnimatedStyle(() => ({
     color: interpolateColor(settle.value, [0, 1], [colors.foreground, colors.accentForeground]),
   }));
+  // The ring's room: full while open, none once settled, so the words glide
+  // to the field's edge rather than jump.
+  const ringSlotStyle = useAnimatedStyle(() => ({
+    width: (RING_SIZE * scale + spacing[3]) * (1 - settle.value),
+    opacity: 1 - settle.value,
+  }));
   const checkStyle = useAnimatedStyle(() => ({
     opacity: settle.value,
     transform: [{ scale: 0.6 + 0.4 * settle.value }],
@@ -229,6 +237,21 @@ export function TaskCard({
       <Animated.View style={[styles.row, shownDone ? styles.rowDone : styles.rowOpen, fieldStyle]}>
         <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
         <View style={styles.line}>
+          {/* The ghost ring (2d): a quiet disc with no outline. Tapping it
+              marks the task done; it shrinks away as the row settles. */}
+          <Animated.View style={[styles.ringSlot, ringSlotStyle]}>
+            <Pressable
+              onPress={toggleDone}
+              disabled={shownDone}
+              hitSlop={{ top: 13, bottom: 13, left: 13, right: 8 }}
+              style={({ pressed }) => [styles.ring, pressed && styles.ringPressed]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: shownDone }}
+              accessibilityLabel="Mark done"
+              accessibilityElementsHidden={shownDone}
+              importantForAccessibility={shownDone ? "no-hide-descendants" : "auto"}
+            />
+          </Animated.View>
           <Pressable
             style={({ pressed }) => [styles.body, pressed && styles.pressed]}
             onPress={onOpen}
@@ -291,7 +314,17 @@ function makeStyles(colors: Colors, scale: number) {
     row: { paddingHorizontal: ROW_BLEED, gap: spacing[3], overflow: "hidden" },
     rowOpen: { paddingVertical: 14 },
     rowDone: { paddingVertical: 12 },
-    line: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
+    line: { flexDirection: "row", alignItems: "flex-start" },
+    ringSlot: { overflow: "hidden" },
+    ring: {
+      width: RING_SIZE * scale,
+      height: RING_SIZE * scale,
+      borderRadius: (RING_SIZE * scale) / 2,
+      backgroundColor: colors.muted,
+      // Level with the middle of the first line of text.
+      marginTop: (22 * scale - RING_SIZE * scale) / 2,
+    },
+    ringPressed: { backgroundColor: colors.border, opacity: 0.8 },
     body: { flex: 1, gap: 5 },
     pressed: { opacity: 0.7 },
     text: {
@@ -307,8 +340,9 @@ function makeStyles(colors: Colors, scale: number) {
     noteLink: { color: colors.primary },
     overdueText: { color: colors.warning },
     // The trailing check of a done field.
-    check: { marginTop: 2 * scale },
+    check: { marginTop: 2 * scale, marginLeft: spacing[3] },
     timerButton: {
+      marginLeft: spacing[3],
       width: 40,
       height: 40,
       borderRadius: 20,

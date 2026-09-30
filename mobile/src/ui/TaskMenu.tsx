@@ -90,6 +90,7 @@ export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onNotes, on
         <Animated.View style={[styles.column, lift]} pointerEvents="box-none">
           {/* The task, lifted above the blur. */}
           <View style={styles.taskCard}>
+            {current.status !== "done" ? <View style={styles.ring} /> : null}
             <View style={styles.flex}>
               <Text style={styles.taskTitle}>{current.text}</Text>
               <Text style={styles.taskArea}>{areaTag(current.projectName)}</Text>
@@ -215,6 +216,14 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: 14,
       paddingHorizontal: spacing[4],
       ...shadow,
+    },
+    // The same quiet ring as the task's row.
+    ring: {
+      width: 18 * scale,
+      height: 18 * scale,
+      borderRadius: 9 * scale,
+      backgroundColor: colors.muted,
+      marginTop: (21 * scale - 18 * scale) / 2,
     },
     taskTitle: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
     taskArea: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground, marginTop: 3 },
