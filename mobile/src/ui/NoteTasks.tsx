@@ -63,6 +63,10 @@ export function NoteTasks({
     noteId ?? undefined,
     enabled && Boolean(noteId),
   );
+  // Only this note's own list. With no id yet the query's key is the one for
+  // all tasks, and a placeholder can be another list's data kept on screen
+  // while this one loads; neither may be shown as this note's tasks.
+  const data = noteId && !query.isPlaceholderData ? query.data : undefined;
   const attemptedRef = useRef(false);
   const ensureSavedRef = useRef(ensureSaved);
   ensureSavedRef.current = ensureSaved;
@@ -126,8 +130,8 @@ export function NoteTasks({
   };
 
   useEffect(() => {
-    if (!enabled || !noteId || !query.data?.extraction) return;
-    if (query.data.extraction.hasExtracted || attemptedRef.current) return;
+    if (!enabled || !noteId || !data?.extraction) return;
+    if (data.extraction.hasExtracted || attemptedRef.current) return;
     attemptedRef.current = true;
     void (ensureSavedRef.current?.() ?? Promise.resolve()).catch(() => {}).then(() => extractRef.current(
       { noteId },
@@ -143,11 +147,12 @@ export function NoteTasks({
         },
       },
     ));
-  }, [enabled, noteId, query.data?.extraction, toast]);
+  }, [enabled, noteId, data?.extraction, toast]);
 
-  const projects = useMemo(() => sortProjects(query.data?.projects ?? []), [query.data?.projects]);
-  const tasks = useMemo(() => sortTasks(query.data?.tasks ?? []), [query.data?.tasks]);
-  const loading = query.isFetching && !query.data;
+  const projects = useMemo(() => sortProjects(data?.projects ?? []), [data?.projects]);
+  const tasks = useMemo(() => sortTasks(data?.tasks ?? []), [data?.tasks]);
+  // Until this note's own list is here (or while it has no id), it is loading.
+  const loading = !data && (query.isFetching || !noteId);
 
   if (!noteId) {
     return (
@@ -263,7 +268,7 @@ export function NoteTasks({
         </Button>
       </View>
 
-      {query.data?.extraction?.needsRefresh && !extract.isPending && suggestions === null ? (
+      {data?.extraction?.needsRefresh && !extract.isPending && suggestions === null ? (
         <Text style={styles.changed}>
           This note changed. Find tasks again when you are ready to look for new ones.
         </Text>

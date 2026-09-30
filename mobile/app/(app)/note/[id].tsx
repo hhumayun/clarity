@@ -722,13 +722,29 @@ export default function NoteEditorScreen() {
             if (value === "tasks") {
               // Save in the background (only if anything changed) and switch
               // at once. A note not yet created needs its id first.
-              const saving = persist(titleRef.current, contentRef.current);
+              // A new note's first autosave may still be creating it; this
+              // save then returns at once, so wait for that create as well.
+              const saving = persist(titleRef.current, contentRef.current).then(() =>
+                (createInFlightRef.current ?? Promise.resolve()).then(
+                  () => undefined,
+                  () => undefined,
+                ),
+              );
               pendingSaveRef.current = saving;
               void saving.finally(() => {
                 if (pendingSaveRef.current === saving) pendingSaveRef.current = null;
               });
-              if (noteIdRef.current) setEditorTab("tasks");
-              else void saving.then(() => setEditorTab("tasks"));
+              if (noteIdRef.current) {
+                setEditorTab("tasks");
+              } else {
+                // Tasks belong to a saved note: open them once it has an id.
+                void saving.then(() => {
+                  if (noteIdRef.current) setEditorTab("tasks");
+                  else if (!titleRef.current.trim() && !contentRef.current.trim())
+                    toast.show("Write something in the note first; its tasks are kept with it once it is saved.");
+                  else toast.show("This note could not be saved just now, so its tasks can't open yet. Please try again.");
+                });
+              }
             } else {
               setEditorTab("note");
             }
