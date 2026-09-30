@@ -26,8 +26,10 @@ const SETTLE_MS = 280;
 const COMPLETE_DELAY_MS = 460;
 // Done rows are soft fields with rounded corners; open rows are bare lines.
 const FIELD_RADIUS = 12;
-// The ghost ring's diameter, before the reader's text size.
-const RING_SIZE = 18;
+// The ring's diameter and stroke (design 2a), before the reader's text size.
+const RING_SIZE = 28;
+const RING_STROKE = 3;
+const RING_GAP = 16;
 // Rows reach this far past the text column on each side, so a done field
 // frames its words and the text of open and done rows lines up.
 const ROW_BLEED = 12;
@@ -144,7 +146,7 @@ export function TaskCard({
   // The ring's room: full while open, none once settled, so the words glide
   // to the field's edge rather than jump.
   const ringSlotStyle = useAnimatedStyle(() => ({
-    width: (RING_SIZE * scale + spacing[3]) * (1 - settle.value),
+    width: (RING_SIZE * scale + RING_GAP) * (1 - settle.value),
     opacity: 1 - settle.value,
   }));
   const checkStyle = useAnimatedStyle(() => ({
@@ -237,13 +239,13 @@ export function TaskCard({
       <Animated.View style={[styles.row, shownDone ? styles.rowDone : styles.rowOpen, fieldStyle]}>
         <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
         <View style={styles.line}>
-          {/* The ghost ring (2d): a quiet disc with no outline. Tapping it
-              marks the task done; it shrinks away as the row settles. */}
+          {/* The ring (2a): a teal outline. Tapping it marks the task done;
+              it shrinks away as the row settles into its done field. */}
           <Animated.View style={[styles.ringSlot, ringSlotStyle]}>
             <Pressable
               onPress={toggleDone}
               disabled={shownDone}
-              hitSlop={{ top: 13, bottom: 13, left: 13, right: 8 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={({ pressed }) => [styles.ring, pressed && styles.ringPressed]}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: shownDone }}
@@ -320,11 +322,12 @@ function makeStyles(colors: Colors, scale: number) {
       width: RING_SIZE * scale,
       height: RING_SIZE * scale,
       borderRadius: (RING_SIZE * scale) / 2,
-      backgroundColor: colors.muted,
-      // Level with the middle of the first line of text.
+      borderWidth: RING_STROKE,
+      borderColor: colors.primary,
+      // Centred on the first line of text.
       marginTop: (22 * scale - RING_SIZE * scale) / 2,
     },
-    ringPressed: { backgroundColor: colors.border, opacity: 0.8 },
+    ringPressed: { backgroundColor: colors.accent },
     body: { flex: 1, gap: 5 },
     pressed: { opacity: 0.7 },
     text: {

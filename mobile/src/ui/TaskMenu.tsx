@@ -210,20 +210,21 @@ function makeStyles(colors: Colors, scale: number) {
     taskCard: {
       flexDirection: "row",
       alignItems: "flex-start",
-      gap: spacing[3],
+      gap: 16,
       backgroundColor: colors.card,
       borderRadius: 12,
       paddingVertical: 14,
       paddingHorizontal: spacing[4],
       ...shadow,
     },
-    // The same quiet ring as the task's row.
+    // The same ring as the task's row.
     ring: {
-      width: 18 * scale,
-      height: 18 * scale,
-      borderRadius: 9 * scale,
-      backgroundColor: colors.muted,
-      marginTop: (21 * scale - 18 * scale) / 2,
+      width: 28 * scale,
+      height: 28 * scale,
+      borderRadius: 14 * scale,
+      borderWidth: 3,
+      borderColor: colors.primary,
+      marginTop: (21 * scale - 28 * scale) / 2,
     },
     taskTitle: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
     taskArea: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground, marginTop: 3 },
