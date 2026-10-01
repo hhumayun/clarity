@@ -19,14 +19,11 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -77,6 +74,7 @@ import { fonts, radius, spacing, type Colors, textSize } from "../../../src/them
 import type { NoteRecord, TaskRecord, TaskStatus } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { NoteCard } from "../../../src/ui/NoteCard";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Skeleton } from "../../../src/ui/Skeleton";
 import { Sheet } from "../../../src/ui/Sheet";
 
@@ -87,7 +85,10 @@ const STRIP_KEY = "clarity:notes-strip";
 const SWIPE_WEEK = 50;
 // Start loading older notes this far (in points) before the end of the list,
 // so they are usually there by the time you reach it.
-const LOAD_MORE_WITHIN = 600;
+// What the virtualized Notes list draws: a day's label, or a note.
+type NotesListItem =
+  | { type: "label"; key: string; label: string }
+  | { type: "note"; key: string; note: NoteRecord };
 
 type NotesView = "list" | "days";
 
@@ -123,9 +124,9 @@ export default function NotesListScreen() {
     [],
   );
   const autoPick = useRef(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<FlashListRef<NotesListItem>>(null);
   const motion = useFocusedMotion();
-  const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: false });
+  const toTop = () => scrollRef.current?.scrollToOffset({ offset: 0, animated: false });
 
   // The chosen view is remembered, so the journal people prefer stays theirs.
   useEffect(() => {
@@ -155,6 +156,9 @@ export default function NotesListScreen() {
   // "receipts last week": the words go to the server, the dates stay here.
   const parsed = useMemo(() => parseNoteSearch(debouncedSearch), [debouncedSearch]);
   const searching = debouncedSearch.length > 0;
+  // The list, search results and the archive show notes as a list (and load
+  // older pages as it scrolls); the day view shows its own week.
+  const listShown = view === "list" || searching || showArchived;
   // Both go to the server, so a search reaches every note, not just the
   // pages loaded so far.
   const params = useMemo(
@@ -220,21 +224,33 @@ export default function NotesListScreen() {
   const loading = isFetching && !data;
 
   const openNote = useCallback((note: NoteRecord) => router.push(`/note/${note.id}`), [router]);
-  // One card per note, with nothing that changes on every render (the open
-  // function and the area names are shared), so cards only redraw when their
-  // note does. No per-card animations: in a long list they were worked out
-  // for every card on every change.
-  const card = (note: NoteRecord) => (
-    <NoteCard
-      key={note.id}
-      note={note}
-      taskCount={counts.get(note.id)}
-      projectNames={projectNames}
-      onOpen={openNote}
-    />
+  // Cards get nothing that changes on every render (the open function and the
+  // area names are shared), so they only redraw when their note does.
+  const renderNotesItem = useCallback(
+    ({ item }: { item: NotesListItem }) =>
+      item.type === "label" ? (
+        <Text style={[styles.groupLabel, styles.listLabel]}>{item.label}</Text>
+      ) : (
+        <View style={styles.listCard}>
+          <NoteCard note={item.note} taskCount={counts.get(item.note.id)} projectNames={projectNames} onOpen={openNote} />
+        </View>
+      ),
+    [styles, counts, projectNames, openNote],
   );
-
   const groups = useMemo(() => groupNotesByDay(notes), [notes]);
+  // The list as rows for FlashList, which only draws those on screen (and a
+  // little either side) and reuses them as it scrolls, so a long list costs
+  // about the same as a short one.
+  const listItems = useMemo<NotesListItem[]>(
+    () =>
+      listShown && !isError
+        ? groups.flatMap((group) => [
+            { type: "label" as const, key: `label-${group.key}`, label: group.label.toUpperCase() },
+            ...group.notes.map((note) => ({ type: "note" as const, key: note.id, note })),
+          ])
+        : [],
+    [listShown, isError, groups],
+  );
   const strip = useMemo(() => weekStrip(new Date(), weeksBack), [weeksBack]);
   // The journal asks for its own week by date, so any week can be shown, not
   // just those inside the newest-200 the list loads.
@@ -585,23 +601,27 @@ export default function NotesListScreen() {
     </Animated.View>
   ) : null;
 
-  const groupedList = (
-    <>
-      {groups.map((group) => (
-        <Animated.View
-          key={group.key}
-          style={styles.group}
-          entering={motion.enter}
-          exiting={motion.exit}
-          layout={motion.layout}
-        >
-          <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
-          {group.notes.map(card)}
-        </Animated.View>
-      ))}
-      {isFetchingNextPage ? <Text style={styles.loadingMore}>Loading older notes…</Text> : null}
-    </>
-  );
+  // Under the list: older notes loading, and the way into the archive.
+  const listFooter =
+    isFetchingNextPage || (view === "list" && !searching && !showArchived && archivedCount > 0) ? (
+      <View style={styles.listFooter}>
+        {isFetchingNextPage ? <Text style={styles.loadingMore}>Loading older notes…</Text> : null}
+        {view === "list" && !searching && !showArchived && archivedCount > 0 ? (
+          <Pressable
+            onPress={() => {
+              toTop();
+              setShowArchived(true);
+            }}
+            style={({ pressed }) => [styles.archivedRow, pressed && styles.pressed]}
+            accessibilityRole="button"
+          >
+            <Archive size={18} color={colors.mutedForeground} />
+            <Text style={styles.archivedText}>Archived notes · {archivedCount}</Text>
+            <ChevronRight size={18} color={colors.mutedForeground} />
+          </Pressable>
+        ) : null}
+      </View>
+    ) : null;
 
   let body: React.ReactNode;
   if (loading) {
@@ -623,9 +643,7 @@ export default function NotesListScreen() {
     );
   } else if (searching || showArchived) {
     body =
-      notes.length > 0 ? (
-        groupedList
-      ) : (
+      notes.length > 0 ? null : (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>
             {showArchived && !searching
@@ -638,27 +656,7 @@ export default function NotesListScreen() {
       );
   } else if (view === "list") {
     body =
-      notes.length > 0 || archivedCount > 0 ? (
-        <>
-          {groupedList}
-          {archivedCount > 0 ? (
-            <Animated.View layout={motion.layout}>
-            <Pressable
-              onPress={() => {
-                toTop();
-                setShowArchived(true);
-              }}
-              style={({ pressed }) => [styles.archivedRow, pressed && styles.pressed]}
-              accessibilityRole="button"
-            >
-              <Archive size={18} color={colors.mutedForeground} />
-              <Text style={styles.archivedText}>Archived notes · {archivedCount}</Text>
-              <ChevronRight size={18} color={colors.mutedForeground} />
-            </Pressable>
-            </Animated.View>
-          ) : null}
-        </>
-      ) : (
+      notes.length > 0 || archivedCount > 0 ? null : (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No notes yet. Tap "Write a note…" below to start.</Text>
         </View>
@@ -730,15 +728,9 @@ export default function NotesListScreen() {
     );
   }
 
-  // The day-by-day view shows its own week, so only the list, search results
-  // and the archive load older pages.
-  const listShown = view === "list" || searching || showArchived;
-  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!listShown || !hasNextPage || isFetchingNextPage) return;
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    if (contentOffset.y + layoutMeasurement.height >= contentSize.height - LOAD_MORE_WITHIN) {
-      void fetchNextPage();
-    }
+  // Older pages load as the list nears its end.
+  const loadMore = () => {
+    if (listShown && hasNextPage && !isFetchingNextPage) void fetchNextPage();
   };
 
   // The day view pins its header above the scrolling notes and tasks; the
@@ -749,27 +741,39 @@ export default function NotesListScreen() {
     <SafeAreaView style={styles.page} edges={["top"]}>
       {dayView ? dayHeader : null}
       <SyncBar />
-      <ScrollView
+      {/* One list in every mode, so the search field above the rows is never
+          rebuilt (and never loses the keyboard) as results come and go. The
+          day view lives in its header with no rows. */}
+      <FlashList
         ref={scrollRef}
-        contentContainerStyle={styles.content}
+        data={listItems}
+        keyExtractor={(item) => item.key}
+        getItemType={(item) => item.type}
+        renderItem={renderNotesItem}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.6}
         keyboardShouldPersistTaps="handled"
-        onScroll={onScroll}
-        scrollEventThrottle={100}
-      >
-        {dayView ? null : (
-          <FadeSwitch switchKey={showArchived ? "archived" : "notes"}>{header}</FadeSwitch>
-        )}
-        {searchField}
-        {/* The body fades in whenever what it shows changes kind: list, days,
-            archive, or search results. The search field stays out of this, so
-            typing never loses focus. */}
-        <FadeSwitch
-          switchKey={`${showArchived ? "archived" : view}-${searching ? "search" : "browse"}`}
-          style={styles.body}
-        >
-          {body}
-        </FadeSwitch>
-      </ScrollView>
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
+            {dayView ? null : (
+              <FadeSwitch switchKey={showArchived ? "archived" : "notes"}>{header}</FadeSwitch>
+            )}
+            {searchField}
+            {/* Loading, empty and error states, and the day view. The search
+                field stays out of this, so typing never loses focus. */}
+            {body ? (
+              <FadeSwitch
+                switchKey={`${showArchived ? "archived" : view}-${searching ? "search" : "browse"}`}
+                style={styles.body}
+              >
+                {body}
+              </FadeSwitch>
+            ) : null}
+          </View>
+        }
+        ListFooterComponent={listFooter}
+      />
 
       {Platform.OS === "ios" ? (
         <Sheet open={jumpOpen} title="Go to a day" onClose={() => setJumpOpen(false)}>
@@ -854,6 +858,12 @@ function makeStyles(colors: Colors, scale: number) {
     flex: { flex: 1 },
     pressed: { opacity: 0.85 },
     content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
+    listContent: { paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[8] },
+    listHeader: { gap: spacing[4], paddingBottom: spacing[2] },
+    // A day's label: the space between days above it, the cards close below.
+    listLabel: { paddingTop: spacing[3], paddingBottom: spacing[2] },
+    listCard: { paddingBottom: spacing[2] },
+    listFooter: { gap: spacing[3], paddingTop: spacing[3] },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     body: { gap: spacing[4] },
     title: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
