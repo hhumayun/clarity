@@ -6,6 +6,10 @@ import { NoteSourceArrayValues } from "../../helpers/schema";
 import { MAX_NOTE_PROJECTS } from "../../helpers/noteProjects";
 
 export const schema = z.object({
+  /** Made on the phone, so a retried create returns the same note. */
+  id: z.string().uuid().optional(),
+  /** When it was written on the phone; never later than now. */
+  createdAt: z.date().optional(),
   title: z.string().max(300).default(""),
   content: z.string().max(100_000).default(""),
   /** Omitted for notes written in the editor; "focus" for a parked thought. */

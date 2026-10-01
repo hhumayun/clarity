@@ -1,6 +1,7 @@
 import superjson from "superjson";
 import { db } from "../../helpers/db";
 import { linkNoteTask } from "../../helpers/taskRecords";
+import { notInFuture } from "../../helpers/clientIds";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
@@ -17,17 +18,33 @@ export async function handle(request: Request) {
     }
 
     const row = await db.transaction().execute(async (trx) => {
+      const at = notInFuture(input.createdAt);
       const created = await trx
         .insertInto("notes")
         .values({
+          ...(input.id ? { id: input.id } : {}),
           userId: user.id,
           title: input.title,
           content: input.content,
           source: input.source ?? null,
           taskId: input.taskId ?? null,
+          createdAt: at,
+          updatedAt: at,
         })
+        .onConflict((conflict) => conflict.column("id").doNothing())
         .returning([...NOTE_RECORD_COLUMNS])
-        .executeTakeFirstOrThrow();
+        .executeTakeFirst();
+      if (!created) {
+        // Sent before: the note is already there (if it is this person's).
+        return (
+          (await trx
+            .selectFrom("notes")
+            .select([...NOTE_RECORD_COLUMNS])
+            .where("id", "=", input.id!)
+            .where("userId", "=", user.id)
+            .executeTakeFirst()) ?? null
+        );
+      }
       if (input.projectIds?.length) {
         await replaceNoteProjects(trx, created.id, user.id, input.projectIds);
       }
@@ -35,6 +52,7 @@ export async function handle(request: Request) {
       if (input.taskId) await linkNoteTask(trx, { noteId: created.id, taskId: input.taskId, userId: user.id });
       return created;
     });
+    if (!row) return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
     const [note] = await attachProjectIds(db, [row], user.id);
 
     return new Response(superjson.stringify({ note } satisfies OutputType));

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import superjson from "superjson";
 import { db } from "../../helpers/db";
 import { linkNoteTask, selectTaskRecords } from "../../helpers/taskRecords";
+import { notInFuture } from "../../helpers/clientIds";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { normalizeProjectName } from "../../helpers/normalizeProjectName";
@@ -26,6 +27,20 @@ export async function handle(request: Request) {
         .executeTakeFirst();
       if (!note) {
         return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
+      }
+    }
+
+    if (input.id) {
+      // Sent before (a retry after a lost answer): the same task, if it is
+      // this person's.
+      const existing = await db.selectFrom("tasks").select(["userId"]).where("id", "=", input.id).executeTakeFirst();
+      if (existing) {
+        const task =
+          existing.userId === user.id
+            ? await selectTaskRecords(db, user.id).where("tasks.id", "=", input.id).executeTakeFirst()
+            : undefined;
+        if (!task) return new Response(superjson.stringify({ error: "That task could not be found." }), { status: 404 });
+        return new Response(superjson.stringify({ task } satisfies OutputType));
       }
     }
 
@@ -58,11 +73,13 @@ export async function handle(request: Request) {
         projectId = project.id;
       }
 
-      const id = randomUUID();
+      const id = input.id ?? randomUUID();
+      const at = notInFuture(input.createdAt, now);
       await trx
         .insertInto("tasks")
         .values({
           id,
+          createdAt: at,
           userId: user.id,
           projectId,
           noteId: input.noteId ?? null,

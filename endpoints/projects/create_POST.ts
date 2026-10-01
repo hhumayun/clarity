@@ -12,10 +12,21 @@ export async function handle(request: Request) {
     const input = schema.parse(superjson.parse(await request.text()));
     const name = input.name.trim().replace(/\s+/g, " ");
     const now = new Date();
+    if (input.id) {
+      // Sent before: the same project, if it is this person's.
+      const existing = await db.selectFrom("projects").select(["id", "name", "createdAt", "updatedAt", "userId"]).where("id", "=", input.id).executeTakeFirst();
+      if (existing) {
+        if (existing.userId !== user.id) {
+          return new Response(superjson.stringify({ error: "That project could not be found." }), { status: 404 });
+        }
+        const { userId: _owner, ...project } = existing;
+        return new Response(superjson.stringify({ project } satisfies OutputType));
+      }
+    }
     const project = await db
       .insertInto("projects")
       .values({
-        id: randomUUID(),
+        id: input.id ?? randomUUID(),
         userId: user.id,
         name,
         normalizedName: normalizeProjectName(name),

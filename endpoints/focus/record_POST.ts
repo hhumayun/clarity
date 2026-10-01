@@ -1,5 +1,6 @@
 import superjson from "superjson";
 import { db } from "../../helpers/db";
+import { notInFuture } from "../../helpers/clientIds";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { schema, type OutputType } from "./record_POST.schema";
@@ -23,9 +24,19 @@ export async function handle(request: Request) {
     if (!task) {
       return new Response(superjson.stringify({ error: "That task could not be found." }), { status: 404 });
     }
+    if (input.id) {
+      const existing = await db.selectFrom("focusSessions").select(["id", "userId"]).where("id", "=", input.id).executeTakeFirst();
+      if (existing) {
+        if (existing.userId !== user.id) {
+          return new Response(superjson.stringify({ error: "That session could not be found." }), { status: 404 });
+        }
+        return new Response(superjson.stringify({ recorded: true, id: existing.id } satisfies OutputType));
+      }
+    }
     const row = await db
       .insertInto("focusSessions")
       .values({
+        ...(input.id ? { id: input.id } : {}),
         userId: user.id,
         taskId: input.taskId,
         plannedMinutes: input.plannedMinutes,
@@ -34,7 +45,7 @@ export async function handle(request: Request) {
         outcome: input.outcome,
         leftOff: input.leftOff.trim(),
         startedAt: input.startedAt,
-        endedAt: new Date(),
+        endedAt: notInFuture(input.endedAt),
       })
       .returning("id")
       .executeTakeFirstOrThrow();

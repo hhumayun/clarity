@@ -3,7 +3,14 @@ import superjson from "superjson";
 import type { ProjectRecord } from "../../helpers/TaskRecord";
 import { apiFetch } from "../../helpers/apiFetch";
 
-export const schema = z.object({ name: z.string().trim().min(1).max(120) });
+export const schema = z.object({
+  /**
+   * Made on the phone. A project of the same name already there wins, so the
+   * answer can carry a different id; the phone then uses that one.
+   */
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(120),
+});
 export type InputType = z.infer<typeof schema>;
 export type OutputType = { project: ProjectRecord };
 

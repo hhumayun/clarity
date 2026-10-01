@@ -6,6 +6,10 @@ import { apiFetch } from "../../helpers/apiFetch";
 
 export const schema = z
   .object({
+    /** Made on the phone, so a retried create returns the same task. */
+    id: z.string().uuid().optional(),
+    /** When it was added on the phone; never later than now. */
+    createdAt: z.date().optional(),
     text: z.string().trim().min(1).max(500),
     description: z.string().max(5000).optional(),
     projectId: z.string().uuid().optional(),
