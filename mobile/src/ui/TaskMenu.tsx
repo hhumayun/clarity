@@ -219,12 +219,12 @@ function makeStyles(colors: Colors, scale: number) {
     },
     // The same ring as the task's row.
     ring: {
-      width: 28 * scale,
-      height: 28 * scale,
-      borderRadius: 14 * scale,
-      borderWidth: 3,
-      borderColor: colors.primary,
-      marginTop: (21 * scale - 28 * scale) / 2,
+      width: 22 * scale,
+      height: 22 * scale,
+      borderRadius: 11 * scale,
+      borderWidth: 1.5,
+      borderColor: colors.ring,
+      marginTop: (21 * scale - 22 * scale) / 2,
     },
     taskTitle: { fontFamily: fonts.base, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
     taskArea: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground, marginTop: 3 },

@@ -27,6 +27,8 @@ const light = {
   restSurface: "#f5e6c9", // warmSoft
   restForeground: "#24211c", // text
   border: "#e4ddd0", // border
+  // An open task's ring (design 2b): grey, the same contrast as the dark one.
+  ring: "#a29d94",
   // The Today / All tasks switch: a recessed track with a raised tab.
   segTrack: "#ebe5da", // segTrack
   segActive: "#fffdf8", // segActive
@@ -56,6 +58,7 @@ const dark = {
   restSurface: "#332b1f", // warmSoft
   restForeground: "#1c1b19", // bg
   border: "#34332f", // border
+  ring: "#5a5955", // 2b ring
   segTrack: "#252421", // segTrack
   segActive: "#34332f", // segActive
   suggestionDeeper: "#b0a3dc",

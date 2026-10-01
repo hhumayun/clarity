@@ -26,9 +26,10 @@ const SETTLE_MS = 280;
 const COMPLETE_DELAY_MS = 460;
 // Done rows are soft fields with rounded corners; open rows are bare lines.
 const FIELD_RADIUS = 12;
-// The ring's diameter and stroke (design 2a), before the reader's text size.
-const RING_SIZE = 28;
-const RING_STROKE = 3;
+// The ring's diameter and stroke (design 2b: a neutral hairline, with
+// colour kept for done), before the reader's text size.
+const RING_SIZE = 22;
+const RING_STROKE = 1.5;
 const RING_GAP = 16;
 // Rows reach this far past the text column on each side, so a done field
 // frames its words and the text of open and done rows lines up.
@@ -239,13 +240,14 @@ export function TaskCard({
       <Animated.View style={[styles.row, shownDone ? styles.rowDone : styles.rowOpen, fieldStyle]}>
         <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
         <View style={styles.line}>
-          {/* The ring (2a): a teal outline. Tapping it marks the task done;
-              it shrinks away as the row settles into its done field. */}
+          {/* The ring (2b): a thin grey outline, so colour means done.
+              Tapping it marks the task done; it shrinks away as the row
+              settles into its teal done field. */}
           <Animated.View style={[styles.ringSlot, ringSlotStyle]}>
             <Pressable
               onPress={toggleDone}
               disabled={shownDone}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 11, bottom: 11, left: 11, right: 8 }}
               style={({ pressed }) => [styles.ring, pressed && styles.ringPressed]}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: shownDone }}
@@ -323,7 +325,7 @@ function makeStyles(colors: Colors, scale: number) {
       height: RING_SIZE * scale,
       borderRadius: (RING_SIZE * scale) / 2,
       borderWidth: RING_STROKE,
-      borderColor: colors.primary,
+      borderColor: colors.ring,
       // Centred on the first line of text.
       marginTop: (22 * scale - RING_SIZE * scale) / 2,
     },
