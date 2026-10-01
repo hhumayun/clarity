@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeInDown,
   FadeOutUp,
@@ -83,53 +83,46 @@ export default function LifeCenterScreen() {
 
   // Today is the calm place to start; All tasks is one tap away.
   const [view, setView] = useState<View_>("today");
-  // Switching between Today and All tasks. The control moves at once; the
-  // list fades out, the other is built while nothing is showing (with the
-  // rows' own enter and leave animations off, so dozens of rows do not all
-  // animate at once), then it fades in rising slightly.
+  // Switching between Today and All tasks. Both lists stay built once seen
+  // (the other is built in the background soon after the screen opens), so a
+  // switch only changes which one shows: the control moves at once, the list
+  // fades out, the other is shown, and it fades in rising slightly. The hidden
+  // list keeps its rows' own animations off.
   const [pendingView, setPendingView] = useState<View_ | null>(null);
-  const [quiet, setQuiet] = useState(false);
-  const swapTo = useRef<View_ | null>(null);
+  const [built, setBuilt] = useState<Record<View_, boolean>>({ today: true, all: false });
   const revealView = useRef(false);
   const viewReveal = useSharedValue(1);
   const viewRevealStyle = useAnimatedStyle(() => ({
     opacity: viewReveal.value,
     transform: [{ translateY: (1 - viewReveal.value) * 8 }],
   }));
-  const motion = quiet ? STILL : focusedMotion;
-  const hideForSwap = (next: View_) => {
-    swapTo.current = next;
-    // First a render with the rows' animations off, so the rows that are
-    // about to go leave without one; the swap follows in the effect below.
-    setQuiet(true);
+  const motionFor = (which: View_) => (which === view ? focusedMotion : STILL);
+  const allMotion = motionFor("all");
+  const todayMotion = motionFor("today");
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => setBuilt({ today: true, all: true }));
+    return () => handle.cancel();
+  }, []);
+  const showView = (next: View_) => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    revealView.current = true;
+    setBuilt((current) => (current[next] ? current : { ...current, [next]: true }));
+    setView(next);
+    setPendingView(null);
   };
-  const endSwitch = () => setQuiet(false);
   const switchView = (next: View_) => {
     setAreaMenuOpen(false);
     if (next === (pendingView ?? view)) return;
     setPendingView(next);
     viewReveal.value = withTiming(0, { duration: VIEW_OUT_MS, easing: EASE_IN }, (finished) => {
-      if (finished) runOnJS(hideForSwap)(next);
+      if (finished) runOnJS(showView)(next);
     });
   };
   useEffect(() => {
-    if (!quiet || !swapTo.current) return;
-    const next = swapTo.current;
-    swapTo.current = null;
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    revealView.current = true;
-    setView(next);
-    setPendingView(null);
-  }, [quiet]);
-  useEffect(() => {
     if (!revealView.current) return;
     revealView.current = false;
-    viewReveal.value = withTiming(1, { duration: MOTION.slow, easing: EASE_OUT }, (finished) => {
-      if (finished) runOnJS(endSwitch)();
-    });
-    // Runs when the new view has been committed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+    viewReveal.value = withTiming(1, { duration: MOTION.slow, easing: EASE_OUT });
+  }, [view, viewReveal]);
   const [areaFilter, setAreaFilter] = useState<string>(ALL);
   const [areaMenuOpen, setAreaMenuOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
@@ -242,7 +235,10 @@ export default function LifeCenterScreen() {
     // The card must be on screen to be pointed at: stay on Today only if the
     // task is for today, and drop an area filter that would hide it.
     const dueToday = Boolean(task.completeBy && isSameDay(task.completeBy, new Date()));
-    if (view === "today" && !dueToday) setView("all");
+    if (view === "today" && !dueToday) {
+      setBuilt({ today: true, all: true });
+      setView("all");
+    }
     if (areaFilter !== ALL && areaFilter !== task.projectId) setAreaFilter(ALL);
     setAdded(task);
     if (revealTimer.current) clearTimeout(revealTimer.current);
@@ -263,7 +259,9 @@ export default function LifeCenterScreen() {
     else cardRefs.current.delete(id);
   };
 
-  const renderRow = (task: TaskRecord, variant: "row" | "focus" = "row") => (
+  const renderRow = (task: TaskRecord, variant: "row" | "focus" = "row") => {
+    const motion = motionFor(variant === "focus" ? "today" : "all");
+    return (
     <Animated.View key={task.id} layout={motion.rowLayout} entering={motion.rowEnter} exiting={motion.rowExit}>
       <View collapsable={false} ref={cardRef(task.id)}>
         <TaskCard
@@ -281,15 +279,17 @@ export default function LifeCenterScreen() {
       </View>
     </Animated.View>
   );
+  };
 
+  // Sections only appear in All tasks.
   const section = (label: string, tasks: TaskRecord[]) =>
     tasks.length > 0 ? (
       <Animated.View
         key={label}
         style={styles.section}
-        entering={motion.enter}
-        exiting={motion.exit}
-        layout={motion.layout}
+        entering={allMotion.enter}
+        exiting={allMotion.exit}
+        layout={allMotion.layout}
       >
         <Text style={styles.sectionLabel}>{label}</Text>
         {/* Rows share hairlines, so no gap between them. */}
@@ -438,10 +438,10 @@ export default function LifeCenterScreen() {
           </View>
         ) : null}
 
-        {!loading && !query.isError && view === "all" ? (
-          <>
+        {!loading && !query.isError && built.all ? (
+          <View style={[styles.viewList, view !== "all" && styles.hidden]}>
             {groups.overdue.length > 0 ? (
-              <Animated.View entering={motion.enter} exiting={motion.exit} layout={motion.layout} style={styles.slipped}>
+              <Animated.View entering={allMotion.enter} exiting={allMotion.exit} layout={allMotion.layout} style={styles.slipped}>
                 <View style={styles.slippedHead}>
                   <View style={[styles.dot, styles.slippedDot]} />
                   <Text style={styles.slippedTitle}>{slippedLabel(groups.overdue.length)}</Text>
@@ -481,14 +481,14 @@ export default function LifeCenterScreen() {
             ) : null}
 
             {groups.done.length > 0 ? (
-              <Animated.View layout={motion.layout} entering={motion.enter} exiting={motion.exit} style={styles.section}>
+              <Animated.View layout={allMotion.layout} entering={allMotion.enter} exiting={allMotion.exit} style={styles.section}>
                 <View style={styles.doneHeader}>
                   <Pressable onPress={() => setShowDone((v) => !v)} style={styles.doneToggle}>
                     <Text style={styles.sectionLabel}>DONE {groups.done.length}</Text>
                     <RotatingChevron open={showDone} color={colors.mutedForeground} />
                   </Pressable>
                   {showDone ? (
-                    <Animated.View entering={fadeInFast} exiting={motion.exit}>
+                    <Animated.View entering={fadeInFast} exiting={allMotion.exit}>
                       <Button variant="ghost" size="sm" onPress={() => setConfirmClear(true)}>
                         Clear completed
                       </Button>
@@ -498,22 +498,22 @@ export default function LifeCenterScreen() {
                 {showDone ? <View>{groups.done.map((task) => renderRow(task))}</View> : null}
               </Animated.View>
             ) : null}
-          </>
+          </View>
         ) : null}
 
-        {!loading && !query.isError && view === "today" ? (
-          <>
+        {!loading && !query.isError && built.today ? (
+          <View style={[styles.viewList, view !== "today" && styles.hidden]}>
             {focus.today.length > 0 ? (
               <>
-                <Animated.View layout={motion.layout} style={styles.section}>
+                <Animated.View layout={todayMotion.layout} style={styles.section}>
                   <View>{todayOpenTasks.map((task) => renderRow(task, "focus"))}</View>
                 </Animated.View>
                 {/* What got finished today settles here, in its fields. */}
                 {todayDoneTasks.length > 0 ? (
                   <Animated.View
-                    layout={motion.layout}
-                    entering={motion.enter}
-                    exiting={motion.exit}
+                    layout={todayMotion.layout}
+                    entering={todayMotion.enter}
+                    exiting={todayMotion.exit}
                     style={styles.section}
                   >
                     <Text style={styles.sectionLabel}>DONE</Text>
@@ -530,7 +530,7 @@ export default function LifeCenterScreen() {
             )}
 
             {overdueAll > 0 ? (
-              <Animated.View entering={motion.enter} exiting={motion.exit} layout={motion.layout}>
+              <Animated.View entering={todayMotion.enter} exiting={todayMotion.exit} layout={todayMotion.layout}>
               <Pressable
                 style={({ pressed }) => [styles.slippedRow, pressed && styles.pressed]}
                 onPress={() => router.push("/catch-up")}
@@ -546,10 +546,10 @@ export default function LifeCenterScreen() {
             ) : null}
 
             {focus.comingUp.length > 0 ? (
-              <Animated.View layout={motion.layout} entering={motion.enter} exiting={motion.exit} style={styles.section}>
+              <Animated.View layout={todayMotion.layout} entering={todayMotion.enter} exiting={todayMotion.exit} style={styles.section}>
                 <Text style={styles.sectionLabel}>COMING UP</Text>
                 {focus.comingUp.map((task) => (
-                  <Animated.View key={task.id} entering={motion.enter} exiting={motion.exit} layout={motion.layout}>
+                  <Animated.View key={task.id} entering={todayMotion.enter} exiting={todayMotion.exit} layout={todayMotion.layout}>
                   <Pressable style={styles.comingRow} onPress={() => setEditing(task)}>
                     <Text style={styles.comingText} numberOfLines={1}>
                       {task.text}
@@ -572,7 +572,7 @@ export default function LifeCenterScreen() {
                 </Pressable>
               </Animated.View>
             ) : null}
-          </>
+          </View>
         ) : null}
         </Animated.View>
       </ScrollView>
@@ -699,6 +699,9 @@ function makeStyles(colors: Colors, scale: number) {
     flex: { flex: 1 },
     content: { padding: spacing[4], paddingBottom: spacing[8] },
     viewBody: { gap: spacing[4] },
+    viewList: { gap: spacing[4] },
+    // The list not being looked at stays built but takes no room.
+    hidden: { display: "none" },
     pressed: { opacity: 0.8 },
     titleRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing[3] },
     title: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },

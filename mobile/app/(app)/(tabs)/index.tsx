@@ -364,16 +364,19 @@ export default function NotesListScreen() {
   const [pendingDay, setPendingDay] = useState<Date | null>(null);
   const shownDay = pendingDay ?? selectedDay;
   const revealDay = useRef(false);
-  const commitDay = (day: Date) => {
+  // The animation callback runs on the UI thread, which cannot carry a
+  // Date: the day crosses as a number and becomes a Date again here.
+  const commitDay = (dayMs: number) => {
     revealDay.current = true;
-    setSelectedDay(day);
+    setSelectedDay(new Date(dayMs));
     setPendingDay(null);
   };
   const pickDay = (day: Date) => {
     if (isSameDay(day, shownDay)) return;
     setPendingDay(day);
+    const dayMs = day.getTime();
     dayReveal.value = withTiming(0, { duration: DAY_OUT_MS, easing: EASE_IN }, (finished) => {
-      if (finished) runOnJS(commitDay)(day);
+      if (finished) runOnJS(commitDay)(dayMs);
     });
   };
   useEffect(() => {
