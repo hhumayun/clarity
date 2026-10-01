@@ -1,8 +1,8 @@
 import { randomUUID } from "expo-crypto";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { getTaskNotes, getTasksList, postTaskSummary, postTasksAdd, postTasksExtract } from "../api/tasks";
-import { dateChipLabel, formatClockTime } from "../lib/dates";
-import { withReminders, type TaskChange } from "../lib/reminderRules";
+import { dateChipLabel } from "../lib/dates";
+import { dueTimeLabel, withReminders, type TaskChange } from "../lib/reminderRules";
 import { linkedNoteIds } from "../lib/taskLinks";
 import { useToast } from "../providers/ToastProvider";
 import { unlessSyncing } from "../sync/cache";
@@ -111,7 +111,8 @@ export function useTasks(noteId?: string, enabled = true) {
       projectId?: string;
       projectName?: string;
       completeBy?: Date | null;
-      remindAt?: Date | null;
+      dueTime?: string | null;
+      remindBefore?: number | null;
       remindRepeat?: ReminderRepeat | null;
       status?: TaskStatus;
       noteId?: string | null;
@@ -134,8 +135,10 @@ export function useTasks(noteId?: string, enabled = true) {
         noteId: body.noteId ?? null,
         noteIds: body.noteId ? [body.noteId] : [],
         completeBy: body.completeBy ?? null,
-        remindAt: body.remindAt ?? null,
-        remindRepeat: body.remindAt ? (body.remindRepeat ?? null) : null,
+        // A time goes with a day.
+        dueTime: body.completeBy ? (body.dueTime ?? null) : null,
+        remindBefore: body.remindBefore ?? null,
+        remindRepeat: body.remindRepeat ?? null,
         createdAt: now,
         updatedAt: now,
       };
@@ -148,7 +151,9 @@ export function useTasks(noteId?: string, enabled = true) {
           description: task.description,
           projectId,
           completeBy: task.completeBy,
-          ...(task.remindAt ? { remindAt: task.remindAt, remindRepeat: task.remindRepeat ?? null } : {}),
+          ...(task.dueTime ? { dueTime: task.dueTime } : {}),
+          ...(task.remindBefore != null ? { remindBefore: task.remindBefore } : {}),
+          ...(task.remindRepeat ? { remindRepeat: task.remindRepeat } : {}),
           status: task.status,
           noteId: task.noteId,
         },
@@ -163,9 +168,13 @@ export function useTasks(noteId?: string, enabled = true) {
 
   const update = useMutation({
     mutationFn: async (asked: TaskChange) => {
-      const { change: body, rolledTo } = withReminders(asked, findCachedTask(queryClient, asked.id));
+      const before = findCachedTask(queryClient, asked.id);
+      const { change: body, rolledTo } = withReminders(asked, before);
       outbox.enqueue({ kind: "task.update", body });
-      if (rolledTo) toast.show(`Next: ${dateChipLabel(rolledTo)}, ${formatClockTime(rolledTo)}`);
+      if (rolledTo) {
+        const time = body.dueTime !== undefined ? body.dueTime : before?.dueTime;
+        toast.show(`Next: ${dateChipLabel(rolledTo)}${time ? `, ${dueTimeLabel(time)}` : ""}`);
+      }
       const projects = cachedProjects(queryClient);
       editTaskLists(queryClient, (data) => ({
         ...data,
@@ -177,7 +186,8 @@ export function useTasks(noteId?: string, enabled = true) {
                 ...(body.text !== undefined ? { text: body.text } : {}),
                 ...(body.description !== undefined ? { description: body.description } : {}),
                 ...(body.completeBy !== undefined ? { completeBy: body.completeBy } : {}),
-                ...(body.remindAt !== undefined ? { remindAt: body.remindAt } : {}),
+                ...(body.dueTime !== undefined ? { dueTime: body.dueTime } : {}),
+                ...(body.remindBefore !== undefined ? { remindBefore: body.remindBefore } : {}),
                 ...(body.remindRepeat !== undefined ? { remindRepeat: body.remindRepeat } : {}),
                 ...(body.projectId !== undefined
                   ? {

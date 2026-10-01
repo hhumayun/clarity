@@ -1,13 +1,16 @@
 /**
- * When reminders go off. Pure date rules with no React Native imports, so
- * they can be tested on their own. Everything is in the phone's local time,
- * so a 9:00 reminder stays at 9:00 when the clocks change.
+ * When reminders go off, and how tasks repeat. Pure date rules with no React
+ * Native imports, so they can be tested on their own. Everything is in the
+ * phone's local time, so a 9:00 reminder stays at 9:00 when the clocks change.
  *
- * A reminder is a time on a task: `remindAt`, and for a repeating one
- * `remindRepeat`, with `remindAt` the time its series counts from.
+ * A task can have a time on its day (`dueTime`, "HH:MM"). A reminder counts
+ * back from it: `remindBefore` minutes before that time or, for a task with
+ * no time, before 9:00 on its day. Being relative, a reminder follows its
+ * task to another day or time. A repeating task (`remindRepeat`) comes back
+ * on its next day each time it is ticked off.
  */
 import type { ReminderRepeat, TaskRecord, TaskStatus } from "../types";
-import { atNoon, dateChipLabel, formatClockTime, isSameDay } from "./dates";
+import { atNoon, formatClockTime, isSameDay } from "./dates";
 
 export type { ReminderRepeat };
 export const REMINDER_REPEATS = ["daily", "weekdays", "weekly", "monthly"] as const satisfies readonly ReminderRepeat[];
@@ -19,7 +22,7 @@ export const REPEAT_LABELS: Record<ReminderRepeat, string> = {
   monthly: "Monthly",
 };
 
-/** How many times of a repeating reminder wait on the phone at once. */
+/** How many times of a repeating task's reminder wait on the phone at once. */
 export const TIMES_PER_TASK = 6;
 /**
  * iOS keeps at most 64 notifications waiting for an app; reminders stay well
@@ -27,109 +30,118 @@ export const TIMES_PER_TASK = 6;
  */
 export const MAX_WAITING = 50;
 
-type ReminderTask = {
+export const DAY_MINUTES = 24 * 60;
+const WEEK_MINUTES = 7 * DAY_MINUTES;
+/** What a reminder for a task with no time counts back from: 9:00 on its day. */
+export const ALL_DAY_AT = 9 * 60;
+/** The longest a reminder can come before its task: a year. */
+export const MAX_REMIND_BEFORE = 365 * DAY_MINUTES;
+
+type Schedule = { completeBy: Date | null; dueTime?: string | null };
+type ReminderTask = Schedule & {
   id: string;
   status: string;
-  remindAt?: Date | null;
+  remindBefore?: number | null;
   remindRepeat?: ReminderRepeat | null;
 };
 
-/** `time`'s hour and minute on `day`'s date. */
-export function onDay(day: Date, time: Date): Date {
-  return new Date(day.getFullYear(), day.getMonth(), day.getDate(), time.getHours(), time.getMinutes(), 0, 0);
+/** "HH:MM" as minutes after midnight; null if it is not a time. */
+export function minutesOf(time: string | null | undefined): number | null {
+  const match = time ? /^(\d{2}):(\d{2})$/.exec(time) : null;
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours < 24 && minutes < 60 ? hours * 60 + minutes : null;
 }
 
-function wholeMinute(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), 0, 0);
+/** Minutes after midnight, or a Date's hour and minute, as "HH:MM". */
+export function timeOf(value: number | Date): string {
+  const minutes = typeof value === "number" ? value : value.getHours() * 60 + value.getMinutes();
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** "15:00" as "3:00 pm". */
+export function dueTimeLabel(time: string): string {
+  const minutes = minutesOf(time) ?? 0;
+  return formatClockTime(new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60));
+}
+
+/** A "HH:MM" as a Date today, for a time picker. */
+export function timeToday(time: string, now: Date = new Date()): Date {
+  const minutes = minutesOf(time) ?? ALL_DAY_AT;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, minutes, 0, 0);
+}
+
+/**
+ * When a reminder `before` minutes ahead of a task goes off, for the task on
+ * `day`: counted on the clock, so "1 day before" 9:00 is 9:00 the day before
+ * even across a clock change.
+ */
+export function reminderAt(day: Date, dueTime: string | null | undefined, before: number): Date {
+  const at = minutesOf(dueTime) ?? ALL_DAY_AT;
+  const days = Math.floor(before / DAY_MINUTES);
+  const rest = before % DAY_MINUTES;
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate() - days, 0, at - rest, 0, 0);
 }
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
-/** The series' time `months` months on from its start; a day the month lacks becomes its last. */
-function monthsOn(start: Date, months: number): Date {
-  const month = new Date(start.getFullYear(), start.getMonth() + months, 1);
-  const day = Math.min(start.getDate(), daysInMonth(month.getFullYear(), month.getMonth()));
-  return new Date(month.getFullYear(), month.getMonth(), day, start.getHours(), start.getMinutes(), 0, 0);
-}
-
-function fallsOn(repeat: Exclude<ReminderRepeat, "monthly">, day: Date, start: Date): boolean {
+/**
+ * The next day a task repeating by `repeat` comes back on, after `day` (at
+ * noon, like every task's day). Monthly keeps `monthDay`, or takes the
+ * month's last day when it is shorter.
+ */
+export function nextRepeatDay(day: Date, repeat: ReminderRepeat, monthDay: number = day.getDate()): Date {
+  const y = day.getFullYear();
+  const m = day.getMonth();
+  const d = day.getDate();
   switch (repeat) {
     case "daily":
-      return true;
-    case "weekdays":
-      return day.getDay() !== 0 && day.getDay() !== 6;
+      return atNoon(y, m, d + 1);
     case "weekly":
-      return day.getDay() === start.getDay();
+      return atNoon(y, m, d + 7);
+    case "weekdays": {
+      let next = atNoon(y, m, d + 1);
+      while (next.getDay() === 0 || next.getDay() === 6) next = atNoon(next.getFullYear(), next.getMonth(), next.getDate() + 1);
+      return next;
+    }
+    case "monthly": {
+      const month = new Date(y, m + 1, 1);
+      return atNoon(month.getFullYear(), month.getMonth(), Math.min(monthDay, daysInMonth(month.getFullYear(), month.getMonth())));
+    }
   }
 }
+
+export type ReminderTime = { at: Date; day: Date };
 
 /**
- * The first time a reminder goes off after `after`: a one-off's own time if
- * it is still to come; for a repeating one, the first time in its series
- * (which never starts before `remindAt`) that is.
+ * The times a task's reminder goes off after `now`, soonest first, each with
+ * the day it is for: one for a task that does not repeat, the next `count`
+ * for one that does (counting on from its day, ticked off or not).
  */
-export function nextOccurrence(remindAt: Date, repeat: ReminderRepeat | null | undefined, after: Date): Date | null {
-  if (!repeat) return remindAt.getTime() > after.getTime() ? remindAt : null;
-  const start = wholeMinute(remindAt);
-  if (repeat === "monthly") {
-    let months = Math.max(
-      0,
-      (after.getFullYear() - start.getFullYear()) * 12 + (after.getMonth() - start.getMonth()),
-    );
-    for (;;) {
-      const time = monthsOn(start, months);
-      if (time.getTime() > after.getTime()) return time;
-      months += 1;
-    }
-  }
-  // Day by day from the later of the series' first day and `after`'s day; a
-  // week always holds the next one.
-  const from = after.getTime() > start.getTime() ? after : start;
-  for (let days = 0; days <= 8; days++) {
-    const time = new Date(
-      from.getFullYear(),
-      from.getMonth(),
-      from.getDate() + days,
-      start.getHours(),
-      start.getMinutes(),
-      0,
-      0,
-    );
-    if (time.getTime() > after.getTime() && time.getTime() >= start.getTime() && fallsOn(repeat, time, start)) {
-      return time;
-    }
-  }
-  return null;
-}
-
-/** The next `count` times a reminder goes off after `after`, soonest first. */
-export function upcomingOccurrences(
-  remindAt: Date,
-  repeat: ReminderRepeat | null | undefined,
-  after: Date,
-  count: number,
-): Date[] {
-  const times: Date[] = [];
-  let from = after;
-  while (times.length < count) {
-    const next = nextOccurrence(remindAt, repeat, from);
-    if (!next) break;
-    times.push(next);
-    if (!repeat) break;
-    from = next;
+export function reminderTimes(task: ReminderTask, now: Date = new Date(), count = TIMES_PER_TASK): ReminderTime[] {
+  if (task.status === "done" || task.remindBefore == null || !task.completeBy) return [];
+  const times: ReminderTime[] = [];
+  const monthDay = task.completeBy.getDate();
+  let day = task.completeBy;
+  // A long-missed daily task walks forward to now; a few years at most.
+  for (let step = 0; step < 2000 && times.length < count; step++) {
+    const at = reminderAt(day, task.dueTime, task.remindBefore);
+    if (at.getTime() > now.getTime()) times.push({ at, day });
+    if (!task.remindRepeat) break;
+    day = nextRepeatDay(day, task.remindRepeat, monthDay);
   }
   return times;
 }
 
 /** The next time a task's reminder goes off, if it has one still to come. */
 export function upcomingReminder(task: ReminderTask, now: Date = new Date()): Date | null {
-  if (!task.remindAt || task.status === "done") return null;
-  return nextOccurrence(task.remindAt, task.remindRepeat, now);
+  return reminderTimes(task, now, 1)[0]?.at ?? null;
 }
 
-export type WantedReminder = { key: string; taskId: string; at: number };
+export type WantedReminder = { key: string; taskId: string; at: number; day: Date };
 
 /**
  * Every reminder that should be waiting on the phone: each open task's next
@@ -139,78 +151,78 @@ export type WantedReminder = { key: string; taskId: string; at: number };
 export function wantedReminders(tasks: ReminderTask[], now: Date = new Date()): WantedReminder[] {
   const wanted: WantedReminder[] = [];
   for (const task of tasks) {
-    if (!task.remindAt || task.status === "done") continue;
-    for (const time of upcomingOccurrences(task.remindAt, task.remindRepeat, now, TIMES_PER_TASK)) {
-      const at = time.getTime();
-      wanted.push({ key: `${task.id}:${at}`, taskId: task.id, at });
+    for (const { at, day } of reminderTimes(task, now)) {
+      wanted.push({ key: `${task.id}:${at.getTime()}`, taskId: task.id, at: at.getTime(), day });
     }
   }
   return wanted.sort((a, b) => a.at - b.at).slice(0, MAX_WAITING);
 }
 
-/**
- * A repeating task ticked off: its reminder moves on to the next time in its
- * series after both now and the time just done, and its day, if it has one,
- * moves with it.
- */
-export function rollForward(
-  task: { remindAt: Date; remindRepeat: ReminderRepeat; completeBy: Date | null },
-  now: Date = new Date(),
-): { remindAt: Date; completeBy: Date | null } {
-  const after = task.remindAt.getTime() > now.getTime() ? task.remindAt : now;
-  const next = nextOccurrence(task.remindAt, task.remindRepeat, after) ?? task.remindAt;
-  return {
-    remindAt: next,
-    completeBy: task.completeBy ? atNoon(next.getFullYear(), next.getMonth(), next.getDate()) : null,
-  };
-}
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 /**
- * Where a reminder set for `time` (an hour and minute) falls: on the task's
- * day, if it has one today or later; otherwise the next time that clock time
- * comes round.
+ * A repeating task ticked off: the next day it comes back on, after both its
+ * own day and today (ticking off a late one counts for today too).
  */
-export function reminderFor(dueDay: Date | null, time: Date, now: Date = new Date()): Date {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (dueDay && new Date(dueDay.getFullYear(), dueDay.getMonth(), dueDay.getDate()).getTime() >= today.getTime()) {
-    return onDay(dueDay, time);
+export function rollForward(task: { completeBy: Date; remindRepeat: ReminderRepeat }, now: Date = new Date()): Date {
+  const today = startOfDay(now).getTime();
+  const monthDay = task.completeBy.getDate();
+  let day = nextRepeatDay(task.completeBy, task.remindRepeat, monthDay);
+  for (let step = 0; step < 2000 && startOfDay(day).getTime() <= today; step++) {
+    day = nextRepeatDay(day, task.remindRepeat, monthDay);
   }
-  const todayAt = onDay(now, time);
-  return todayAt.getTime() > now.getTime() ? todayAt : onDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), time);
+  return day;
 }
 
 /**
- * The time a new reminder starts at: 9:00 on a day still to come, or the
- * next whole hour today (9:00 tomorrow if that is too late in the evening).
+ * The choices a reminder offers, in minutes before the task: with a time,
+ * at the time, 15 and 30 minutes before, or the day before; without one, the
+ * day before (at 9:00). Anything else is "Custom".
  */
-export function defaultReminderTime(dueDay: Date | null, now: Date = new Date()): Date {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (dueDay && new Date(dueDay.getFullYear(), dueDay.getMonth(), dueDay.getDate()).getTime() > today.getTime()) {
-    return new Date(dueDay.getFullYear(), dueDay.getMonth(), dueDay.getDate(), 9, 0, 0, 0);
+export function reminderChoices(timed: boolean): number[] {
+  return timed ? [0, 15, 30, DAY_MINUTES] : [DAY_MINUTES];
+}
+
+export type ReminderUnit = "minutes" | "hours" | "days" | "weeks";
+export const UNIT_MINUTES: Record<ReminderUnit, number> = {
+  minutes: 1,
+  hours: 60,
+  days: DAY_MINUTES,
+  weeks: WEEK_MINUTES,
+};
+
+/** The units a custom reminder can be counted in: whole days for a task with no time. */
+export function reminderUnits(timed: boolean): ReminderUnit[] {
+  return timed ? ["minutes", "hours", "days"] : ["days", "weeks"];
+}
+
+/** A reminder offset as an amount of the largest unit that fits it exactly. */
+export function splitBefore(before: number, timed: boolean): { amount: number; unit: ReminderUnit } {
+  const units = [...reminderUnits(timed)].reverse();
+  for (const unit of units) {
+    if (before >= UNIT_MINUTES[unit] && before % UNIT_MINUTES[unit] === 0) return { amount: before / UNIT_MINUTES[unit], unit };
   }
-  const nextHour = now.getHours() + 1;
-  if (nextHour <= 21) return new Date(now.getFullYear(), now.getMonth(), now.getDate(), nextHour, 0, 0, 0);
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0, 0, 0);
+  const smallest = reminderUnits(timed)[0];
+  return { amount: Math.round(before / UNIT_MINUTES[smallest]), unit: smallest };
 }
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * A reminder's time in words: just "9:00 am" when it is on the task's own
- * day (shown beside it), else with its day: "Tomorrow, 9:00 am".
+ * A reminder in words, as its chip or a row says it ("15 min before", "1 day
+ * before"), or in full for the list of choices ("15 minutes before").
  */
-export function reminderTimeLabel(at: Date, dueDay: Date | null, now: Date = new Date()): string {
-  const time = formatClockTime(at);
-  return dueDay && isSameDay(dueDay, at) ? time : `${dateChipLabel(at, now)}, ${time}`;
-}
-
-/** The reminder as its chip says it: "9:00 am", "Tomorrow, 9:00 am", "Daily · 9:00 am". */
-export function reminderLabel(
-  remindAt: Date,
-  repeat: ReminderRepeat | null | undefined,
-  dueDay: Date | null,
-  now: Date = new Date(),
-): string {
-  if (repeat) return `${REPEAT_LABELS[repeat]} · ${formatClockTime(remindAt)}`;
-  return reminderTimeLabel(remindAt, dueDay, now);
+export function reminderLabel(before: number, timed: boolean, full = false): string {
+  if (before === 0) return timed ? "At the time" : "On the day";
+  if (before % WEEK_MINUTES === 0) return `${plural(before / WEEK_MINUTES, "week", "weeks")} before`;
+  if (before % DAY_MINUTES === 0) return `${plural(before / DAY_MINUTES, "day", "days")} before`;
+  const hours = Math.floor(before / 60);
+  const minutes = before % 60;
+  const parts = [
+    hours > 0 ? plural(hours, full ? "hour" : "hr", full ? "hours" : "hrs") : "",
+    minutes > 0 ? plural(minutes, full ? "minute" : "min", full ? "minutes" : "min") : "",
+  ].filter(Boolean);
+  return `${parts.join(" ")} before`;
 }
 
 /** A change to a task, as the tasks hook takes it. */
@@ -220,50 +232,40 @@ export type TaskChange = {
   description?: string;
   projectId?: string;
   completeBy?: Date | null;
-  remindAt?: Date | null;
+  dueTime?: string | null;
+  remindBefore?: number | null;
   remindRepeat?: ReminderRepeat | null;
   status?: TaskStatus;
 };
 
-const sameTime = (a: Date | null | undefined, b: Date | null | undefined) =>
-  (a?.getTime() ?? null) === (b?.getTime() ?? null);
-
 /**
- * What a change really does once reminders are taken into account:
- * - a repeating task marked done is not finished but moves on to its next
- *   time (its day too, if it has one), and stays open;
- * - a task moved to another day takes its reminder with it, at the same time
- *   of day, unless the change sets a new reminder itself;
- * - no reminder means nothing to repeat.
- * A change that repeats the task's current reminder (the edit form sends
- * everything) counts as leaving it alone. `rolledTo` is the next time, when
+ * What a change really does once times and repeats are taken into account:
+ * - a repeating task marked done is not finished but comes back on its next
+ *   day, keeping its time and reminder, and stays open;
+ * - a task with no day has no time either.
+ * A change that repeats the task's own day and repeat (the edit form sends
+ * everything) counts as leaving them alone. `rolledTo` is the next day, when
  * a repeating task moved on.
  */
 export function withReminders(
   change: TaskChange,
-  task: Pick<TaskRecord, "status" | "completeBy" | "remindAt" | "remindRepeat"> | undefined,
+  task: Pick<TaskRecord, "status" | "completeBy" | "remindRepeat"> | undefined,
   now: Date = new Date(),
 ): { change: TaskChange; rolledTo: Date | null } {
-  const keepsReminder =
+  const keepsRepeat =
+    !task || change.remindRepeat === undefined || change.remindRepeat === (task.remindRepeat ?? null);
+  const keepsDay =
     !task ||
-    ((change.remindAt === undefined || sameTime(change.remindAt, task.remindAt)) &&
-      (change.remindRepeat === undefined || change.remindRepeat === (task.remindRepeat ?? null)));
+    change.completeBy === undefined ||
+    (change.completeBy !== null && task.completeBy !== null && isSameDay(change.completeBy, task.completeBy));
 
-  if (task?.remindAt && task.remindRepeat && keepsReminder && change.status === "done" && task.status !== "done") {
-    const next = rollForward({ remindAt: task.remindAt, remindRepeat: task.remindRepeat, completeBy: task.completeBy }, now);
+  if (task?.remindRepeat && task.completeBy && keepsRepeat && keepsDay && change.status === "done" && task.status !== "done") {
+    const next = rollForward({ completeBy: task.completeBy, remindRepeat: task.remindRepeat }, now);
     const { status: _done, ...rest } = change;
-    return {
-      change: { ...rest, remindAt: next.remindAt, ...(task.completeBy ? { completeBy: next.completeBy } : {}) },
-      rolledTo: next.remindAt,
-    };
+    return { change: { ...rest, completeBy: next }, rolledTo: next };
   }
 
-  let result = change;
-  const movedDay =
-    task && change.completeBy && !(task.completeBy && isSameDay(change.completeBy, task.completeBy));
-  if (movedDay && keepsReminder && task.remindAt && change.completeBy) {
-    result = { ...result, remindAt: onDay(change.completeBy, task.remindAt) };
-  }
-  if (result.remindAt === null && result.remindRepeat === undefined) result = { ...result, remindRepeat: null };
-  return { change: result, rolledTo: null };
+  // No day, no time: whatever time came with the change.
+  if (change.completeBy === null) return { change: { ...change, dueTime: null }, rolledTo: null };
+  return { change, rolledTo: null };
 }

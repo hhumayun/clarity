@@ -37,6 +37,7 @@ import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { Collapse } from "../../../src/ui/Collapse";
 import { DayTasks } from "../../../src/ui/DayTasks";
+import { MonthGrid, type DayMarks } from "../../../src/ui/MonthGrid";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
 import { SyncBar } from "../../../src/ui/SyncBar";
@@ -48,6 +49,7 @@ import { TASKS_ENABLED } from "../../../src/featureFlags";
 import {
   NOTES_QUERY_KEY,
   flattenPages,
+  prefetchNotes,
   useNoteCounts,
   useNotes,
   useNotesPages,
@@ -59,14 +61,19 @@ import { useToast } from "../../../src/providers/ToastProvider";
 import { atNoon, dateChipLabel, formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
 import {
   dayHeading,
+  dayKey,
+  daysAgo,
   displayTitle,
   groupNotesByDay,
+  monthGrid,
+  monthTitle,
   notesOnDay,
   parseNoteSearch,
   stripRange,
   weeksBackFor,
   weekStrip,
 } from "../../../src/lib/notesList";
+import { dueTimeLabel } from "../../../src/lib/reminderRules";
 import { taskCountByNote } from "../../../src/lib/taskSort";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
@@ -81,8 +88,18 @@ import { Sheet } from "../../../src/ui/Sheet";
 const BACKFILL_FLAG = "clarity:backfilled";
 const VIEW_KEY = "clarity:notes-view";
 const STRIP_KEY = "clarity:notes-strip";
-// A sideways swipe on the dates this long changes the week.
+// A sideways swipe on the dates this long changes the week (or the month).
 const SWIPE_WEEK = 50;
+// Pulling the day's header down this far brings the dates, then the month;
+// pushing it up puts them away again.
+const SWIPE_PULL = 30;
+const MONTH_OUT_MS = 140;
+const MONTH_IN_MS = 240;
+
+// A month as one number (year × 12 + month), so it can cross to and from the
+// animation thread, which cannot carry a Date.
+const monthIndexOf = (date: Date) => date.getFullYear() * 12 + date.getMonth();
+const monthStart = (index: number) => new Date(Math.floor(index / 12), index % 12, 1);
 // Start loading older notes this far (in points) before the end of the list,
 // so they are usually there by the time you reach it.
 // What the virtualized Notes list draws: a day's label, or a note.
@@ -458,6 +475,114 @@ export default function NotesListScreen() {
     void AsyncStorage.setItem(STRIP_KEY, next ? "open" : "closed").catch(() => {});
   };
 
+  // The month. Pulling the dates down opens it in their place: a month of
+  // days marked with the notes written and the tasks due, any of which can be
+  // picked, future days included. Pushing it up brings the week back.
+  const [monthOpen, setMonthOpen] = useState(false);
+  const [gridMonth, setGridMonth] = useState(() => monthIndexOf(new Date()));
+  const gridStart = useMemo(() => monthStart(gridMonth), [gridMonth]);
+  const monthRange = useMemo(() => stripRange(monthGrid(gridStart)), [gridStart]);
+  const monthQuery = useNotes(monthRange, { enabled: monthOpen && view === "days" && !showArchived });
+  // While another month loads, the last one's notes must not mark its days.
+  const monthNotes = useMemo(
+    () => (monthQuery.isPlaceholderData ? [] : (monthQuery.data?.notes ?? [])),
+    [monthQuery.isPlaceholderData, monthQuery.data],
+  );
+  // The months either side are fetched ahead, so moving to one is instant.
+  const monthLoaded = monthOpen && Boolean(monthQuery.data) && !monthQuery.isPlaceholderData;
+  useEffect(() => {
+    if (!monthLoaded) return;
+    for (const delta of [-1, 1]) void prefetchNotes(queryClient, stripRange(monthGrid(monthStart(gridMonth + delta))));
+  }, [gridMonth, monthLoaded, queryClient]);
+  const monthMarks = useMemo(() => {
+    const byDay = new Map<string, DayMarks>();
+    const mark = (date: Date, kind: keyof DayMarks) => {
+      const key = dayKey(date);
+      const marked = byDay.get(key) ?? { notes: false, tasks: false };
+      marked[kind] = true;
+      byDay.set(key, marked);
+    };
+    for (const note of monthNotes) mark(note.createdAt, "notes");
+    for (const task of tasks.query.data?.tasks ?? []) {
+      if (task.completeBy && task.status !== "done") mark(task.completeBy, "tasks");
+    }
+    return byDay;
+  }, [monthNotes, tasks.query.data?.tasks]);
+
+  // Another month slides in sideways: a later one from the right.
+  const monthSlide = useSharedValue(0);
+  const monthSlideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: monthSlide.value }],
+    opacity: 1 - 0.8 * Math.min(1, Math.abs(monthSlide.value) / 160),
+  }));
+  const gridTarget = useRef(gridMonth);
+  const commitMonth = (index: number, dir: number) => {
+    setGridMonth(index);
+    monthSlide.value = -dir * screenWidth * 0.4;
+    monthSlide.value = withTiming(0, { duration: MONTH_IN_MS, easing: EASE_OUT });
+  };
+  const changeMonth = (delta: number) => {
+    if (delta === 0) return;
+    const next = gridTarget.current + delta;
+    gridTarget.current = next;
+    const dir = delta > 0 ? -1 : 1;
+    monthSlide.value = withTiming(dir * screenWidth * 0.4, { duration: MONTH_OUT_MS, easing: EASE_IN }, (finished) => {
+      if (finished) runOnJS(commitMonth)(next, dir);
+    });
+  };
+  const openMonth = () => {
+    const index = monthIndexOf(shownDay);
+    gridTarget.current = index;
+    setGridMonth(index);
+    monthSlide.value = 0;
+    setMonthOpen(true);
+  };
+  // A day picked in the month is shown below it, as one picked in the week
+  // is; one from the month either side brings that month in too.
+  const pickFromMonth = (day: Date) => {
+    const picked = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    changeMonth(monthIndexOf(picked) - gridTarget.current);
+    if (weeksBackFor(picked) === (pendingWeek.current ?? weeksBackRef.current)) pickDay(picked);
+    else changeWeek(weeksBackFor(picked), picked, false);
+  };
+
+  // Down: the dates, then the month. Up: back the same way.
+  const pullDown = () => {
+    if (!stripOpen) toggleStrip();
+    else if (!monthOpen) openMonth();
+  };
+  const pushUp = () => {
+    if (monthOpen) setMonthOpen(false);
+    else if (stripOpen) toggleStrip();
+  };
+  const pullRef = useRef({ pullDown, pushUp });
+  pullRef.current = { pullDown, pushUp };
+  const pull = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > 14 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+        onPanResponderRelease: (_, g) => {
+          if (g.dy > SWIPE_PULL) pullRef.current.pullDown();
+          else if (g.dy < -SWIPE_PULL) pullRef.current.pushUp();
+        },
+      }),
+    [],
+  );
+  // Sideways on the month: the month before or after.
+  const changeMonthRef = useRef(changeMonth);
+  changeMonthRef.current = changeMonth;
+  const monthSwipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderRelease: (_, g) => {
+          if (g.dx > SWIPE_WEEK) changeMonthRef.current(-1);
+          else if (g.dx < -SWIPE_WEEK) changeMonthRef.current(1);
+        },
+      }),
+    [],
+  );
+
   const showSearchField = showArchived || view === "list" || searchOpen;
 
   // Plain icons, no rings (4a): search (day view), list or days, settings.
@@ -520,7 +645,7 @@ export default function NotesListScreen() {
   // the week's dates below, and one hairline under it all. It stays put
   // while the day's notes and tasks scroll beneath it.
   const dayHeader = (
-    <View style={styles.dayHeader}>
+    <View style={styles.dayHeader} {...pull.panHandlers}>
       <View style={styles.dayHeaderRow}>
         <Pressable
           onPress={toggleStrip}
@@ -544,7 +669,7 @@ export default function NotesListScreen() {
         </Pressable>
         {headerIcons}
       </View>
-      <Collapse open={stripOpen}>
+      <Collapse open={stripOpen && !monthOpen}>
         <Animated.View style={[styles.stripWrap, slideStyle]} {...swipe.panHandlers}>
           {strip.map((day) => {
             const active = isSameDay(day.date, shownDay);
@@ -575,6 +700,45 @@ export default function NotesListScreen() {
           })}
         </Animated.View>
       </Collapse>
+      <Collapse open={monthOpen}>
+        <View style={styles.month} {...monthSwipe.panHandlers}>
+          <View style={styles.monthBar}>
+            <Text style={styles.monthTitle}>{monthTitle(gridStart)}</Text>
+            <Pressable
+              onPress={() => changeMonth(-1)}
+              hitSlop={6}
+              style={({ pressed }) => [styles.monthArrow, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
+            >
+              <ChevronLeft size={20} color={colors.foreground} />
+            </Pressable>
+            <Pressable
+              onPress={() => changeMonth(1)}
+              hitSlop={6}
+              style={({ pressed }) => [styles.monthArrow, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
+            >
+              <ChevronRight size={20} color={colors.foreground} />
+            </Pressable>
+          </View>
+          <Animated.View style={monthSlideStyle}>
+            <MonthGrid month={gridStart} selected={shownDay} marks={monthMarks} onPick={pickFromMonth} />
+          </Animated.View>
+        </View>
+      </Collapse>
+      {/* The handle: pull the header down for the month, push it up for the
+          week; a tap does the same. */}
+      <Pressable
+        onPress={() => (monthOpen ? pushUp() : pullDown())}
+        hitSlop={{ top: 6, bottom: 10, left: 40, right: 40 }}
+        style={styles.handleArea}
+        accessibilityRole="button"
+        accessibilityLabel={monthOpen ? "Show the week" : stripOpen ? "Show the month" : "Show the dates"}
+      >
+        <View style={styles.handle} />
+      </Pressable>
     </View>
   );
 
@@ -721,6 +885,7 @@ export default function NotesListScreen() {
               onStatusChange={setTaskStatus}
               onOpenMenu={setMenuTask}
               onAdd={() => setQuickAddOpen(true)}
+              emptyText={daysAgo(selectedDay) < 0 ? "Nothing scheduled yet." : "Nothing was scheduled."}
             />
           ) : null}
         </View>
@@ -793,7 +958,11 @@ export default function NotesListScreen() {
 
       <TaskMenu
         task={menuTask}
-        dueLabel={menuTask?.completeBy ? dateChipLabel(menuTask.completeBy) : "None"}
+        dueLabel={
+          menuTask?.completeBy
+            ? `${dateChipLabel(menuTask.completeBy)}${menuTask.dueTime ? `, ${dueTimeLabel(menuTask.dueTime)}` : ""}`
+            : "None"
+        }
         onClose={() => setMenuTask(null)}
         onMove={(task, date) => {
           setMenuTask(null);
@@ -926,7 +1095,7 @@ function makeStyles(colors: Colors, scale: number) {
     dayHeader: {
       paddingHorizontal: spacing[4],
       paddingTop: spacing[1],
-      paddingBottom: 14,
+      paddingBottom: 8,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
       backgroundColor: colors.background,
@@ -937,6 +1106,13 @@ function makeStyles(colors: Colors, scale: number) {
     dayTitle: { flexShrink: 1, fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     daySub: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     stripWrap: { flexDirection: "row", marginTop: spacing[4] },
+    month: { marginTop: spacing[3] },
+    monthBar: { flexDirection: "row", alignItems: "center", gap: spacing[1], paddingBottom: spacing[3] },
+    monthTitle: { flex: 1, fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
+    monthArrow: { width: 36, height: 32, alignItems: "center", justifyContent: "center" },
+    // A small bar under the dates, the way into the month.
+    handleArea: { alignSelf: "center", paddingTop: spacing[2], marginBottom: -6 },
+    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border },
     stripDay: { flex: 1, alignItems: "center", gap: 6 },
     stripLetter: { fontFamily: fonts.baseSemi, fontSize: textSize.label * scale, color: colors.mutedForeground },
     stripCircle: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },

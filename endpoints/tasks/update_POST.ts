@@ -18,7 +18,8 @@ export async function handle(request: Request) {
       description?: string;
       projectId?: string;
       completeBy?: Date | null;
-      remindAt?: Date | null;
+      dueTime?: string | null;
+      remindBefore?: number | null;
       remindRepeat?: typeof input.remindRepeat;
       status?: typeof input.status;
       updatedAt: Date;
@@ -27,10 +28,11 @@ export async function handle(request: Request) {
     if (input.description !== undefined) values.description = input.description.trim();
     if (input.projectId !== undefined) values.projectId = input.projectId;
     if (input.completeBy !== undefined) values.completeBy = input.completeBy;
-    if (input.remindAt !== undefined) values.remindAt = input.remindAt;
+    if (input.dueTime !== undefined) values.dueTime = input.dueTime;
+    // A time goes with a day: taking the day away takes the time too.
+    if (input.completeBy === null) values.dueTime = null;
+    if (input.remindBefore !== undefined) values.remindBefore = input.remindBefore;
     if (input.remindRepeat !== undefined) values.remindRepeat = input.remindRepeat;
-    // No reminder, nothing to repeat.
-    if (input.remindAt === null) values.remindRepeat = null;
     if (input.status !== undefined) values.status = input.status;
     const updated = await db.updateTable("tasks").set(values).where("id", "=", input.id).where("userId", "=", user.id).where("deletedAt", "is", null).returning("id").executeTakeFirst();
     if (!updated) return new Response(superjson.stringify({ error: "That task could not be found." }), { status: 404 });

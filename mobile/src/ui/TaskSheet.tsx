@@ -4,6 +4,7 @@ import DateTimePicker, {
 import {
   Bell,
   Check,
+  Clock,
   ChevronDown,
   FileText,
   Link2,
@@ -20,16 +21,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
-import { atNoon, dateChipLabel, dueDayOptions, formatClockTime, isSameDay } from "../lib/dates";
+import { atNoon, dateChipLabel, daysFromToday, dueDayOptions, formatClockTime, isSameDay } from "../lib/dates";
 import { ensureNotificationPermission } from "../lib/notifications";
 import {
-  defaultReminderTime,
-  nextOccurrence,
-  onDay,
-  reminderFor,
+  DAY_MINUTES,
+  dueTimeLabel,
+  MAX_REMIND_BEFORE,
+  reminderChoices,
   reminderLabel,
+  reminderUnits,
   REMINDER_REPEATS,
   REPEAT_LABELS,
+  splitBefore,
+  timeOf,
+  timeToday,
+  UNIT_MINUTES,
+  upcomingReminder,
+  type ReminderUnit,
 } from "../lib/reminderRules";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaTag } from "../lib/lifeCenter";
@@ -58,8 +66,10 @@ export type TaskDraft = {
   description?: string;
   projectId: string | null;
   completeBy: Date | null;
-  /** A time on the task; for a repeating one, the time its series counts from. */
-  remindAt: Date | null;
+  /** Its time on its day, "HH:MM"; null for any time that day. */
+  dueTime: string | null;
+  /** Minutes before its time (or 9:00 on its day) to remind; null for none. */
+  remindBefore: number | null;
   remindRepeat: ReminderRepeat | null;
   status: TaskStatus;
 };
@@ -93,6 +103,12 @@ type Props = {
   onExited?: () => void;
 };
 
+/** A day in a sentence: "today", "tomorrow", or "Fri 2 Oct". */
+function dayWords(date: Date): string {
+  const label = dateChipLabel(date);
+  return label === "Today" || label === "Tomorrow" ? label.toLowerCase() : label;
+}
+
 /** Whether two due days are the same day (or both none). */
 function sameDue(a: Date | null, b: Date | null): boolean {
   return a === null || b === null ? a === b : isSameDay(a, b);
@@ -106,7 +122,7 @@ function sameDue(a: Date | null, b: Date | null): boolean {
  * delete, which once opened a dialog over the sheet and froze the screen
  * behind it after both closed.
  */
-type Panel = "actions" | "move" | "task" | "chooseProject" | "project" | "date" | "reminder" | "confirmDelete";
+type Panel = "actions" | "move" | "task" | "chooseProject" | "project" | "date" | "time" | "reminder" | "confirmDelete";
 
 function draftFrom(
   task: TaskRecord | null | undefined,
@@ -119,8 +135,9 @@ function draftFrom(
       description: task.description ?? "",
       projectId: task.projectId,
       completeBy: task.completeBy,
-      remindAt: task.remindAt ?? null,
-      remindRepeat: task.remindAt ? (task.remindRepeat ?? null) : null,
+      dueTime: task.completeBy ? (task.dueTime ?? null) : null,
+      remindBefore: task.remindBefore ?? null,
+      remindRepeat: task.remindRepeat ?? null,
       status: task.status,
     };
   }
@@ -129,7 +146,8 @@ function draftFrom(
     description: "",
     projectId: defaultProjectId ?? projects[0]?.id ?? null,
     completeBy: null,
-    remindAt: null,
+    dueTime: null,
+    remindBefore: null,
     remindRepeat: null,
     status: "todo",
   };
@@ -169,11 +187,15 @@ export function TaskSheet({
   const [movePickerOpen, setMovePickerOpen] = useState(false);
   // Android's calendar is a dialog of its own, opened from the date page.
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  // The reminder page's choices, kept apart until "Set reminder".
-  const [reminderTime, setReminderTime] = useState(() => defaultReminderTime(null));
-  const [reminderRepeat, setReminderRepeat] = useState<ReminderRepeat | null>(null);
+  // The time page's clock, kept apart until "Set time".
+  const [timeValue, setTimeValue] = useState(() => new Date());
   // Android's clock is a dialog of its own, like its calendar.
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+  // The reminder page's choices, kept apart until "Set reminder".
+  const [reminderChoice, setReminderChoice] = useState<number | "custom">(DAY_MINUTES);
+  const [customAmount, setCustomAmount] = useState("1");
+  const [customUnit, setCustomUnit] = useState<ReminderUnit>("hours");
+  const [reminderRepeat, setReminderRepeat] = useState<ReminderRepeat | null>(null);
   const editing = Boolean(task);
   const noteCount = task ? linkedNoteIds(task).length : 0;
   // Where "back" goes from a sub-face: the panel the sheet opened on.
@@ -234,29 +256,98 @@ export function TaskSheet({
     }
   };
 
-  // A reminder is a time on the task's day, so a new day takes it along.
+  // A time goes with a day: no day, no time.
   const setDate = (date: Date | null) =>
+    setDraft((current) => ({ ...current, completeBy: date, dueTime: date ? current.dueTime : null }));
+
+  const openTime = () => {
+    const now = new Date();
+    const later = draft.completeBy !== null && !isSameDay(draft.completeBy, now) && draft.completeBy.getTime() > now.getTime();
+    // A new time starts at the next whole hour today, or 9:00 on a later day.
+    setTimeValue(
+      draft.dueTime
+        ? timeToday(draft.dueTime, now)
+        : new Date(now.getFullYear(), now.getMonth(), now.getDate(), later ? 9 : Math.min(now.getHours() + 1, 23), 0),
+    );
+    setTimePickerOpen(false);
+    setPanel("time");
+  };
+
+  const setTime = () => {
+    const dueTime = timeOf(timeValue);
+    setDraft((current) => {
+      if (current.completeBy) return { ...current, dueTime };
+      // A time with no day: today while it is still to come, else tomorrow.
+      const now = new Date();
+      const todayAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), timeValue.getHours(), timeValue.getMinutes());
+      return { ...current, completeBy: daysFromToday(todayAt.getTime() > now.getTime() ? 0 : 1, now), dueTime };
+    });
+    setPanel("task");
+  };
+
+  // A reminder counted in minutes from the time becomes whole days before 9:00.
+  const clearTime = () => {
     setDraft((current) => ({
       ...current,
-      completeBy: date,
-      remindAt:
-        date && current.remindAt && !isSameDay(date, current.remindAt) ? onDay(date, current.remindAt) : current.remindAt,
+      dueTime: null,
+      remindBefore:
+        current.remindBefore == null ? null : Math.floor(current.remindBefore / DAY_MINUTES) * DAY_MINUTES,
     }));
+    setPanel("task");
+  };
 
+  const handleTimePicked = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== "ios") setTimePickerOpen(false);
+    if (event.type === "dismissed" || !date) return;
+    setTimeValue(date);
+  };
+
+  // Reminders count back from the task's time, or from 9:00 on its day.
+  const timed = Boolean(draft.dueTime);
   const openReminder = () => {
-    setReminderTime(draft.remindAt ?? defaultReminderTime(draft.completeBy));
-    setReminderRepeat(draft.remindAt ? draft.remindRepeat : null);
-    setTimePickerOpen(false);
+    const before = draft.remindBefore;
+    if (before != null && reminderChoices(timed).includes(before)) {
+      setReminderChoice(before);
+    } else if (before != null) {
+      const { amount, unit } = splitBefore(before, timed);
+      setReminderChoice("custom");
+      setCustomAmount(String(amount));
+      setCustomUnit(unit);
+    } else {
+      setReminderChoice(timed ? 15 : DAY_MINUTES);
+    }
+    if (before == null || reminderChoices(timed).includes(before)) {
+      setCustomAmount(timed ? "1" : "2");
+      setCustomUnit(timed ? "hours" : "days");
+    }
+    setReminderRepeat(draft.remindRepeat ?? null);
     setPanel("reminder");
   };
 
-  // When the reminder on the page would first go off.
-  const reminderAt = reminderFor(draft.completeBy, reminderTime);
-  const firstReminder = nextOccurrence(reminderAt, reminderRepeat, new Date());
+  // The reminder the page describes, in minutes before the task, and when it
+  // would next go off.
+  const customValue = Number.parseInt(customAmount, 10);
+  const chosenBefore =
+    reminderChoice !== "custom"
+      ? reminderChoice
+      : Number.isFinite(customValue) && customValue >= 0
+        ? Math.min(customValue * UNIT_MINUTES[customUnit], MAX_REMIND_BEFORE)
+        : null;
+  const nextReminder =
+    chosenBefore !== null && draft.completeBy
+      ? upcomingReminder({
+          id: task?.id ?? "new",
+          status: "todo",
+          completeBy: draft.completeBy,
+          dueTime: draft.dueTime,
+          remindBefore: chosenBefore,
+          remindRepeat: reminderRepeat,
+        })
+      : null;
 
   const setReminder = async () => {
-    if (!firstReminder) return;
-    setDraft((current) => ({ ...current, remindAt: reminderAt, remindRepeat: reminderRepeat }));
+    if (chosenBefore === null) return;
+    setDraft((current) => ({ ...current, remindBefore: chosenBefore, remindRepeat: reminderRepeat }));
     setPanel("task");
     // Asked here, the first time it matters; saved either way.
     if (!(await ensureNotificationPermission())) {
@@ -265,14 +356,8 @@ export function TaskSheet({
   };
 
   const clearReminder = () => {
-    setDraft((current) => ({ ...current, remindAt: null, remindRepeat: null }));
+    setDraft((current) => ({ ...current, remindBefore: null, remindRepeat: null }));
     setPanel("task");
-  };
-
-  const handleTimePicked = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS !== "ios") setTimePickerOpen(false);
-    if (event.type === "dismissed" || !date) return;
-    setReminderTime(date);
   };
 
   // A new day, once saved, is said out loud: the task has usually just left
@@ -338,6 +423,7 @@ export function TaskSheet({
       description: "A short name is easiest to recognise later.",
     },
     date: { title: "Due date" },
+    time: { title: "Time" },
     reminder: { title: "Reminder" },
     confirmDelete: {
       title: "Delete this task?",
@@ -587,18 +673,32 @@ export function TaskSheet({
                 <ChevronDown size={15} color={colors.mutedForeground} />
               </Pressable>
               <Pressable
+                onPress={openTime}
+                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={draft.dueTime ? `At ${dueTimeLabel(draft.dueTime)}. Change time` : "No time. Set a time"}
+              >
+                <Clock size={15} color={draft.dueTime ? colors.foreground : colors.mutedForeground} />
+                <Text style={[styles.pickText, !draft.dueTime && styles.pickTextEmpty]}>
+                  {draft.dueTime ? dueTimeLabel(draft.dueTime) : "Time"}
+                </Text>
+                <ChevronDown size={15} color={colors.mutedForeground} />
+              </Pressable>
+              <Pressable
                 onPress={openReminder}
                 style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
                 accessibilityRole="button"
                 accessibilityLabel={
-                  draft.remindAt
-                    ? `Reminder: ${reminderLabel(draft.remindAt, draft.remindRepeat, draft.completeBy)}. Change reminder`
+                  draft.remindBefore != null
+                    ? `Reminder: ${reminderLabel(draft.remindBefore, timed, true)}. Change reminder`
                     : "No reminder. Set a reminder"
                 }
               >
-                <Bell size={15} color={draft.remindAt ? colors.foreground : colors.mutedForeground} />
-                <Text style={[styles.pickText, !draft.remindAt && styles.pickTextEmpty]} numberOfLines={1}>
-                  {draft.remindAt ? reminderLabel(draft.remindAt, draft.remindRepeat, draft.completeBy) : "Reminder"}
+                <Bell size={15} color={draft.remindBefore != null ? colors.foreground : colors.mutedForeground} />
+                <Text style={[styles.pickText, draft.remindBefore == null && styles.pickTextEmpty]} numberOfLines={1}>
+                  {draft.remindBefore != null
+                    ? `${reminderLabel(draft.remindBefore, timed)}${draft.remindRepeat ? ` · ${REPEAT_LABELS[draft.remindRepeat]}` : ""}`
+                    : "Reminder"}
                 </Text>
                 <ChevronDown size={15} color={colors.mutedForeground} />
               </Pressable>
@@ -657,22 +757,14 @@ export function TaskSheet({
             </View>
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </>
-        ) : panel === "reminder" ? (
+        ) : panel === "time" ? (
           <>
-            {/* When it would go off, in words, as the choices change. */}
-            <Text style={styles.reminderWhen}>
-              {firstReminder
-                ? reminderRepeat
-                  ? `${REPEAT_LABELS[reminderRepeat]} at ${formatClockTime(reminderAt)}, from ${dateChipLabel(firstReminder)}`
-                  : `${dateChipLabel(firstReminder)} at ${formatClockTime(firstReminder)}`
-                : `${formatClockTime(reminderAt)} has already passed today`}
-            </Text>
             {/* iOS shows the clock in the page; Android's is a dialog of its
                 own, opened from the time. */}
             {Platform.OS === "ios" ? (
               <View style={styles.timePicker}>
                 <DateTimePicker
-                  value={reminderTime}
+                  value={timeValue}
                   mode="time"
                   display="spinner"
                   minuteInterval={5}
@@ -687,42 +779,131 @@ export function TaskSheet({
                   onPress={() => setTimePickerOpen(true)}
                   style={({ pressed }) => [styles.pick, styles.timeChip, pressed && styles.pickPressed]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Time: ${formatClockTime(reminderTime)}. Change time`}
+                  accessibilityLabel={`Time: ${formatClockTime(timeValue)}. Change time`}
                 >
-                  <Text style={styles.timeChipText}>{formatClockTime(reminderTime)}</Text>
+                  <Text style={styles.timeChipText}>{formatClockTime(timeValue)}</Text>
                 </Pressable>
                 {timePickerOpen ? (
-                  <DateTimePicker value={reminderTime} mode="time" display="default" onChange={handleTimePicked} />
+                  <DateTimePicker value={timeValue} mode="time" display="default" onChange={handleTimePicked} />
                 ) : null}
               </>
             )}
-            <View style={styles.chips}>
-              {([null, ...REMINDER_REPEATS] as const).map((repeat) => {
-                const active = reminderRepeat === repeat;
-                return (
-                  <Pressable
-                    key={repeat ?? "never"}
-                    onPress={() => setReminderRepeat(repeat)}
-                    style={[styles.chip, active && styles.chipActive]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {repeat ? REPEAT_LABELS[repeat] : "Once"}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Button size="lg" disabled={!firstReminder} onPress={() => void setReminder()}>
-              Set reminder
+            {draft.completeBy ? null : (
+              <Text style={styles.reminderWhen}>It has no day yet, so it goes on today, or tomorrow once that time has passed.</Text>
+            )}
+            <Button size="lg" onPress={setTime}>
+              Set time
             </Button>
-            {draft.remindAt ? (
-              <Button variant="ghost" onPress={clearReminder}>
-                No reminder
+            {draft.dueTime ? (
+              <Button variant="ghost" onPress={clearTime}>
+                No time
               </Button>
             ) : null}
           </>
+        ) : panel === "reminder" ? (
+          draft.completeBy ? (
+            <>
+              {/* How long before: the usual choices, or any amount. */}
+              <View style={styles.chips}>
+                {reminderChoices(timed).map((before) => {
+                  const active = reminderChoice === before;
+                  return (
+                    <Pressable
+                      key={before}
+                      onPress={() => setReminderChoice(before)}
+                      style={[styles.chip, active && styles.chipActive]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {reminderLabel(before, timed, true)}
+                        {timed ? "" : " (9:00 am)"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable
+                  onPress={() => setReminderChoice("custom")}
+                  style={[styles.chip, reminderChoice === "custom" && styles.chipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: reminderChoice === "custom" }}
+                >
+                  <Text style={[styles.chipText, reminderChoice === "custom" && styles.chipTextActive]}>Custom</Text>
+                </Pressable>
+              </View>
+              {reminderChoice === "custom" ? (
+                <View style={styles.customRow}>
+                  <TextInput
+                    value={customAmount}
+                    onChangeText={(text) => setCustomAmount(text.replace(/[^0-9]/g, "").slice(0, 3))}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    style={styles.amountInput}
+                    accessibilityLabel="How many"
+                  />
+                  {reminderUnits(timed).map((unit) => {
+                    const active = customUnit === unit;
+                    return (
+                      <Pressable
+                        key={unit}
+                        onPress={() => setCustomUnit(unit)}
+                        style={[styles.chip, active && styles.chipActive]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{unit}</Text>
+                      </Pressable>
+                    );
+                  })}
+                  <Text style={styles.customBefore}>before</Text>
+                </View>
+              ) : null}
+
+              <Text style={styles.sectionLabel}>REPEATS</Text>
+              <View style={styles.chips}>
+                {([null, ...REMINDER_REPEATS] as const).map((repeat) => {
+                  const active = reminderRepeat === repeat;
+                  return (
+                    <Pressable
+                      key={repeat ?? "never"}
+                      onPress={() => setReminderRepeat(repeat)}
+                      style={[styles.chip, active && styles.chipActive]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {repeat ? REPEAT_LABELS[repeat] : "Never"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* When it would go off, in words, as the choices change. */}
+              <Text style={styles.reminderWhen}>
+                {chosenBefore === null
+                  ? "How long before?"
+                  : nextReminder
+                    ? `Reminds you ${dayWords(nextReminder)} at ${formatClockTime(nextReminder)}.`
+                    : "That time has already passed, so it will not go off."}
+              </Text>
+              <Button size="lg" disabled={chosenBefore === null} onPress={() => void setReminder()}>
+                Set reminder
+              </Button>
+              {draft.remindBefore != null ? (
+                <Button variant="ghost" onPress={clearReminder}>
+                  No reminder
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.reminderWhen}>A reminder counts back from the task&apos;s day, so it needs one first.</Text>
+              <Button size="lg" onPress={() => setPanel("date")}>
+                Choose a day
+              </Button>
+            </>
+          )
         ) : panel === "confirmDelete" ? (
           <>
             {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -883,6 +1064,28 @@ function makeStyles(colors: Colors, scale: number) {
     // sheet's edges on narrow screens.
     picker: { marginHorizontal: -spacing[2] },
     reminderWhen: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
+    sectionLabel: {
+      fontFamily: fonts.baseSemi,
+      fontSize: textSize.label * scale,
+      letterSpacing: 1.2,
+      color: colors.mutedForeground,
+      marginBottom: -spacing[2],
+    },
+    customRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing[2] },
+    amountInput: {
+      minWidth: 56,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing[3],
+      paddingVertical: spacing[2],
+      fontFamily: fonts.baseSemi,
+      fontSize: textSize.body * scale,
+      color: colors.foreground,
+      textAlign: "center",
+    },
+    customBefore: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     timePicker: { alignItems: "center" },
     timeChip: { alignSelf: "flex-start", paddingRight: spacing[3] },
     timeChipText: { fontFamily: fonts.display, fontSize: textSize.title * scale, color: colors.foreground },

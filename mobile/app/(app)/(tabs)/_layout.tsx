@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { CalendarDays, Feather, LayoutDashboard } from "lucide-react-native";
+import { Feather, LayoutDashboard } from "lucide-react-native";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { fonts, textSize } from "../../../src/theme";
@@ -34,14 +34,6 @@ export default function TabsLayout() {
         options={{
           title: "Notes",
           tabBarIcon: ({ color, size }) => <Feather color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          href: TASKS_ENABLED ? undefined : null,
-          title: "Calendar",
-          tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} />,
         }}
       />
       <Tabs.Screen

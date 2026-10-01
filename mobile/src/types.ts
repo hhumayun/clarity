@@ -48,11 +48,14 @@ export type TaskRecord = {
    */
   noteIds?: string[];
   completeBy: Date | null;
+  /** Its time on its day, "HH:MM" on the phone's clock; null for any time that day. */
+  dueTime?: string | null;
   /**
-   * When to remind, or for a repeating reminder the time its series counts
-   * from. Missing from servers older than reminders.
+   * Minutes before its time (or 9:00 on its day, with no time) to remind;
+   * null for no reminder.
    */
-  remindAt?: Date | null;
+  remindBefore?: number | null;
+  /** How the task comes back once ticked off; null if it does not repeat. */
   remindRepeat?: ReminderRepeat | null;
   createdAt: Date;
   updatedAt: Date;

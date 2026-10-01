@@ -19,7 +19,7 @@ import { linkedNoteIds } from "../lib/taskLinks";
 import { focusMetaLabel } from "../lib/focus";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
-import { reminderTimeLabel, upcomingReminder } from "../lib/reminderRules";
+import { dueTimeLabel, reminderLabel } from "../lib/reminderRules";
 import type { TaskFocusSummary, TaskRecord, TaskStatus } from "../types";
 import { SwipeToComplete } from "./SwipeToComplete";
 import { UnsyncedMark } from "./UnsyncedMark";
@@ -130,15 +130,15 @@ function TaskCardRow({
   useEffect(() => {
     if (pendingDone !== null && pendingDone === done) setPendingDone(null);
   }, [done, pendingDone]);
-  // A repeating task ticked off is not finished: it moves on to its next time
+  // A repeating task ticked off is not finished: it moves on to its next day
   // and stays open. Once it has, the row lifts out of its done field again.
-  const seriesTime = task.remindRepeat ? task.remindAt?.getTime() : undefined;
-  const lastSeriesTime = useRef(seriesTime);
+  const repeatDay = task.remindRepeat ? task.completeBy?.getTime() : undefined;
+  const lastRepeatDay = useRef(repeatDay);
   useEffect(() => {
-    if (seriesTime === lastSeriesTime.current) return;
-    lastSeriesTime.current = seriesTime;
+    if (repeatDay === lastRepeatDay.current) return;
+    lastRepeatDay.current = repeatDay;
     if (pendingDone === true && !done) setPendingDone(null);
-  }, [seriesTime, pendingDone, done]);
+  }, [repeatDay, pendingDone, done]);
   useEffect(
     () => () => {
       if (completeTimer.current) clearTimeout(completeTimer.current);
@@ -237,17 +237,31 @@ function TaskCardRow({
     metaParts.push(
       <View key="due" style={styles.metaItem}>
         {due === "overdue" ? <CalendarDays size={13} color={colors.warning} /> : null}
-        <Text style={[styles.meta, due === "overdue" && styles.overdueText]}>{formatDue(task.completeBy)}</Text>
+        <Text style={[styles.meta, due === "overdue" && styles.overdueText]}>
+          {formatDue(task.completeBy)}
+          {task.dueTime ? `, ${dueTimeLabel(task.dueTime)}` : ""}
+        </Text>
       </View>,
     );
   }
-  // Its next reminder: just the time on the task's own day, else with its day.
-  const reminder = shownDone ? null : upcomingReminder(task);
-  if (reminder) {
+  // Where the day goes without saying (a day's own list, Today), its time.
+  if (task.completeBy && task.dueTime && (focus || !showDue)) {
+    metaParts.push(
+      <Text key="time" style={styles.meta}>
+        {dueTimeLabel(task.dueTime)}
+      </Text>,
+    );
+  }
+  // Its reminder, counted back from its time, and whether it repeats.
+  if (task.completeBy && (task.remindBefore != null || task.remindRepeat)) {
     metaParts.push(
       <View key="reminder" style={styles.metaItem}>
-        <Bell size={13} color={colors.mutedForeground} />
-        <Text style={styles.meta}>{reminderTimeLabel(reminder, task.completeBy)}</Text>
+        {task.remindBefore != null ? (
+          <>
+            <Bell size={13} color={colors.mutedForeground} />
+            <Text style={styles.meta}>{reminderLabel(task.remindBefore, Boolean(task.dueTime))}</Text>
+          </>
+        ) : null}
         {task.remindRepeat ? <Repeat size={12} color={colors.mutedForeground} /> : null}
       </View>,
     );

@@ -14,12 +14,13 @@ function todayAtNoon(): Date {
 
 function read(input: string): ParsedLine {
   const trimmed = input.trim().replace(/\s+/g, " ");
-  if (trimmed.length < PARSE_MIN_CHARS) return { text: trimmed, completeBy: null, datePhrase: null };
-  return readDueDate(trimmed, todayAtNoon());
+  if (trimmed.length < PARSE_MIN_CHARS) return { text: trimmed, completeBy: null, dueTime: null, datePhrase: null };
+  // Tasks here can carry a time, so "tomorrow at 3pm" sets one.
+  return readDueDate(trimmed, todayAtNoon(), { takeTime: true });
 }
 
 /**
- * Reads a due date out of the task line as it is typed, on the phone with
+ * Reads a due date (and a time) out of the task line as it is typed, on the phone with
  * chrono-node: no wait and no network, so the date chip keeps up with every
  * keystroke.
  */

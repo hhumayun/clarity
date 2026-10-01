@@ -1,7 +1,7 @@
 import { z } from "zod";
 import superjson from "superjson";
 import type { TaskRecord } from "../../helpers/TaskRecord";
-import { REMINDER_REPEAT_VALUES, TASK_STATUS_VALUES } from "../../helpers/TaskRecord";
+import { DUE_TIME_PATTERN, MAX_REMIND_BEFORE, REMINDER_REPEAT_VALUES, TASK_STATUS_VALUES } from "../../helpers/TaskRecord";
 import { apiFetch } from "../../helpers/apiFetch";
 
 export const schema = z.object({
@@ -11,8 +11,10 @@ export const schema = z.object({
   description: z.string().max(5000).optional(),
   projectId: z.string().uuid().optional(),
   completeBy: z.date().nullable().optional(),
-  /** null clears the reminder (and its repeat). */
-  remindAt: z.date().nullable().optional(),
+  /** The time on its day, "HH:MM"; null for any time. Cleared with the day. */
+  dueTime: z.string().regex(DUE_TIME_PATTERN).nullable().optional(),
+  /** Minutes before the task's time (or 9:00 on its day) to remind; null for none. */
+  remindBefore: z.number().int().min(0).max(MAX_REMIND_BEFORE).nullable().optional(),
   remindRepeat: z.enum(REMINDER_REPEAT_VALUES).nullable().optional(),
   status: z.enum(TASK_STATUS_VALUES).optional(),
 });

@@ -1,8 +1,9 @@
 import * as Notifications from "expo-notifications";
 import type { TaskRecord } from "../types";
+import { dateChipLabel } from "./dates";
 import { areaTag } from "./lifeCenter";
 import { readReminderData, type ReminderData } from "./notifications";
-import { wantedReminders } from "./reminderRules";
+import { dueTimeLabel, wantedReminders } from "./reminderRules";
 
 /**
  * Task reminders as local notifications: the phone schedules them itself,
@@ -31,7 +32,15 @@ export async function setUpReminderActions() {
   }
 }
 
-const bodyFor = (task: Pick<TaskRecord, "projectName">) => (task.projectName ? areaTag(task.projectName) : "");
+/**
+ * Under the task's words, when it is due as seen from when the reminder goes
+ * off ("Today at 3:00 pm", "Due tomorrow"), then its area.
+ */
+function bodyFor(task: Pick<TaskRecord, "projectName" | "dueTime">, day: Date, at: number): string {
+  const when = dateChipLabel(day, new Date(at));
+  const due = task.dueTime ? `${when} at ${dueTimeLabel(task.dueTime)}` : `Due ${when.charAt(0).toLowerCase()}${when.slice(1)}`;
+  return [due, task.projectName ? areaTag(task.projectName) : ""].filter(Boolean).join(" · ");
+}
 
 async function schedule(identifier: string, title: string, body: string, data: ReminderData) {
   try {
@@ -66,7 +75,7 @@ async function reconcileOnce(tasks: TaskRecord[]) {
       return Boolean(task && task.status !== "done");
     };
     const wanted = permission.granted ? wantedReminders(tasks) : [];
-    const wantedKeys = new Set(wanted.map((item) => item.key));
+    const wantedByKey = new Map(wanted.map((item) => [item.key, item]));
 
     // What is already waiting stays if it is still wanted, word for word.
     const have = new Set<string>();
@@ -79,8 +88,9 @@ async function reconcileOnce(tasks: TaskRecord[]) {
       }
       const task = byId.get(data.taskId);
       const key = `${data.taskId}:${data.at}`;
+      const want = wantedByKey.get(key);
       const current =
-        task && wantedKeys.has(key) && request.content.title === task.text && (request.content.body ?? "") === bodyFor(task);
+        task && want && request.content.title === task.text && (request.content.body ?? "") === bodyFor(task, want.day, want.at);
       if (current) have.add(key);
       else await cancel(request.identifier);
     }
@@ -89,7 +99,11 @@ async function reconcileOnce(tasks: TaskRecord[]) {
       if (have.has(item.key)) continue;
       const task = byId.get(item.taskId);
       if (!task) continue;
-      await schedule(`reminder:${item.key}`, task.text, bodyFor(task), { kind: "reminder", taskId: task.id, at: item.at });
+      await schedule(`reminder:${item.key}`, task.text, bodyFor(task, item.day, item.at), {
+        kind: "reminder",
+        taskId: task.id,
+        at: item.at,
+      });
     }
 
     // Reminders already shown for tasks since done or deleted leave the

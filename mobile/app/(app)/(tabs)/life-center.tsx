@@ -231,7 +231,8 @@ export default function LifeCenterScreen() {
       ...(draft.description !== undefined ? { description: draft.description } : {}),
       projectId: draft.projectId,
       completeBy: draft.completeBy,
-      remindAt: draft.remindAt,
+      dueTime: draft.dueTime,
+      remindBefore: draft.remindBefore,
       remindRepeat: draft.remindRepeat,
       status: draft.status,
     });

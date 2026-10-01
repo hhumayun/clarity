@@ -1,7 +1,7 @@
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { ArrowUp, CalendarDays, Hash, Plus, Sparkles, X } from "lucide-react-native";
+import { ArrowUp, CalendarDays, Clock, Hash, Plus, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,6 +21,7 @@ import { useKeyboardSlot } from "../hooks/useKeyboardSlot";
 import { usePresence } from "../hooks/usePresence";
 import { useTaskLineParse } from "../hooks/useTaskLineParse";
 import { atNoon, dateChipLabel, fromIsoDay, isSameDay } from "../lib/dates";
+import { dueTimeLabel, minutesOf, timeOf, timeToday } from "../lib/reminderRules";
 import { areaTag } from "../lib/lifeCenter";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../theme";
@@ -33,6 +34,8 @@ export type QuickAddDraft = {
   text: string;
   projectId: string;
   completeBy: Date | null;
+  /** Its time on that day, "HH:MM"; always null without a day. */
+  dueTime: string | null;
 };
 
 type Props = {
@@ -64,6 +67,19 @@ function addDays(days: number): Date {
   return atNoon(now.getFullYear(), now.getMonth(), now.getDate() + days);
 }
 
+/** The day a time with no day goes on: today while it is still to come, else tomorrow. */
+function dayForTime(time: string): Date {
+  const now = new Date();
+  return addDays((minutesOf(time) ?? 0) > now.getHours() * 60 + now.getMinutes() ? 0 : 1);
+}
+
+/** Where a new time starts: 9:00 on a later day, else the next whole hour. */
+function startTime(date: Date | null): string {
+  const now = new Date();
+  if (date && !isSameDay(date, now) && date.getTime() > now.getTime()) return "09:00";
+  return timeOf(Math.min(now.getHours() + 1, 23) * 60);
+}
+
 /**
  * One box above the keyboard: the task, a project chip, a date chip, send.
  * A due date typed into the line is read out on the phone and lands in the
@@ -89,6 +105,11 @@ export function QuickAddTask({
   const [projectId, setProjectId] = useState<string | null>(null);
   const [date, setDate] = useState<Date | null>(null);
   const [dateSource, setDateSource] = useState<DateSource>("none");
+  // The task's time on that day, read from the line ("at 3pm") or chosen.
+  const [dueTime, setDueTime] = useState<string | null>(null);
+  const [timeSource, setTimeSource] = useState<DateSource>("none");
+  // Android's clock is a dialog of its own.
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [expander, setExpander] = useState<Expander>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [newProject, setNewProject] = useState("");
@@ -122,8 +143,11 @@ export function QuickAddTask({
     setProjectId(defaults.defaultProjectId ?? defaults.projects[0]?.id ?? null);
     setDate(defaults.defaultDate);
     setDateSource(defaults.defaultDate ? "default" : "none");
+    setDueTime(null);
+    setTimeSource("none");
     setExpander(null);
     setPickerOpen(false);
+    setTimePickerOpen(false);
     setCalendar(false);
     slot.reset();
     setNewProject("");
@@ -132,16 +156,35 @@ export function QuickAddTask({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Let a time read from the line ("at 3pm") drive the time until the writer
+  // chooses one.
+  useEffect(() => {
+    if (timeSource === "manual" || parsed === null) return;
+    if (parsed.dueTime) {
+      if (parsed.dueTime !== dueTime || timeSource !== "read") {
+        setDueTime(parsed.dueTime);
+        setTimeSource("read");
+      }
+    } else if (timeSource === "read") {
+      setDueTime(null);
+      setTimeSource("none");
+    }
+  }, [parsed, timeSource, dueTime]);
+
   // Let the date read from the line drive the date chip until the writer
-  // takes over.
+  // takes over. A time alone ("at 3pm") puts the task on a day too.
   useEffect(() => {
     if (dateSource === "manual" || parsed === null) return;
-    if (parsed.completeBy) {
-      const found = fromIsoDay(parsed.completeBy);
-      if (found && !isSameDay(found, date)) {
+    const found = parsed.completeBy
+      ? fromIsoDay(parsed.completeBy)
+      : parsed.dueTime
+        ? (defaultsRef.current.defaultDate ?? dayForTime(parsed.dueTime))
+        : null;
+    if (found) {
+      if (!isSameDay(found, date)) {
         setDate(found);
         setDateSource("read");
-      } else if (found && dateSource !== "read") {
+      } else if (dateSource !== "read") {
         setDateSource("read");
       }
       return;
@@ -165,15 +208,21 @@ export function QuickAddTask({
     try {
       let finalText = raw;
       let completeBy = date;
+      let time = dueTime;
+      // Read the final text, in case it changed since the chips last did.
+      const line = await settle(raw);
+      const readDay = line.completeBy ? fromIsoDay(line.completeBy) : null;
       if (dateSource !== "manual") {
-        // Read the final text, in case it changed since the chip last did.
-        const line = await settle(raw);
-        const found = line.completeBy ? fromIsoDay(line.completeBy) : null;
-        completeBy = found ?? defaultsRef.current.defaultDate;
-        if (found && line.text.trim()) finalText = line.text.trim();
+        completeBy = readDay ?? (line.dueTime ? (defaultsRef.current.defaultDate ?? dayForTime(line.dueTime)) : defaultsRef.current.defaultDate);
+        if (timeSource !== "manual") time = line.dueTime;
+        if ((readDay || line.dueTime) && line.text.trim()) finalText = line.text.trim();
+      } else if (timeSource !== "manual" && line.dueTime && !readDay) {
+        // A time alone, on the day chosen by hand.
+        time = line.dueTime;
+        if (line.text.trim()) finalText = line.text.trim();
       }
       Keyboard.dismiss();
-      await onSubmit({ text: finalText, projectId, completeBy });
+      await onSubmit({ text: finalText, projectId, completeBy, dueTime: completeBy ? time : null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "That task could not be added. Please try again.");
     } finally {
@@ -197,13 +246,35 @@ export function QuickAddTask({
     setPickerOpen(false);
   };
 
+  // In the date panel a choice is made in place, so a time can follow it;
+  // in Android's row of choices it returns to the line.
   const chooseDate = (value: Date | null) => {
     setDate(value);
     setDateSource("manual");
-    setExpander(null);
+    if (!value) {
+      setDueTime(null);
+      setTimeSource("manual");
+    }
     setPickerOpen(false);
-    if (calendar) closeCalendar();
-    else refocus();
+    if (calendar) return;
+    setExpander(null);
+    refocus();
+  };
+
+  // A time chosen with no day puts the task on one.
+  const chooseTime = (time: string | null) => {
+    setDueTime(time);
+    setTimeSource("manual");
+    if (time && !date) {
+      setDate(dayForTime(time));
+      setDateSource("manual");
+    }
+  };
+
+  const onPickedTime = (event: DateTimePickerEvent, picked?: Date) => {
+    setTimePickerOpen(false);
+    if (event.type === "dismissed" || !picked) return;
+    chooseTime(timeOf(picked));
   };
 
   const openPicker = () => {
@@ -222,7 +293,7 @@ export function QuickAddTask({
   const onPicked = (event: DateTimePickerEvent, picked?: Date) => {
     if (event.type === "dismissed") {
       setPickerOpen(false);
-      refocus();
+      if (!calendar) refocus();
       return;
     }
     if (picked) chooseDate(atNoon(picked.getFullYear(), picked.getMonth(), picked.getDate()));
@@ -267,6 +338,20 @@ export function QuickAddTask({
     { label: "Tomorrow", value: addDays(1) },
     { label: "Next week", value: addDays(7) },
   ];
+  const dayChoices = shortcuts.map((option) => {
+    const active = option.value === null ? date === null : isSameDay(option.value, date);
+    return (
+      <Pressable
+        key={option.label}
+        onPress={() => chooseDate(option.value)}
+        style={[styles.chip, active && styles.chipSet]}
+        accessibilityRole="button"
+        accessibilityState={{ selected: active }}
+      >
+        <Text style={[styles.chipText, active && styles.chipTextSet]}>{option.label}</Text>
+      </Pressable>
+    );
+  });
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
@@ -355,37 +440,42 @@ export function QuickAddTask({
             </View>
           </Collapse>
 
-          <Collapse open={expander === "date"}>
-            <View style={[styles.chips, styles.unfold]}>
-              {shortcuts.map((option) => {
-                const active =
-                  option.value === null ? date === null : isSameDay(option.value, date);
-                return (
+          {/* Android: the day's choices unfold above the toolbar, and the
+              calendar and clock are dialogs of their own. iOS has them all
+              in one panel in the keyboard's place, below. */}
+          {Platform.OS !== "ios" ? (
+            <>
+              <Collapse open={expander === "date"}>
+                <View style={[styles.chips, styles.unfold]}>
+                  {dayChoices}
+                  <Pressable onPress={openPicker} style={styles.chip} accessibilityLabel="Pick a date">
+                    <CalendarDays size={14} color={colors.mutedForeground} />
+                    <Text style={styles.chipText}>Pick…</Text>
+                  </Pressable>
                   <Pressable
-                    key={option.label}
-                    onPress={() => chooseDate(option.value)}
-                    style={[styles.chip, active && styles.chipSet]}
+                    onPress={() => setTimePickerOpen(true)}
+                    style={[styles.chip, dueTime && styles.chipSet]}
+                    accessibilityLabel={dueTime ? `At ${dueTimeLabel(dueTime)}. Change time` : "Add a time"}
                   >
-                    <Text style={[styles.chipText, active && styles.chipTextSet]}>
-                      {option.label}
+                    <Clock size={14} color={dueTime ? colors.accentForeground : colors.mutedForeground} />
+                    <Text style={[styles.chipText, dueTime && styles.chipTextSet]}>
+                      {dueTime ? dueTimeLabel(dueTime) : "Time"}
                     </Text>
                   </Pressable>
-                );
-              })}
-              <Pressable onPress={openPicker} style={styles.chip} accessibilityLabel="Pick a date">
-                <CalendarDays size={14} color={colors.mutedForeground} />
-                <Text style={styles.chipText}>Pick…</Text>
-              </Pressable>
-            </View>
-          </Collapse>
-
-          {Platform.OS !== "ios" && pickerOpen ? (
-            <DateTimePicker
-              value={date ?? new Date()}
-              mode="date"
-              display="default"
-              onChange={onPicked}
-            />
+                </View>
+              </Collapse>
+              {pickerOpen ? (
+                <DateTimePicker value={date ?? new Date()} mode="date" display="default" onChange={onPicked} />
+              ) : null}
+              {timePickerOpen ? (
+                <DateTimePicker
+                  value={timeToday(dueTime ?? startTime(date))}
+                  mode="time"
+                  display="default"
+                  onChange={onPickedTime}
+                />
+              ) : null}
+            </>
           ) : null}
 
           <View style={styles.toolbar}>
@@ -400,17 +490,21 @@ export function QuickAddTask({
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => toggle("date")}
-              style={[styles.chip, date && styles.chipSet, expander === "date" && styles.chipOpen]}
-              accessibilityLabel={date ? `Due ${dateChipLabel(date)}. Change date` : "Set a due date"}
+              onPress={() => (Platform.OS === "ios" ? (calendar ? closeCalendar() : openPicker()) : toggle("date"))}
+              style={[styles.chip, date && styles.chipSet, (expander === "date" || calendar) && styles.chipOpen]}
+              accessibilityLabel={
+                date
+                  ? `Due ${dateChipLabel(date)}${dueTime ? ` at ${dueTimeLabel(dueTime)}` : ""}. Change date`
+                  : "Set a due date"
+              }
             >
-              {dateSource === "read" ? (
+              {dateSource === "read" || timeSource === "read" ? (
                 <Sparkles size={14} color={colors.accentForeground} />
               ) : (
                 <CalendarDays size={14} color={date ? colors.accentForeground : colors.mutedForeground} />
               )}
-              <Text style={[styles.chipText, date && styles.chipTextSet]}>
-                {date ? dateChipLabel(date) : "Date"}
+              <Text style={[styles.chipText, date && styles.chipTextSet]} numberOfLines={1}>
+                {date ? `${dateChipLabel(date)}${dueTime ? `, ${dueTimeLabel(dueTime)}` : ""}` : "Date"}
               </Text>
             </Pressable>
             <View style={styles.flex} />
@@ -441,19 +535,11 @@ export function QuickAddTask({
                   slot.contentHeight.value = event.nativeEvent.layout.height;
                 }}
               >
-                {/* Put the calendar away without choosing: back to the task. */}
-                <View style={styles.calendarHead}>
-                  <Pressable
-                    onPress={closeCalendar}
-                    hitSlop={8}
-                    style={({ pressed }) => [styles.calendarClose, pressed && styles.pressedDim]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Close the calendar"
-                  >
-                    <X size={18} color={colors.foreground} />
-                  </Pressable>
-                  <Text style={styles.calendarTitle}>Pick a date</Text>
-                </View>
+                {/* One panel for the day and its time: the quick choices, the
+                    calendar under them, and the time. Choosing here stays
+                    here; tapping the line (or the date chip) goes back to
+                    typing. */}
+                <View style={styles.chips}>{dayChoices}</View>
                 <DateTimePicker
                   value={date ?? new Date()}
                   mode="date"
@@ -462,6 +548,42 @@ export function QuickAddTask({
                   themeVariant={dark ? "dark" : "light"}
                   onChange={onPicked}
                 />
+                <View style={styles.timeRow}>
+                  <Clock size={18} color={dueTime ? colors.foreground : colors.mutedForeground} />
+                  {dueTime ? (
+                    <>
+                      <Text style={styles.timeLabel}>Time</Text>
+                      <View style={styles.grow} />
+                      <DateTimePicker
+                        value={timeToday(dueTime)}
+                        mode="time"
+                        display="compact"
+                        minuteInterval={5}
+                        accentColor={colors.primary}
+                        themeVariant={dark ? "dark" : "light"}
+                        onChange={onPickedTime}
+                      />
+                      <Pressable
+                        onPress={() => chooseTime(null)}
+                        hitSlop={8}
+                        style={({ pressed }) => [styles.timeClear, pressed && styles.pressedDim]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove the time"
+                      >
+                        <X size={18} color={colors.mutedForeground} />
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Pressable
+                      onPress={() => chooseTime(startTime(date))}
+                      style={({ pressed }) => [styles.addTime, pressed && styles.pressedDim]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Add a time"
+                    >
+                      <Text style={styles.addTimeText}>Add a time</Text>
+                    </Pressable>
+                  )}
+                </View>
               </Animated.View>
             </Animated.View>
           ) : null}
@@ -497,18 +619,23 @@ function makeStyles(colors: Colors, scale: number) {
     // at all when folded away.
     unfold: { paddingTop: spacing[3] },
     clip: { overflow: "hidden" },
-    calendarHead: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
-    calendarClose: {
-      width: 32,
-      height: 32,
-      marginLeft: -6,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: radius.full,
-    },
     pressedDim: { opacity: 0.6 },
-    calendarTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
-    slotContent: { position: "absolute", top: 0, left: 0, right: 0, paddingTop: spacing[3] },
+    slotContent: { position: "absolute", top: 0, left: 0, right: 0, paddingTop: spacing[3], gap: spacing[2] },
+    // The time, under the calendar, ruled off from it.
+    timeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing[2],
+      minHeight: 48,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: spacing[2],
+    },
+    timeLabel: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
+    grow: { flex: 1 },
+    timeClear: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+    addTime: { paddingVertical: spacing[2] },
+    addTimeText: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.primary },
     input: {
       fontFamily: fonts.base,
       fontSize: textSize.large * scale,

@@ -17,7 +17,7 @@ export type SuggestionSource = "ai" | "history" | "offline" | "prompt";
 
 export type TaskStatus = "done" | "in_progress" | "todo";
 
-/** How a reminder repeats; a TEXT column with a CHECK (migration 010). */
+/** How a task repeats; a TEXT column with a CHECK (migration 010). */
 export type ReminderRepeat = "daily" | "monthly" | "weekdays" | "weekly";
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
@@ -127,8 +127,11 @@ export interface Tasks {
   description: Generated<string>;
   id: string;
   noteId: string | null;
+  /** The task's time on its day, "HH:MM" on the writer's clock (migration 011). */
+  dueTime: string | null;
   projectId: string;
-  remindAt: Timestamp | null;
+  /** Minutes before the task's time (or 9:00 on its day) to remind (migration 011). */
+  remindBefore: number | null;
   remindRepeat: ReminderRepeat | null;
   sourceFingerprint: string | null;
   status: Generated<TaskStatus>;

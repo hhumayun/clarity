@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, spacing, textSize, type Colors } from "../theme";
 import type { TaskRecord, TaskStatus } from "../types";
+import { sortTasks } from "../lib/taskSort";
 import { TaskCard } from "./TaskCard";
 
 type Props = {
@@ -27,7 +28,8 @@ export function DayTasks({ tasks, onStatusChange, onOpenMenu, onAdd, emptyText =
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
-  const open = tasks.filter((task) => task.status !== "done");
+  // Open ones with a time first, in time order.
+  const open = sortTasks(tasks.filter((task) => task.status !== "done"));
   const done = tasks.filter((task) => task.status === "done");
 
   const row = (task: TaskRecord) => (

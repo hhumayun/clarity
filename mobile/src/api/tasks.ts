@@ -32,7 +32,8 @@ export async function postTaskCreate(
     projectId?: string;
     projectName?: string;
     completeBy?: Date | null;
-    remindAt?: Date | null;
+    dueTime?: string | null;
+    remindBefore?: number | null;
     remindRepeat?: ReminderRepeat | null;
     status?: TaskStatus;
     noteId?: string | null;
@@ -55,7 +56,8 @@ export async function postTaskUpdate(
     description?: string;
     projectId?: string;
     completeBy?: Date | null;
-    remindAt?: Date | null;
+    dueTime?: string | null;
+    remindBefore?: number | null;
     remindRepeat?: ReminderRepeat | null;
     status?: TaskStatus;
   },
