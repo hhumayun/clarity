@@ -1,10 +1,13 @@
 import { randomUUID } from "expo-crypto";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { getTaskNotes, getTasksList, postTaskSummary, postTasksAdd, postTasksExtract } from "../api/tasks";
+import { dateChipLabel, formatClockTime } from "../lib/dates";
+import { withReminders, type TaskChange } from "../lib/reminderRules";
 import { linkedNoteIds } from "../lib/taskLinks";
+import { useToast } from "../providers/ToastProvider";
 import { unlessSyncing } from "../sync/cache";
 import { outbox } from "../sync/store";
-import type { LinkedNote, ProjectRecord, TaskRecord, TaskStatus } from "../types";
+import type { LinkedNote, ProjectRecord, ReminderRepeat, TaskRecord, TaskStatus } from "../types";
 import { findCachedNote } from "./useNotes";
 
 export const TASKS_QUERY_KEY = ["tasks"] as const;
@@ -21,6 +24,15 @@ function editTaskLists(queryClient: QueryClient, edit: (data: TasksListOutput, l
   for (const [key, data] of queryClient.getQueriesData<TasksListOutput>({ queryKey: TASKS_QUERY_KEY })) {
     if (data) queryClient.setQueryData(key, edit(data, String(key[1])));
   }
+}
+
+/** A task as the phone has it, from whichever list holds it. */
+export function findCachedTask(queryClient: QueryClient, id: string): TaskRecord | undefined {
+  for (const [, data] of queryClient.getQueriesData<TasksListOutput>({ queryKey: TASKS_QUERY_KEY })) {
+    const task = data?.tasks.find((item) => item.id === id);
+    if (task) return task;
+  }
+  return undefined;
 }
 
 /** The areas the phone knows about. */
@@ -57,6 +69,7 @@ function ensureProject(queryClient: QueryClient, rawName: string): ProjectRecord
  */
 export function useTasks(noteId?: string, enabled = true) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const queryKey = [...TASKS_QUERY_KEY, noteId ?? "all"] as const;
 
   const query = useQuery({
@@ -98,6 +111,8 @@ export function useTasks(noteId?: string, enabled = true) {
       projectId?: string;
       projectName?: string;
       completeBy?: Date | null;
+      remindAt?: Date | null;
+      remindRepeat?: ReminderRepeat | null;
       status?: TaskStatus;
       noteId?: string | null;
     }) => {
@@ -119,6 +134,8 @@ export function useTasks(noteId?: string, enabled = true) {
         noteId: body.noteId ?? null,
         noteIds: body.noteId ? [body.noteId] : [],
         completeBy: body.completeBy ?? null,
+        remindAt: body.remindAt ?? null,
+        remindRepeat: body.remindAt ? (body.remindRepeat ?? null) : null,
         createdAt: now,
         updatedAt: now,
       };
@@ -131,6 +148,7 @@ export function useTasks(noteId?: string, enabled = true) {
           description: task.description,
           projectId,
           completeBy: task.completeBy,
+          ...(task.remindAt ? { remindAt: task.remindAt, remindRepeat: task.remindRepeat ?? null } : {}),
           status: task.status,
           noteId: task.noteId,
         },
@@ -144,15 +162,10 @@ export function useTasks(noteId?: string, enabled = true) {
   });
 
   const update = useMutation({
-    mutationFn: async (body: {
-      id: string;
-      text?: string;
-      description?: string;
-      projectId?: string;
-      completeBy?: Date | null;
-      status?: TaskStatus;
-    }) => {
+    mutationFn: async (asked: TaskChange) => {
+      const { change: body, rolledTo } = withReminders(asked, findCachedTask(queryClient, asked.id));
       outbox.enqueue({ kind: "task.update", body });
+      if (rolledTo) toast.show(`Next: ${dateChipLabel(rolledTo)}, ${formatClockTime(rolledTo)}`);
       const projects = cachedProjects(queryClient);
       editTaskLists(queryClient, (data) => ({
         ...data,
@@ -164,6 +177,8 @@ export function useTasks(noteId?: string, enabled = true) {
                 ...(body.text !== undefined ? { text: body.text } : {}),
                 ...(body.description !== undefined ? { description: body.description } : {}),
                 ...(body.completeBy !== undefined ? { completeBy: body.completeBy } : {}),
+                ...(body.remindAt !== undefined ? { remindAt: body.remindAt } : {}),
+                ...(body.remindRepeat !== undefined ? { remindRepeat: body.remindRepeat } : {}),
                 ...(body.projectId !== undefined
                   ? {
                       projectId: body.projectId,
@@ -175,6 +190,7 @@ export function useTasks(noteId?: string, enabled = true) {
             : task,
         ),
       }));
+      return { rolledTo };
     },
   });
 
@@ -183,10 +199,7 @@ export function useTasks(noteId?: string, enabled = true) {
   const link = useMutation({
     mutationFn: async (body: { taskId: string; noteId: string; linked: boolean }) => {
       outbox.enqueue({ kind: "task.link", body });
-      const known = queryClient
-        .getQueriesData<TasksListOutput>({ queryKey: TASKS_QUERY_KEY })
-        .flatMap(([, data]) => data?.tasks ?? [])
-        .find((task) => task.id === body.taskId);
+      const known = findCachedTask(queryClient, body.taskId);
       const relink = (task: TaskRecord): TaskRecord => {
         const ids = linkedNoteIds(task).filter((id) => id !== body.noteId);
         return { ...task, noteIds: body.linked ? [...ids, body.noteId] : ids };

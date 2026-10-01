@@ -1,7 +1,7 @@
 import superjson from "superjson";
 import { apiFetch } from "./apiFetch";
 import { jsonHeaders, parseResponse } from "./parse";
-import type { LinkedNote, ProjectRecord, SuggestedTask, TaskRecord, TaskStatus, TaskSummary } from "../types";
+import type { LinkedNote, ProjectRecord, ReminderRepeat, SuggestedTask, TaskRecord, TaskStatus, TaskSummary } from "../types";
 import { dueDayAtLocalNoon, localIsoDay } from "../lib/dates";
 
 export async function getTasksList(
@@ -32,6 +32,8 @@ export async function postTaskCreate(
     projectId?: string;
     projectName?: string;
     completeBy?: Date | null;
+    remindAt?: Date | null;
+    remindRepeat?: ReminderRepeat | null;
     status?: TaskStatus;
     noteId?: string | null;
   },
@@ -53,6 +55,8 @@ export async function postTaskUpdate(
     description?: string;
     projectId?: string;
     completeBy?: Date | null;
+    remindAt?: Date | null;
+    remindRepeat?: ReminderRepeat | null;
     status?: TaskStatus;
   },
   init?: RequestInit,

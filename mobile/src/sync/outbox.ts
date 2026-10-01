@@ -6,6 +6,7 @@
  */
 
 export type TaskStatusValue = "todo" | "in_progress" | "done";
+export type ReminderRepeatValue = "daily" | "weekdays" | "weekly" | "monthly";
 
 export type Op =
   | {
@@ -34,6 +35,8 @@ export type Op =
         description?: string;
         projectId: string;
         completeBy: Date | null;
+        remindAt?: Date | null;
+        remindRepeat?: ReminderRepeatValue | null;
         status: TaskStatusValue;
         noteId?: string | null;
       };
@@ -46,6 +49,8 @@ export type Op =
         description?: string;
         projectId?: string;
         completeBy?: Date | null;
+        remindAt?: Date | null;
+        remindRepeat?: ReminderRepeatValue | null;
         status?: TaskStatusValue;
       };
     }
@@ -137,7 +142,7 @@ const isUpdate = (op: Op) => op.kind.endsWith(".update");
 // into its still-unsent create.
 const CREATE_FIELDS: Record<string, Set<string>> = {
   "note.create": new Set(["title", "content", "projectIds"]),
-  "task.create": new Set(["text", "description", "projectId", "completeBy", "status"]),
+  "task.create": new Set(["text", "description", "projectId", "completeBy", "remindAt", "remindRepeat", "status"]),
   "project.create": new Set(["name"]),
 };
 

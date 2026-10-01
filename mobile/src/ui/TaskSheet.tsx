@@ -2,6 +2,7 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import {
+  Bell,
   Check,
   ChevronDown,
   FileText,
@@ -19,7 +20,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
-import { atNoon, dateChipLabel, dueDayOptions, isSameDay } from "../lib/dates";
+import { atNoon, dateChipLabel, dueDayOptions, formatClockTime, isSameDay } from "../lib/dates";
+import { ensureNotificationPermission } from "../lib/notifications";
+import {
+  defaultReminderTime,
+  nextOccurrence,
+  onDay,
+  reminderFor,
+  reminderLabel,
+  REMINDER_REPEATS,
+  REPEAT_LABELS,
+} from "../lib/reminderRules";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaTag } from "../lib/lifeCenter";
 import { linkedNoteIds } from "../lib/taskLinks";
@@ -28,6 +39,7 @@ import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import {
   type ProjectRecord,
+  type ReminderRepeat,
   type TaskRecord,
   type TaskStatus,
 } from "../types";
@@ -46,6 +58,9 @@ export type TaskDraft = {
   description?: string;
   projectId: string | null;
   completeBy: Date | null;
+  /** A time on the task; for a repeating one, the time its series counts from. */
+  remindAt: Date | null;
+  remindRepeat: ReminderRepeat | null;
   status: TaskStatus;
 };
 
@@ -91,7 +106,7 @@ function sameDue(a: Date | null, b: Date | null): boolean {
  * delete, which once opened a dialog over the sheet and froze the screen
  * behind it after both closed.
  */
-type Panel = "actions" | "move" | "task" | "chooseProject" | "project" | "date" | "confirmDelete";
+type Panel = "actions" | "move" | "task" | "chooseProject" | "project" | "date" | "reminder" | "confirmDelete";
 
 function draftFrom(
   task: TaskRecord | null | undefined,
@@ -104,6 +119,8 @@ function draftFrom(
       description: task.description ?? "",
       projectId: task.projectId,
       completeBy: task.completeBy,
+      remindAt: task.remindAt ?? null,
+      remindRepeat: task.remindAt ? (task.remindRepeat ?? null) : null,
       status: task.status,
     };
   }
@@ -112,6 +129,8 @@ function draftFrom(
     description: "",
     projectId: defaultProjectId ?? projects[0]?.id ?? null,
     completeBy: null,
+    remindAt: null,
+    remindRepeat: null,
     status: "todo",
   };
 }
@@ -150,6 +169,11 @@ export function TaskSheet({
   const [movePickerOpen, setMovePickerOpen] = useState(false);
   // Android's calendar is a dialog of its own, opened from the date page.
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  // The reminder page's choices, kept apart until "Set reminder".
+  const [reminderTime, setReminderTime] = useState(() => defaultReminderTime(null));
+  const [reminderRepeat, setReminderRepeat] = useState<ReminderRepeat | null>(null);
+  // Android's clock is a dialog of its own, like its calendar.
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
   const editing = Boolean(task);
   const noteCount = task ? linkedNoteIds(task).length : 0;
   // Where "back" goes from a sub-face: the panel the sheet opened on.
@@ -164,6 +188,7 @@ export function TaskSheet({
       setPanel(task && (startPanel === "actions" || startPanel === "move") ? startPanel : "task");
       setMovePickerOpen(false);
       setDatePickerOpen(false);
+      setTimePickerOpen(false);
     }
   }, [open, task?.id, defaultProjectId, projects, startPanel]);
 
@@ -209,7 +234,46 @@ export function TaskSheet({
     }
   };
 
-  const setDate = (date: Date | null) => setDraft((current) => ({ ...current, completeBy: date }));
+  // A reminder is a time on the task's day, so a new day takes it along.
+  const setDate = (date: Date | null) =>
+    setDraft((current) => ({
+      ...current,
+      completeBy: date,
+      remindAt:
+        date && current.remindAt && !isSameDay(date, current.remindAt) ? onDay(date, current.remindAt) : current.remindAt,
+    }));
+
+  const openReminder = () => {
+    setReminderTime(draft.remindAt ?? defaultReminderTime(draft.completeBy));
+    setReminderRepeat(draft.remindAt ? draft.remindRepeat : null);
+    setTimePickerOpen(false);
+    setPanel("reminder");
+  };
+
+  // When the reminder on the page would first go off.
+  const reminderAt = reminderFor(draft.completeBy, reminderTime);
+  const firstReminder = nextOccurrence(reminderAt, reminderRepeat, new Date());
+
+  const setReminder = async () => {
+    if (!firstReminder) return;
+    setDraft((current) => ({ ...current, remindAt: reminderAt, remindRepeat: reminderRepeat }));
+    setPanel("task");
+    // Asked here, the first time it matters; saved either way.
+    if (!(await ensureNotificationPermission())) {
+      toast.show("Notifications are off, so this reminder will not sound. You can turn them on in Settings.");
+    }
+  };
+
+  const clearReminder = () => {
+    setDraft((current) => ({ ...current, remindAt: null, remindRepeat: null }));
+    setPanel("task");
+  };
+
+  const handleTimePicked = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== "ios") setTimePickerOpen(false);
+    if (event.type === "dismissed" || !date) return;
+    setReminderTime(date);
+  };
 
   // A new day, once saved, is said out loud: the task has usually just left
   // the list on screen.
@@ -274,6 +338,7 @@ export function TaskSheet({
       description: "A short name is easiest to recognise later.",
     },
     date: { title: "Due date" },
+    reminder: { title: "Reminder" },
     confirmDelete: {
       title: "Delete this task?",
       description: "It will stay hidden even if you refresh tasks from the note it came from.",
@@ -521,6 +586,22 @@ export function TaskSheet({
                 </Text>
                 <ChevronDown size={15} color={colors.mutedForeground} />
               </Pressable>
+              <Pressable
+                onPress={openReminder}
+                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  draft.remindAt
+                    ? `Reminder: ${reminderLabel(draft.remindAt, draft.remindRepeat, draft.completeBy)}. Change reminder`
+                    : "No reminder. Set a reminder"
+                }
+              >
+                <Bell size={15} color={draft.remindAt ? colors.foreground : colors.mutedForeground} />
+                <Text style={[styles.pickText, !draft.remindAt && styles.pickTextEmpty]} numberOfLines={1}>
+                  {draft.remindAt ? reminderLabel(draft.remindAt, draft.remindRepeat, draft.completeBy) : "Reminder"}
+                </Text>
+                <ChevronDown size={15} color={colors.mutedForeground} />
+              </Pressable>
             </View>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -575,6 +656,72 @@ export function TaskSheet({
               </Pressable>
             </View>
             {error ? <Text style={styles.error}>{error}</Text> : null}
+          </>
+        ) : panel === "reminder" ? (
+          <>
+            {/* When it would go off, in words, as the choices change. */}
+            <Text style={styles.reminderWhen}>
+              {firstReminder
+                ? reminderRepeat
+                  ? `${REPEAT_LABELS[reminderRepeat]} at ${formatClockTime(reminderAt)}, from ${dateChipLabel(firstReminder)}`
+                  : `${dateChipLabel(firstReminder)} at ${formatClockTime(firstReminder)}`
+                : `${formatClockTime(reminderAt)} has already passed today`}
+            </Text>
+            {/* iOS shows the clock in the page; Android's is a dialog of its
+                own, opened from the time. */}
+            {Platform.OS === "ios" ? (
+              <View style={styles.timePicker}>
+                <DateTimePicker
+                  value={reminderTime}
+                  mode="time"
+                  display="spinner"
+                  minuteInterval={5}
+                  themeVariant={dark ? "dark" : "light"}
+                  textColor={colors.foreground}
+                  onChange={handleTimePicked}
+                />
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => setTimePickerOpen(true)}
+                  style={({ pressed }) => [styles.pick, styles.timeChip, pressed && styles.pickPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Time: ${formatClockTime(reminderTime)}. Change time`}
+                >
+                  <Text style={styles.timeChipText}>{formatClockTime(reminderTime)}</Text>
+                </Pressable>
+                {timePickerOpen ? (
+                  <DateTimePicker value={reminderTime} mode="time" display="default" onChange={handleTimePicked} />
+                ) : null}
+              </>
+            )}
+            <View style={styles.chips}>
+              {([null, ...REMINDER_REPEATS] as const).map((repeat) => {
+                const active = reminderRepeat === repeat;
+                return (
+                  <Pressable
+                    key={repeat ?? "never"}
+                    onPress={() => setReminderRepeat(repeat)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {repeat ? REPEAT_LABELS[repeat] : "Once"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Button size="lg" disabled={!firstReminder} onPress={() => void setReminder()}>
+              Set reminder
+            </Button>
+            {draft.remindAt ? (
+              <Button variant="ghost" onPress={clearReminder}>
+                No reminder
+              </Button>
+            ) : null}
           </>
         ) : panel === "confirmDelete" ? (
           <>
@@ -735,6 +882,10 @@ function makeStyles(colors: Colors, scale: number) {
     // The inline calendar draws its own padding; this just keeps it off the
     // sheet's edges on narrow screens.
     picker: { marginHorizontal: -spacing[2] },
+    reminderWhen: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
+    timePicker: { alignItems: "center" },
+    timeChip: { alignSelf: "flex-start", paddingRight: spacing[3] },
+    timeChipText: { fontFamily: fonts.display, fontSize: textSize.title * scale, color: colors.foreground },
     face: { gap: spacing[4] },
     deleteText: { color: colors.error },
     // Plain text under the title: no box, the task's own words above it.

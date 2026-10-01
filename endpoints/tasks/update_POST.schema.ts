@@ -1,7 +1,7 @@
 import { z } from "zod";
 import superjson from "superjson";
 import type { TaskRecord } from "../../helpers/TaskRecord";
-import { TASK_STATUS_VALUES } from "../../helpers/TaskRecord";
+import { REMINDER_REPEAT_VALUES, TASK_STATUS_VALUES } from "../../helpers/TaskRecord";
 import { apiFetch } from "../../helpers/apiFetch";
 
 export const schema = z.object({
@@ -11,6 +11,9 @@ export const schema = z.object({
   description: z.string().max(5000).optional(),
   projectId: z.string().uuid().optional(),
   completeBy: z.date().nullable().optional(),
+  /** null clears the reminder (and its repeat). */
+  remindAt: z.date().nullable().optional(),
+  remindRepeat: z.enum(REMINDER_REPEAT_VALUES).nullable().optional(),
   status: z.enum(TASK_STATUS_VALUES).optional(),
 });
 export type InputType = z.infer<typeof schema>;

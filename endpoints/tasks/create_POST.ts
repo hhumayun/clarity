@@ -86,6 +86,8 @@ export async function handle(request: Request) {
           text: input.text.trim().replace(/\s+/g, " "),
           description: input.description?.trim() ?? "",
           completeBy: input.completeBy ?? null,
+          remindAt: input.remindAt ?? null,
+          remindRepeat: input.remindAt ? (input.remindRepeat ?? null) : null,
           status: input.status ?? "todo",
           sourceFingerprint: null,
           updatedAt: now,

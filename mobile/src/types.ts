@@ -7,6 +7,7 @@ export interface User {
 }
 
 export type TaskStatus = "done" | "in_progress" | "todo";
+export type ReminderRepeat = "daily" | "weekdays" | "weekly" | "monthly";
 export type SuggestionSource = "ai" | "history" | "offline" | "prompt";
 export type SuggestionAction = "accepted" | "dismissed" | "edited" | "shown";
 export type EntityType = "activity" | "event" | "person" | "place" | "topic";
@@ -47,6 +48,12 @@ export type TaskRecord = {
    */
   noteIds?: string[];
   completeBy: Date | null;
+  /**
+   * When to remind, or for a repeating reminder the time its series counts
+   * from. Missing from servers older than reminders.
+   */
+  remindAt?: Date | null;
+  remindRepeat?: ReminderRepeat | null;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -1,5 +1,5 @@
 import type { Selectable } from "kysely";
-import type { Projects, Tasks, TaskStatus } from "./schema";
+import type { Projects, ReminderRepeat, Tasks, TaskStatus } from "./schema";
 
 export type ProjectRecord = Omit<
   Selectable<Projects>,
@@ -20,6 +20,8 @@ export type TaskRecord = Omit<
 };
 
 export const TASK_STATUS_VALUES = ["todo", "in_progress", "done"] as const;
+
+export const REMINDER_REPEAT_VALUES = ["daily", "weekdays", "weekly", "monthly"] as const satisfies readonly ReminderRepeat[];
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To do",

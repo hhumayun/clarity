@@ -2,6 +2,7 @@ import { useAuth as useClerkAuth } from "@clerk/clerk-expo";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useCallback, useContext, useEffect } from "react";
 import { getSession } from "../api/session";
+import { cancelAllReminders } from "../lib/reminders";
 import { clearOfflineData } from "../sync/persist";
 import { registerTokenGetter } from "../api/apiFetch";
 import type { User } from "../types";
@@ -71,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
     await signOut();
     await clearOfflineData(queryClient);
+    await cancelAllReminders();
   }, [queryClient, signOut]);
 
   return (

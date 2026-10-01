@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -178,6 +178,16 @@ export default function LifeCenterScreen() {
   const now = new Date();
   const projects = useMemo(() => sortProjects(query.data?.projects ?? []), [query.data?.projects]);
   const allTasks = useMemo(() => query.data?.tasks ?? [], [query.data?.tasks]);
+
+  // Opened from a reminder: that task's sheet, once the tasks are here.
+  const { task: remindedId } = useLocalSearchParams<{ task?: string }>();
+  useEffect(() => {
+    if (!remindedId || !query.data) return;
+    const task = query.data.tasks.find((item) => item.id === remindedId);
+    router.setParams({ task: undefined });
+    if (task) setEditing(task);
+    else toast.show("That task is no longer here.");
+  }, [remindedId, query.data, router, toast]);
   const loading = query.isFetching && !query.data;
   const activeArea: ProjectRecord | null =
     areaFilter === ALL ? null : projects.find((project) => project.id === areaFilter) ?? null;
@@ -221,6 +231,8 @@ export default function LifeCenterScreen() {
       ...(draft.description !== undefined ? { description: draft.description } : {}),
       projectId: draft.projectId,
       completeBy: draft.completeBy,
+      remindAt: draft.remindAt,
+      remindRepeat: draft.remindRepeat,
       status: draft.status,
     });
   };

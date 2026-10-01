@@ -10,7 +10,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import { CalendarDays, Check, FileText, Timer } from "lucide-react-native";
+import { Bell, CalendarDays, Check, FileText, Repeat, Timer } from "lucide-react-native";
 import { fonts, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { formatPlannedDate } from "../lib/dates";
@@ -19,6 +19,7 @@ import { linkedNoteIds } from "../lib/taskLinks";
 import { focusMetaLabel } from "../lib/focus";
 import { hapticDone, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
+import { reminderTimeLabel, upcomingReminder } from "../lib/reminderRules";
 import type { TaskFocusSummary, TaskRecord, TaskStatus } from "../types";
 import { SwipeToComplete } from "./SwipeToComplete";
 import { UnsyncedMark } from "./UnsyncedMark";
@@ -129,6 +130,15 @@ function TaskCardRow({
   useEffect(() => {
     if (pendingDone !== null && pendingDone === done) setPendingDone(null);
   }, [done, pendingDone]);
+  // A repeating task ticked off is not finished: it moves on to its next time
+  // and stays open. Once it has, the row lifts out of its done field again.
+  const seriesTime = task.remindRepeat ? task.remindAt?.getTime() : undefined;
+  const lastSeriesTime = useRef(seriesTime);
+  useEffect(() => {
+    if (seriesTime === lastSeriesTime.current) return;
+    lastSeriesTime.current = seriesTime;
+    if (pendingDone === true && !done) setPendingDone(null);
+  }, [seriesTime, pendingDone, done]);
   useEffect(
     () => () => {
       if (completeTimer.current) clearTimeout(completeTimer.current);
@@ -228,6 +238,17 @@ function TaskCardRow({
       <View key="due" style={styles.metaItem}>
         {due === "overdue" ? <CalendarDays size={13} color={colors.warning} /> : null}
         <Text style={[styles.meta, due === "overdue" && styles.overdueText]}>{formatDue(task.completeBy)}</Text>
+      </View>,
+    );
+  }
+  // Its next reminder: just the time on the task's own day, else with its day.
+  const reminder = shownDone ? null : upcomingReminder(task);
+  if (reminder) {
+    metaParts.push(
+      <View key="reminder" style={styles.metaItem}>
+        <Bell size={13} color={colors.mutedForeground} />
+        <Text style={styles.meta}>{reminderTimeLabel(reminder, task.completeBy)}</Text>
+        {task.remindRepeat ? <Repeat size={12} color={colors.mutedForeground} /> : null}
       </View>,
     );
   }
