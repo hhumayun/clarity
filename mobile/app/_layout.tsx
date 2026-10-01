@@ -71,7 +71,7 @@ export default function RootLayout() {
   return (
     // Native gestures (a task row's swipe to done) need this at the root.
     <GestureHandlerRootView style={styles.root}>
-    // Clerk's resource cache lets the session load with no connection.
+    {/* Clerk's resource cache lets the session load with no connection. */}
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} __experimental_resourceCache={resourceCache}>
       {/* Notes, tasks and the session are kept on the phone, so the app
           opens with them offline. */}
