@@ -23,7 +23,6 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -35,9 +34,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { FadeSwitch } from "../../../src/ui/FadeSwitch";
-import { Collapse } from "../../../src/ui/Collapse";
 import { DayTasks } from "../../../src/ui/DayTasks";
-import { MonthGrid, type DayMarks } from "../../../src/ui/MonthGrid";
+import { DayCalendar } from "../../../src/ui/DayCalendar";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
 import { SyncBar } from "../../../src/ui/SyncBar";
@@ -60,18 +58,19 @@ import { useTasks } from "../../../src/hooks/useTasks";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { atNoon, dateChipLabel, formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
 import {
+  addDays,
+  calendarWeek,
   dayHeading,
   dayKey,
   daysAgo,
   displayTitle,
   groupNotesByDay,
-  monthGrid,
+  mondayOf,
   monthTitle,
   notesOnDay,
   parseNoteSearch,
   stripRange,
-  weeksBackFor,
-  weekStrip,
+  weeksBetween,
 } from "../../../src/lib/notesList";
 import { dueTimeLabel } from "../../../src/lib/reminderRules";
 import { taskCountByNote } from "../../../src/lib/taskSort";
@@ -88,18 +87,8 @@ import { Sheet } from "../../../src/ui/Sheet";
 const BACKFILL_FLAG = "clarity:backfilled";
 const VIEW_KEY = "clarity:notes-view";
 const STRIP_KEY = "clarity:notes-strip";
-// A sideways swipe on the dates this long changes the week (or the month).
-const SWIPE_WEEK = 50;
-// Pulling the day's header down this far brings the dates, then the month;
-// pushing it up puts them away again.
+// Pulling the day's header down this far brings back dates folded away.
 const SWIPE_PULL = 30;
-const MONTH_OUT_MS = 140;
-const MONTH_IN_MS = 240;
-
-// A month as one number (year × 12 + month), so it can cross to and from the
-// animation thread, which cannot carry a Date.
-const monthIndexOf = (date: Date) => date.getFullYear() * 12 + date.getMonth();
-const monthStart = (index: number) => new Date(Math.floor(index / 12), index % 12, 1);
 // Start loading older notes this far (in points) before the end of the list,
 // so they are usually there by the time you reach it.
 // What the virtualized Notes list draws: a day's label, or a note.
@@ -120,9 +109,6 @@ export default function NotesListScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(() => new Date());
-  // Which seven days the journal shows: 0 is the last seven, 1 the seven
-  // before that, and so on back.
-  const [weeksBack, setWeeksBack] = useState(0);
   const [jumpOpen, setJumpOpen] = useState(false);
   // The day view's dates fold away when its title is tapped (4a).
   const [stripOpen, setStripOpen] = useState(true);
@@ -268,13 +254,17 @@ export default function NotesListScreen() {
         : [],
     [listShown, isError, groups],
   );
-  const strip = useMemo(() => weekStrip(new Date(), weeksBack), [weeksBack]);
+  // The day view's week: Monday first, one row of the month it sits in.
+  const weekKey = dayKey(mondayOf(selectedDay));
+  // The key names the week; selectedDay is a new Date on every change of day.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const week = useMemo(() => calendarWeek(selectedDay), [weekKey]);
   // The journal asks for its own week by date, so any week can be shown, not
   // just those inside the newest-200 the list loads.
-  const weekParams = useMemo(() => stripRange(strip), [strip]);
+  const weekParams = useMemo(() => stripRange(week), [week]);
   const weekQuery = useNotes(weekParams, { enabled: view === "days" && !showArchived });
   // While a new week loads, the previous week's notes are still held as a
-  // placeholder; they must not paint dots onto the new days.
+  // placeholder; they must not show under the new day.
   const weekNotes = weekQuery.isPlaceholderData ? [] : (weekQuery.data?.notes ?? []);
   const dayNotes = useMemo(() => notesOnDay(weekNotes, selectedDay), [weekNotes, selectedDay]);
   // The day's tasks: the ones due that day, finished ones included.
@@ -305,115 +295,51 @@ export default function NotesListScreen() {
       { onError: () => toast.show("That change could not be saved. Please try again.") },
     );
   };
+  // Days with open tasks due, for the dates' teal marks.
+  const taskDays = useMemo(
+    () =>
+      new Set(
+        (TASKS_ENABLED ? (tasks.query.data?.tasks ?? []) : []).flatMap((task) =>
+          task.completeBy && task.status !== "done" ? [dayKey(task.completeBy)] : [],
+        ),
+      ),
+    [tasks.query.data?.tasks],
+  );
 
-  // After paging, land on the most recent day of that week that has notes,
-  // rather than an empty last day. Only once per page, when its notes arrive.
+  // After swiping back to an earlier week, land on its latest day with notes
+  // rather than an empty one. Only once per swipe, when its notes arrive.
   useEffect(() => {
     if (!autoPick.current || weekQuery.isPlaceholderData || !weekQuery.data) return;
     autoPick.current = false;
     if (notesOnDay(weekNotes, selectedDay).length > 0) return;
-    const withNotes = [...strip].reverse().find((day) => notesOnDay(weekNotes, day.date).length > 0);
+    const withNotes = [...week].reverse().find((day) => notesOnDay(weekNotes, day.date).length > 0);
     if (withNotes) setSelectedDay(withNotes.date);
-  }, [weekQuery.data, weekQuery.isPlaceholderData, weekNotes, strip, selectedDay]);
+  }, [weekQuery.data, weekQuery.isPlaceholderData, weekNotes, week, selectedDay]);
 
-  // Changing week slides the strip and the day's notes sideways: earlier
-  // dates live to the left, so going back pushes this week off to the right
-  // and brings the earlier one in from the left; going forward, the reverse.
-  // A plain animated offset, not a layout animation: out, swap, back in.
-  const { width: screenWidth } = useWindowDimensions();
-  const slideX = useSharedValue(0);
-  const slideWidth = useSharedValue(screenWidth);
-  useEffect(() => {
-    slideWidth.value = screenWidth;
-  }, [screenWidth, slideWidth]);
-  const weeksBackRef = useRef(weeksBack);
-  weeksBackRef.current = weeksBack;
-  // Where a slide in progress is heading, so a second quick tap counts from
-  // there and moves on a further week rather than repeating the first.
-  const pendingWeek = useRef<number | null>(null);
-  const slideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (slideTimer.current) clearTimeout(slideTimer.current);
-    },
-    [],
-  );
-  const slideStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: slideX.value }],
-    opacity: 1 - 0.7 * Math.min(1, Math.abs(slideX.value) / Math.max(1, slideWidth.value)),
-  }));
-
-  // The day's notes do not travel with the dates. They fade away as the
-  // dates start to move and come back, rising slightly, only when the dates
-  // have stopped AND the new week's notes have arrived, so they never show
-  // "No notes on this day" for a moment before the real notes land.
+  // The day's notes and tasks fade as the day changes and come back, rising
+  // slightly, once the new day is built and (from another week) once that
+  // week's notes are here, so "No notes" never shows for a moment before the
+  // real notes land. The dates themselves move under the finger.
   const dayReveal = useSharedValue(1);
   const dayRevealStyle = useAnimatedStyle(() => ({
     opacity: dayReveal.value,
     transform: [{ translateY: (1 - dayReveal.value) * 10 }],
   }));
   const awaitingReveal = useRef(false);
-  const [slideSettled, setSlideSettled] = useState(true);
-
-  const SLIDE_OUT_MS = 140;
   const DAY_OUT_MS = 110;
-  const SLIDE_IN_MS = 240;
-  const changeWeek = (next: number, day: Date, pickDayWithNotes: boolean) => {
-    const target = Math.max(0, next);
-    const current = weeksBackRef.current;
-    if (target === current) {
-      setSelectedDay(day);
-      autoPick.current = pickDayWithNotes;
-      return;
-    }
-    // +1 = content moves right (going back to earlier dates).
-    const dir = target > current ? 1 : -1;
-    const distance = slideWidth.value * 0.6;
-    pendingWeek.current = target;
-    setPendingDay(null);
-    if (slideTimer.current) clearTimeout(slideTimer.current);
-    awaitingReveal.current = true;
-    setSlideSettled(false);
-    dayReveal.value = withTiming(0, { duration: MOTION.fast, easing: EASE_IN });
-    slideX.value = withTiming(dir * distance, { duration: SLIDE_OUT_MS, easing: EASE_IN });
-    slideTimer.current = setTimeout(() => {
-      slideTimer.current = null;
-      pendingWeek.current = null;
-      weeksBackRef.current = target;
-      setWeeksBack(target);
-      setSelectedDay(day);
-      autoPick.current = pickDayWithNotes;
-      slideX.value = -dir * distance;
-      slideX.value = withTiming(0, { duration: SLIDE_IN_MS, easing: EASE_OUT });
-      // The dates have stopped once the slide-in has run.
-      slideTimer.current = setTimeout(() => {
-        slideTimer.current = null;
-        setSlideSettled(true);
-      }, SLIDE_IN_MS);
-    }, SLIDE_OUT_MS);
-  };
-  // Another day in the same week. The tap shows at once (the circle and the
-  // header move); the day's notes and tasks fade out, the new day is built
-  // while nothing is showing, and it fades in rising slightly — the same
-  // as moving between weeks. Building it in view is what made it lag and
-  // flash. Taps in quick succession land on the last.
   const [pendingDay, setPendingDay] = useState<Date | null>(null);
   const shownDay = pendingDay ?? selectedDay;
   const revealDay = useRef(false);
-  // The animation callback runs on the UI thread, which cannot carry a
-  // Date: the day crosses as a number and becomes a Date again here.
-  const commitDay = (dayMs: number) => {
-    revealDay.current = true;
+  // Once the old day has faded: the new one is built while nothing shows.
+  // A day in the same week comes straight back; one from another week waits
+  // for that week's notes. The animation callback runs on the UI thread,
+  // which cannot carry a Date: the day crosses as a number.
+  const commitDay = (dayMs: number, otherWeek: boolean, withNotes: boolean) => {
+    if (otherWeek) awaitingReveal.current = true;
+    else revealDay.current = true;
     setSelectedDay(new Date(dayMs));
     setPendingDay(null);
-  };
-  const pickDay = (day: Date) => {
-    if (isSameDay(day, shownDay)) return;
-    setPendingDay(day);
-    const dayMs = day.getTime();
-    dayReveal.value = withTiming(0, { duration: DAY_OUT_MS, easing: EASE_IN }, (finished) => {
-      if (finished) runOnJS(commitDay)(dayMs);
-    });
+    autoPick.current = withNotes;
   };
   useEffect(() => {
     if (!revealDay.current) return;
@@ -421,12 +347,36 @@ export default function NotesListScreen() {
     dayReveal.value = withTiming(1, { duration: MOTION.slow, easing: EASE_OUT });
   }, [selectedDay, dayReveal]);
 
+  /**
+   * Show another day. The dates mark it at once; the day's notes and tasks
+   * fade, and the new ones come in once built. `withNotes` moves on to the
+   * week's latest day with notes if this one has none. Days chosen in quick
+   * succession land on the last: a new fade replaces one still running.
+   */
+  const showDay = (day: Date, withNotes = false) => {
+    const target = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    if (isSameDay(target, shownDay)) return;
+    setPendingDay(target);
+    const dayMs = target.getTime();
+    const otherWeek = weeksBetween(selectedDay, target) !== 0;
+    dayReveal.value = withTiming(0, { duration: DAY_OUT_MS, easing: EASE_IN }, (finished) => {
+      if (finished) runOnJS(commitDay)(dayMs, otherWeek, withNotes);
+    });
+  };
+
   const weekReady = weekQuery.isError || (Boolean(weekQuery.data) && !weekQuery.isPlaceholderData);
   useEffect(() => {
-    if (!awaitingReveal.current || !slideSettled || !weekReady) return;
+    if (!awaitingReveal.current || !weekReady) return;
     awaitingReveal.current = false;
     dayReveal.value = withTiming(1, { duration: MOTION.slow, easing: EASE_OUT });
-  }, [slideSettled, weekReady, selectedDay, dayReveal]);
+  }, [weekReady, selectedDay, dayReveal]);
+  // The weeks either side are fetched ahead, so swiping to one shows its
+  // notes at once.
+  const weekLoaded = Boolean(weekQuery.data) && !weekQuery.isPlaceholderData;
+  useEffect(() => {
+    if (!weekLoaded) return;
+    for (const days of [-7, 7]) void prefetchNotes(queryClient, stripRange(calendarWeek(addDays(week[0].date, days))));
+  }, [weekLoaded, week, queryClient]);
   // If the journal is left mid-change (another view, the archive), never
   // come back to hidden notes.
   useEffect(() => {
@@ -435,12 +385,22 @@ export default function NotesListScreen() {
     dayReveal.value = 1;
   }, [view, showArchived, dayReveal]);
 
-  const stepWeek = (delta: number) => {
-    const target = Math.max(0, (pendingWeek.current ?? weeksBackRef.current) + delta);
-    const page = weekStrip(new Date(), target);
-    changeWeek(target, page[page.length - 1].date, true);
+  // The dates swiped to another week: today in this week, else the same
+  // weekday there (an earlier week moves on to a day with notes).
+  const onWeekChange = (monday: Date) => {
+    const today = new Date();
+    if (weeksBetween(today, monday) === 0) {
+      showDay(today);
+      return;
+    }
+    showDay(addDays(monday, (selectedDay.getDay() + 6) % 7), monday.getTime() < mondayOf(today).getTime());
   };
-  const jumpTo = (day: Date) => changeWeek(weeksBackFor(day), day, false);
+  // The month swiped to another month: today in this month, else its 1st.
+  const onMonthChange = (first: Date) => {
+    const today = new Date();
+    showDay(first.getFullYear() === today.getFullYear() && first.getMonth() === today.getMonth() ? today : first);
+  };
+  const jumpTo = (day: Date) => showDay(day);
   const onJumpPicked = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS !== "ios") setJumpOpen(false);
     if (event.type === "dismissed" || !date) return;
@@ -448,22 +408,6 @@ export default function NotesListScreen() {
     if (Platform.OS === "ios") setJumpOpen(false);
   };
 
-  // With the week arrows gone (4a), the dates are swiped sideways instead:
-  // right for the week before, left for the week after. Captured before the
-  // day buttons, so a sideways drag never taps a day.
-  const stepWeekRef = useRef(stepWeek);
-  stepWeekRef.current = stepWeek;
-  const swipe = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-        onPanResponderRelease: (_, g) => {
-          if (g.dx > SWIPE_WEEK) stepWeekRef.current(1);
-          else if (g.dx < -SWIPE_WEEK && weeksBackRef.current > 0) stepWeekRef.current(-1);
-        },
-      }),
-    [],
-  );
   const chevron = useSharedValue(stripOpen ? 1 : 0);
   useEffect(() => {
     chevron.value = withTiming(stripOpen ? 1 : 0, { duration: MOTION.base, easing: EASE_OUT });
@@ -475,109 +419,17 @@ export default function NotesListScreen() {
     void AsyncStorage.setItem(STRIP_KEY, next ? "open" : "closed").catch(() => {});
   };
 
-  // The month. Pulling the dates down opens it in their place: a month of
-  // days marked with the notes written and the tasks due, any of which can be
-  // picked, future days included. Pushing it up brings the week back.
-  const [monthOpen, setMonthOpen] = useState(false);
-  const [gridMonth, setGridMonth] = useState(() => monthIndexOf(new Date()));
-  const gridStart = useMemo(() => monthStart(gridMonth), [gridMonth]);
-  const monthRange = useMemo(() => stripRange(monthGrid(gridStart)), [gridStart]);
-  const monthQuery = useNotes(monthRange, { enabled: monthOpen && view === "days" && !showArchived });
-  // While another month loads, the last one's notes must not mark its days.
-  const monthNotes = useMemo(
-    () => (monthQuery.isPlaceholderData ? [] : (monthQuery.data?.notes ?? [])),
-    [monthQuery.isPlaceholderData, monthQuery.data],
-  );
-  // The months either side are fetched ahead, so moving to one is instant.
-  const monthLoaded = monthOpen && Boolean(monthQuery.data) && !monthQuery.isPlaceholderData;
-  useEffect(() => {
-    if (!monthLoaded) return;
-    for (const delta of [-1, 1]) void prefetchNotes(queryClient, stripRange(monthGrid(monthStart(gridMonth + delta))));
-  }, [gridMonth, monthLoaded, queryClient]);
-  const monthMarks = useMemo(() => {
-    const byDay = new Map<string, DayMarks>();
-    const mark = (date: Date, kind: keyof DayMarks) => {
-      const key = dayKey(date);
-      const marked = byDay.get(key) ?? { notes: false, tasks: false };
-      marked[kind] = true;
-      byDay.set(key, marked);
-    };
-    for (const note of monthNotes) mark(note.createdAt, "notes");
-    for (const task of tasks.query.data?.tasks ?? []) {
-      if (task.completeBy && task.status !== "done") mark(task.completeBy, "tasks");
-    }
-    return byDay;
-  }, [monthNotes, tasks.query.data?.tasks]);
-
-  // Another month slides in sideways: a later one from the right.
-  const monthSlide = useSharedValue(0);
-  const monthSlideStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: monthSlide.value }],
-    opacity: 1 - 0.8 * Math.min(1, Math.abs(monthSlide.value) / 160),
-  }));
-  const gridTarget = useRef(gridMonth);
-  const commitMonth = (index: number, dir: number) => {
-    setGridMonth(index);
-    monthSlide.value = -dir * screenWidth * 0.4;
-    monthSlide.value = withTiming(0, { duration: MONTH_IN_MS, easing: EASE_OUT });
-  };
-  const changeMonth = (delta: number) => {
-    if (delta === 0) return;
-    const next = gridTarget.current + delta;
-    gridTarget.current = next;
-    const dir = delta > 0 ? -1 : 1;
-    monthSlide.value = withTiming(dir * screenWidth * 0.4, { duration: MONTH_OUT_MS, easing: EASE_IN }, (finished) => {
-      if (finished) runOnJS(commitMonth)(next, dir);
-    });
-  };
-  const openMonth = () => {
-    const index = monthIndexOf(shownDay);
-    gridTarget.current = index;
-    setGridMonth(index);
-    monthSlide.value = 0;
-    setMonthOpen(true);
-  };
-  // A day picked in the month is shown below it, as one picked in the week
-  // is; one from the month either side brings that month in too.
-  const pickFromMonth = (day: Date) => {
-    const picked = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-    changeMonth(monthIndexOf(picked) - gridTarget.current);
-    if (weeksBackFor(picked) === (pendingWeek.current ?? weeksBackRef.current)) pickDay(picked);
-    else changeWeek(weeksBackFor(picked), picked, false);
-  };
-
-  // Down: the dates, then the month. Up: back the same way.
-  const pullDown = () => {
-    if (!stripOpen) toggleStrip();
-    else if (!monthOpen) openMonth();
-  };
-  const pushUp = () => {
-    if (monthOpen) setMonthOpen(false);
-    else if (stripOpen) toggleStrip();
-  };
-  const pullRef = useRef({ pullDown, pushUp });
-  pullRef.current = { pullDown, pushUp };
-  const pull = useMemo(
+  // Whether the dates are open on the month, which then names it.
+  const [calendarMonth, setCalendarMonth] = useState(false);
+  // Pulled down while the dates are folded away: they come back.
+  const unfold = useRef(toggleStrip);
+  unfold.current = toggleStrip;
+  const pullOpen = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > 14 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+        onMoveShouldSetPanResponderCapture: (_, g) => g.dy > 14 && g.dy > Math.abs(g.dx) * 1.5,
         onPanResponderRelease: (_, g) => {
-          if (g.dy > SWIPE_PULL) pullRef.current.pullDown();
-          else if (g.dy < -SWIPE_PULL) pullRef.current.pushUp();
-        },
-      }),
-    [],
-  );
-  // Sideways on the month: the month before or after.
-  const changeMonthRef = useRef(changeMonth);
-  changeMonthRef.current = changeMonth;
-  const monthSwipe = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-        onPanResponderRelease: (_, g) => {
-          if (g.dx > SWIPE_WEEK) changeMonthRef.current(-1);
-          else if (g.dx < -SWIPE_WEEK) changeMonthRef.current(1);
+          if (g.dy > SWIPE_PULL) unfold.current();
         },
       }),
     [],
@@ -641,11 +493,12 @@ export default function NotesListScreen() {
   );
 
   // The day view's header (4a): the day on the left (tap to fold the dates
-  // away, press and hold to go to another day), plain icons on the right,
-  // the week's dates below, and one hairline under it all. It stays put
-  // while the day's notes and tasks scroll beneath it.
+  // away, press and hold to go to another day), Today when another day is
+  // showing, plain icons on the right, then the dates, and one hairline under
+  // it all. It stays put while the day's notes and tasks scroll beneath it.
+  const onToday = isSameDay(shownDay, new Date());
   const dayHeader = (
-    <View style={styles.dayHeader} {...pull.panHandlers}>
+    <View style={styles.dayHeader} {...(stripOpen ? {} : pullOpen.panHandlers)}>
       <View style={styles.dayHeaderRow}>
         <Pressable
           onPress={toggleStrip}
@@ -663,82 +516,34 @@ export default function NotesListScreen() {
               <ChevronDown size={16} color={colors.mutedForeground} />
             </Animated.View>
           </View>
+          {/* With the month open, the month it shows. */}
           <Text style={styles.daySub} numberOfLines={1}>
-            {formatLongDate(shownDay)}
+            {calendarMonth && stripOpen ? monthTitle(shownDay) : formatLongDate(shownDay)}
           </Text>
         </Pressable>
+        {onToday ? null : (
+          <Pressable
+            onPress={() => showDay(new Date())}
+            hitSlop={8}
+            style={({ pressed }) => [styles.todayLink, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Go to today"
+          >
+            <Text style={styles.todayText}>Today</Text>
+          </Pressable>
+        )}
         {headerIcons}
       </View>
-      <Collapse open={stripOpen && !monthOpen}>
-        <Animated.View style={[styles.stripWrap, slideStyle]} {...swipe.panHandlers}>
-          {strip.map((day) => {
-            const active = isSameDay(day.date, shownDay);
-            const hasNotes = weekNotes.some((note) => isSameDay(note.createdAt, day.date));
-            return (
-              <Pressable
-                key={day.key}
-                onPress={() => pickDay(day.date)}
-                style={styles.stripDay}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`${formatLongDate(day.date)}${hasNotes ? ", has notes" : ""}`}
-              >
-                <Text style={styles.stripLetter}>{day.letter}</Text>
-                <View style={[styles.stripCircle, active && styles.stripCircleActive]}>
-                  <Text
-                    style={[
-                      styles.stripNumber,
-                      !active && !hasNotes && styles.stripNumberQuiet,
-                      active && styles.stripNumberActive,
-                    ]}
-                  >
-                    {day.day}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </Animated.View>
-      </Collapse>
-      <Collapse open={monthOpen}>
-        <View style={styles.month} {...monthSwipe.panHandlers}>
-          <View style={styles.monthBar}>
-            <Text style={styles.monthTitle}>{monthTitle(gridStart)}</Text>
-            <Pressable
-              onPress={() => changeMonth(-1)}
-              hitSlop={6}
-              style={({ pressed }) => [styles.monthArrow, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel="Previous month"
-            >
-              <ChevronLeft size={20} color={colors.foreground} />
-            </Pressable>
-            <Pressable
-              onPress={() => changeMonth(1)}
-              hitSlop={6}
-              style={({ pressed }) => [styles.monthArrow, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel="Next month"
-            >
-              <ChevronRight size={20} color={colors.foreground} />
-            </Pressable>
-          </View>
-          <Animated.View style={monthSlideStyle}>
-            <MonthGrid month={gridStart} selected={shownDay} marks={monthMarks} onPick={pickFromMonth} />
-          </Animated.View>
-        </View>
-      </Collapse>
-      {/* The handle: pull the header down for the month, push it up for the
-          week; a tap does the same. */}
-      <Pressable
-        onPress={() => (monthOpen ? pushUp() : pullDown())}
-        hitSlop={{ top: 6, bottom: 10, left: 40, right: 40 }}
-        style={styles.handleArea}
-        accessibilityRole="button"
-        accessibilityLabel={monthOpen ? "Show the week" : stripOpen ? "Show the month" : "Show the dates"}
-      >
-        <View style={styles.handle} />
-      </Pressable>
+      <DayCalendar
+        open={stripOpen}
+        selected={shownDay}
+        taskDays={taskDays}
+        onPick={showDay}
+        onWeekChange={onWeekChange}
+        onMonthChange={onMonthChange}
+        onMonthOpenChange={setCalendarMonth}
+        onPushUp={toggleStrip}
+      />
     </View>
   );
 
@@ -946,14 +751,13 @@ export default function NotesListScreen() {
             value={selectedDay}
             mode="date"
             display="inline"
-            maximumDate={new Date()}
             accentColor={colors.primary}
             themeVariant={dark ? "dark" : "light"}
             onChange={onJumpPicked}
           />
         </Sheet>
       ) : jumpOpen ? (
-        <DateTimePicker value={selectedDay} mode="date" display="default" maximumDate={new Date()} onChange={onJumpPicked} />
+        <DateTimePicker value={selectedDay} mode="date" display="default" onChange={onJumpPicked} />
       ) : null}
 
       <TaskMenu
@@ -1105,22 +909,9 @@ function makeStyles(colors: Colors, scale: number) {
     dayTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     dayTitle: { flexShrink: 1, fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     daySub: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
-    stripWrap: { flexDirection: "row", marginTop: spacing[4] },
-    month: { marginTop: spacing[3] },
-    monthBar: { flexDirection: "row", alignItems: "center", gap: spacing[1], paddingBottom: spacing[3] },
-    monthTitle: { flex: 1, fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
-    monthArrow: { width: 36, height: 32, alignItems: "center", justifyContent: "center" },
-    // A small bar under the dates, the way into the month.
-    handleArea: { alignSelf: "center", paddingTop: spacing[2], marginBottom: -6 },
-    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border },
-    stripDay: { flex: 1, alignItems: "center", gap: 6 },
-    stripLetter: { fontFamily: fonts.baseSemi, fontSize: textSize.label * scale, color: colors.mutedForeground },
-    stripCircle: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
-    stripCircleActive: { backgroundColor: colors.primary },
-    stripNumber: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.foreground },
-    // Days without notes are quieter than days with them.
-    stripNumberQuiet: { fontFamily: fonts.base, color: colors.mutedForeground },
-    stripNumberActive: { color: colors.primaryForeground },
+    // Back to today, beside the day's name when another day is showing.
+    todayLink: { paddingHorizontal: spacing[2], paddingVertical: spacing[1] },
+    todayText: { fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.primary },
     dayBlock: { gap: spacing[1] },
     noNotes: {
       fontFamily: fonts.base,

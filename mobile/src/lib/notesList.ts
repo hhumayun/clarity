@@ -154,16 +154,39 @@ export function inRange(date: Date, range: DateRange | null): boolean {
 
 export type StripDay = { key: string; date: Date; letter: string; day: number };
 
-/**
- * Seven days, oldest first. `weeksBack` 0 ends today; 1 is the seven days
- * before that, and so on, so paging back never skips or repeats a day.
- */
-export function weekStrip(now: Date = new Date(), weeksBack = 0): StripDay[] {
-  const today = startOfDay(now);
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7 * weeksBack);
-  return Array.from({ length: 7 }, (_, i) =>
-    stripDay(new Date(end.getFullYear(), end.getMonth(), end.getDate() - (6 - i))),
-  );
+/** The Monday of the week a day is in: weeks start on Monday, as the month does. */
+export function mondayOf(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - ((date.getDay() + 6) % 7));
+}
+
+/** The day `days` on from `date` (or back, if negative), at its start. */
+export function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+/** The week a day is in, Monday first: one row of its month. */
+export function calendarWeek(date: Date): StripDay[] {
+  const monday = mondayOf(date);
+  return Array.from({ length: 7 }, (_, i) => stripDay(addDays(monday, i)));
+}
+
+// A day as a count of days on a calendar with no clock changes, so days can
+// be counted by subtracting.
+const dayNumber = (date: Date) => Math.round(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS);
+
+/** Whole weeks from the week `from` is in to the week `to` is in: 1 is the week after. */
+export function weeksBetween(from: Date, to: Date): number {
+  return Math.round((dayNumber(mondayOf(to)) - dayNumber(mondayOf(from))) / 7);
+}
+
+/** Whole months from the month `from` is in to the month `to` is in. */
+export function monthsBetween(from: Date, to: Date): number {
+  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+}
+
+/** Which of its month's six rows a day sits in, 0 to 5. */
+export function rowInMonth(date: Date): number {
+  return Math.floor((dayNumber(date) - dayNumber(monthGrid(date)[0].date)) / 7);
 }
 
 /** A day's key in strips and grids: the same for any time on that day. */
@@ -200,28 +223,13 @@ export function notesOnDay<T extends NoteLike>(notes: T[], day: Date): T[] {
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-/** "Today", "Yesterday", or the weekday's name. */
+/** "Today", "Yesterday", "Tomorrow", or the weekday's name. */
 export function dayHeading(day: Date, now: Date = new Date()): string {
   const ago = daysAgo(day, now);
   if (ago === 0) return "Today";
   if (ago === 1) return "Yesterday";
+  if (ago === -1) return "Tomorrow";
   return WEEKDAYS[day.getDay()];
-}
-
-/** Which page of the journal a day is on: 0 for the last seven days. */
-export function weeksBackFor(day: Date, now: Date = new Date()): number {
-  return Math.max(0, Math.floor(daysAgo(day, now) / 7));
-}
-
-/** "Sep 16 – 22", or "Aug 30 – Sep 5" across a month, with the year if not this one. */
-export function stripRangeLabel(strip: StripDay[], now: Date = new Date()): string {
-  const first = strip[0].date;
-  const last = strip[strip.length - 1].date;
-  const month = (d: Date) => MONTHS[d.getMonth()].slice(0, 3);
-  const year = last.getFullYear() !== now.getFullYear() ? `, ${last.getFullYear()}` : "";
-  return first.getMonth() === last.getMonth()
-    ? `${month(first)} ${first.getDate()} – ${last.getDate()}${year}`
-    : `${month(first)} ${first.getDate()} – ${month(last)} ${last.getDate()}${year}`;
 }
 
 /** The half-open range [start, end) covering a strip, for asking the server. */
