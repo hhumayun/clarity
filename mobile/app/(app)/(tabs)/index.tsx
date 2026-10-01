@@ -31,6 +31,7 @@ import {
 import Animated, {
   FadeIn,
   FadeInDown,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -319,6 +320,7 @@ export default function NotesListScreen() {
   const [slideSettled, setSlideSettled] = useState(true);
 
   const SLIDE_OUT_MS = 140;
+  const DAY_OUT_MS = 110;
   const SLIDE_IN_MS = 240;
   const changeWeek = (next: number, day: Date, pickDayWithNotes: boolean) => {
     const target = Math.max(0, next);
@@ -332,6 +334,7 @@ export default function NotesListScreen() {
     const dir = target > current ? 1 : -1;
     const distance = slideWidth.value * 0.6;
     pendingWeek.current = target;
+    setPendingDay(null);
     if (slideTimer.current) clearTimeout(slideTimer.current);
     awaitingReveal.current = true;
     setSlideSettled(false);
@@ -353,6 +356,32 @@ export default function NotesListScreen() {
       }, SLIDE_IN_MS);
     }, SLIDE_OUT_MS);
   };
+  // Another day in the same week. The tap shows at once (the circle and the
+  // header move); the day's notes and tasks fade out, the new day is built
+  // while nothing is showing, and it fades in rising slightly — the same
+  // as moving between weeks. Building it in view is what made it lag and
+  // flash. Taps in quick succession land on the last.
+  const [pendingDay, setPendingDay] = useState<Date | null>(null);
+  const shownDay = pendingDay ?? selectedDay;
+  const revealDay = useRef(false);
+  const commitDay = (day: Date) => {
+    revealDay.current = true;
+    setSelectedDay(day);
+    setPendingDay(null);
+  };
+  const pickDay = (day: Date) => {
+    if (isSameDay(day, shownDay)) return;
+    setPendingDay(day);
+    dayReveal.value = withTiming(0, { duration: DAY_OUT_MS, easing: EASE_IN }, (finished) => {
+      if (finished) runOnJS(commitDay)(day);
+    });
+  };
+  useEffect(() => {
+    if (!revealDay.current) return;
+    revealDay.current = false;
+    dayReveal.value = withTiming(1, { duration: MOTION.slow, easing: EASE_OUT });
+  }, [selectedDay, dayReveal]);
+
   const weekReady = weekQuery.isError || (Boolean(weekQuery.data) && !weekQuery.isPlaceholderData);
   useEffect(() => {
     if (!awaitingReveal.current || !slideSettled || !weekReady) return;
@@ -476,19 +505,19 @@ export default function NotesListScreen() {
           onLongPress={() => setJumpOpen(true)}
           style={styles.dayTitleButton}
           accessibilityRole="button"
-          accessibilityLabel={`${dayHeading(selectedDay)}, ${formatLongDate(selectedDay)}. ${stripOpen ? "Hide" : "Show"} the dates`}
+          accessibilityLabel={`${dayHeading(shownDay)}, ${formatLongDate(shownDay)}. ${stripOpen ? "Hide" : "Show"} the dates`}
           accessibilityHint="Press and hold to go to another day"
         >
           <View style={styles.dayTitleRow}>
             <Text style={styles.dayTitle} numberOfLines={1}>
-              {dayHeading(selectedDay)}
+              {dayHeading(shownDay)}
             </Text>
             <Animated.View style={chevronStyle}>
               <ChevronDown size={16} color={colors.mutedForeground} />
             </Animated.View>
           </View>
           <Text style={styles.daySub} numberOfLines={1}>
-            {formatLongDate(selectedDay)}
+            {formatLongDate(shownDay)}
           </Text>
         </Pressable>
         {headerIcons}
@@ -496,12 +525,12 @@ export default function NotesListScreen() {
       <Collapse open={stripOpen}>
         <Animated.View style={[styles.stripWrap, slideStyle]} {...swipe.panHandlers}>
           {strip.map((day) => {
-            const active = isSameDay(day.date, selectedDay);
+            const active = isSameDay(day.date, shownDay);
             const hasNotes = weekNotes.some((note) => isSameDay(note.createdAt, day.date));
             return (
               <Pressable
                 key={day.key}
-                onPress={() => setSelectedDay(day.date)}
+                onPress={() => pickDay(day.date)}
                 style={styles.stripDay}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
@@ -631,7 +660,7 @@ export default function NotesListScreen() {
   } else {
     body = (
       <Animated.View style={dayRevealStyle}>
-        <FadeSwitch switchKey={selectedDay.toDateString()} style={styles.dayBlock}>
+        <View style={styles.dayBlock}>
           {dayNotes.length === 0 ? (
             <Text style={styles.noNotes}>No notes this day.</Text>
           ) : (
@@ -690,7 +719,7 @@ export default function NotesListScreen() {
               onAdd={() => setQuickAddOpen(true)}
             />
           ) : null}
-        </FadeSwitch>
+        </View>
       </Animated.View>
     );
   }
