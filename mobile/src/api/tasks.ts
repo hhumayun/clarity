@@ -24,6 +24,9 @@ export async function getTasksList(
 
 export async function postTaskCreate(
   body: {
+    /** Made on the phone (it may be sent later, from the outbox). */
+    id?: string;
+    createdAt?: Date;
     text: string;
     description?: string;
     projectId?: string;
@@ -161,7 +164,7 @@ export async function postTasksClearDone(
 }
 
 export async function postProjectCreate(
-  body: { name: string },
+  body: { id?: string; name: string },
   init?: RequestInit,
 ): Promise<{ project: ProjectRecord }> {
   const result = await apiFetch("/_api/projects/create", {

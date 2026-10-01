@@ -14,6 +14,10 @@ export async function getFocusSummary(
 
 export async function postFocusRecord(
   body: {
+    /** Made on the phone, so a session sent twice is kept once. */
+    id?: string;
+    /** When it ended here; it may be sent later. */
+    endedAt?: Date;
     taskId: string;
     plannedMinutes: number;
     focusedSeconds: number;

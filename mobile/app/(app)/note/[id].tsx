@@ -18,7 +18,12 @@ import {
 } from "react-native";
 import { GentleKeyboardAvoidingView } from "../../../src/ui/GentleKeyboardAvoidingView";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getNote, postNoteCreate, postNoteUpdate, postSuggestTitle } from "../../../src/api/notes";
+import { getNote, postSuggestTitle } from "../../../src/api/notes";
+import { onlineManager } from "@tanstack/react-query";
+import { randomUUID } from "expo-crypto";
+import { useOnline } from "../../../src/sync/network";
+import { outbox, waitUntilSynced } from "../../../src/sync/store";
+import { useIsPending } from "../../../src/sync/SyncProvider";
 import { findCachedNote, upsertNoteInLists, useDeleteNote, useReindexNotes, useUpdateNote } from "../../../src/hooks/useNotes";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSuggestions } from "../../../src/hooks/useSuggestions";
@@ -95,6 +100,8 @@ export default function NoteEditorScreen() {
   const [archived, setArchived] = useState(false);
   const [menu, setMenu] = useState<"closed" | "open" | "confirmDelete">("closed");
   const updateNote = useUpdateNote();
+  const updateNoteRef = useRef(updateNote.mutate);
+  updateNoteRef.current = updateNote.mutate;
   const deleteNote = useDeleteNote();
   const queryClient = useQueryClient();
   // Areas this note is tagged with. For a note not yet saved they wait here
@@ -124,9 +131,9 @@ export default function NoteEditorScreen() {
   titleRef.current = title;
   const noteIdRef = useRef(noteId);
   noteIdRef.current = noteId;
-  const creatingRef = useRef(false);
-  // The create request in flight, so leaving can wait for the note to exist.
-  const createInFlightRef = useRef<Promise<unknown> | null>(null);
+  // A new note's id, made here as it opens: it is saved (to the outbox) under
+  // this id from the first word, online or not.
+  const [newId] = useState(() => (isNew ? randomUUID() : null));
 
   // Titles for notes the writer has not titled. An idea is offered once the
   // note has a little text; leaving applies one if the writer changed the
@@ -145,14 +152,11 @@ export default function NoteEditorScreen() {
   const baselineContentRef = useRef<string | null>(null);
   // The title and text as last saved (or loaded) from the server.
   const lastSavedRef = useRef<{ title: string; content: string } | null>(null);
-  // A save started by switching to Tasks; Find tasks waits for it.
-  const pendingSaveRef = useRef<Promise<void> | null>(null);
   const aiSuggestionsRef = useRef(aiSuggestions);
   aiSuggestionsRef.current = aiSuggestions;
 
-  // Keyed on the note once it exists, so creating one mid-session moves the
-  // draft from "new" to its id without a navigation.
-  const draftKey = noteId ?? (isNew ? "new" : (routeId ?? "new"));
+  // The note's id: its own, or for a new note the one made as it opened.
+  const draftKey = noteId ?? (isNew ? (newId as string) : (routeId ?? "new"));
   // The key ("new" or a note id) whose text the editor buffer currently holds. Until it
   // matches draftKey the buffer belongs to another note (or to nothing yet), so neither
   // autosave nor persist may write it anywhere.
@@ -178,7 +182,13 @@ export default function NoteEditorScreen() {
     setLoaded(false);
 
     const applyDraftOnly = async () => {
-      const draft = await localDrafts.load(draftKey);
+      // A new note written before notes had their own ids left its text in
+      // a shared "new" slot: pick that up once, so it is not lost.
+      let draft = await localDrafts.load(draftKey);
+      if (!draft) {
+        draft = await localDrafts.load("new");
+        if (draft) void localDrafts.clear("new");
+      }
       if (cancelled) return;
       setNoteId(null);
       noteIdRef.current = null;
@@ -245,7 +255,9 @@ export default function NoteEditorScreen() {
           // moment ago is only the list's copy, so it is not consulted.
           const untouched =
             contentRef.current === baselineContentRef.current && !titleTouchedRef.current;
-          if (!openedFromDraft && untouched && note.updatedAt.getTime() > cached.updatedAt.getTime()) {
+          // Changes made here and still on their way are newer than the server's copy.
+          const waiting = outbox.isPending(`note:${note.id}`);
+          if (!openedFromDraft && !waiting && untouched && note.updatedAt.getTime() > cached.updatedAt.getTime()) {
             applyNote(note, null);
           }
           return;
@@ -267,7 +279,11 @@ export default function NoteEditorScreen() {
           loadedKeyRef.current = draftKey;
           setLoaded(true);
         } else {
-          toastRef.current.show("Couldn't open this note. Please try again.");
+          toastRef.current.show(
+            onlineManager.isOnline()
+              ? "Couldn't open this note. Please try again."
+              : "This note isn't on this phone yet. Open it again when you're online.",
+          );
           routerRef.current.replace("/");
         }
       }
@@ -295,50 +311,49 @@ export default function NoteEditorScreen() {
         void localDrafts.clear(draftKey);
         return;
       }
-      setStatus("saving");
-      try {
-        if (!noteIdRef.current) {
-          if (creatingRef.current) return;
-          creatingRef.current = true;
-          try {
-            const creating = postNoteCreate({
-              title: nextTitle,
-              content: nextContent,
-              ...(tagIdsRef.current.length ? { projectIds: tagIdsRef.current } : {}),
-            });
-            createInFlightRef.current = creating;
-            const { note } = await creating;
-            lastSavedRef.current = { title: nextTitle, content: nextContent };
-            setNoteId(note.id);
-            noteIdRef.current = note.id;
-            // Show it in the notes list straight away.
-            upsertNoteInLists(queryClient, note);
-            // Deliberately no navigation here. Replacing /note/new with
-            // /note/<id> swapped the top of the stack, which animates: the
-            // editor slid away and an identical one slid back a beat after
-            // the note saved. The id lives in state, and draftKey follows it,
-            // so the route can stay where it is.
-            loadedKeyRef.current = note.id;
-          } finally {
-            creatingRef.current = false;
-            createInFlightRef.current = null;
-          }
-        } else {
-          const { note } = await postNoteUpdate({
-            id: noteIdRef.current,
+      // Into the outbox, which sends it now or, offline, when it can; the
+      // lists show it straight away either way.
+      const now = new Date();
+      if (!noteIdRef.current) {
+        const id = newId as string;
+        outbox.enqueue({
+          kind: "note.create",
+          body: {
+            id,
+            createdAt: now,
             title: nextTitle,
             content: nextContent,
-          });
-          lastSavedRef.current = { title: nextTitle, content: nextContent };
-          upsertNoteInLists(queryClient, note);
-        }
-        await localDrafts.clear(draftKey);
-        setStatus("saved");
-      } catch {
-        setStatus("offline");
+            ...(tagIdsRef.current.length ? { projectIds: tagIdsRef.current } : {}),
+          },
+        });
+        noteIdRef.current = id;
+        setNoteId(id);
+        // Deliberately no navigation here. Replacing /note/new with
+        // /note/<id> swapped the top of the stack, which animates: the
+        // editor slid away and an identical one slid back. The id lives in
+        // state, and draftKey is already it, so the route can stay.
+        loadedKeyRef.current = id;
+        upsertNoteInLists(queryClient, {
+          id,
+          title: nextTitle,
+          content: nextContent,
+          archived: false,
+          source: null,
+          createdAt: now,
+          updatedAt: now,
+          projectIds: tagIdsRef.current,
+        });
+      } else {
+        const id = noteIdRef.current;
+        outbox.enqueue({ kind: "note.update", body: { id, title: nextTitle, content: nextContent } });
+        const current = findCachedNote(queryClient, id);
+        if (current) upsertNoteInLists(queryClient, { ...current, title: nextTitle, content: nextContent, updatedAt: now });
       }
+      lastSavedRef.current = { title: nextTitle, content: nextContent };
+      setStatus("saved");
+      await localDrafts.clear(draftKey);
     },
-    [draftKey, queryClient],
+    [draftKey, newId, queryClient],
   );
 
   useEffect(() => {
@@ -463,6 +478,10 @@ export default function NoteEditorScreen() {
   );
 
   const openTray = useCallback(() => {
+    if (!onlineManager.isOnline()) {
+      toast.show("Suggestions need a connection. Your note is saved on this phone.");
+      return;
+    }
     Keyboard.dismiss();
     setTrayKeyboardComing(false);
     setTrayOpen(true);
@@ -542,8 +561,9 @@ export default function NoteEditorScreen() {
     // Deleted, or never finished loading: nothing to save.
     if (loadedKeyRef.current === null) return;
     const content = contentRef.current;
-    const saving = persist(titleRef.current, content);
-    const wantsTitle = wantsTitleOnLeave({
+    void persist(titleRef.current, content);
+    // A title idea needs the AI, so only with a connection.
+    const wantsTitle = onlineManager.isOnline() && wantsTitleOnLeave({
       title: titleRef.current,
       content,
       contentAtOpen: baselineContentRef.current,
@@ -560,20 +580,14 @@ export default function NoteEditorScreen() {
         const title =
           idea && idea.forContent === content ? idea.title : (await postSuggestTitle({ content })).title;
         if (!title) return;
-        await saving;
-        if (createInFlightRef.current) await createInFlightRef.current;
         const id = noteIdRef.current;
         if (!id) return;
-        // Content goes too, in case edits made while the note was being
-        // created missed that save.
-        const { note } = await postNoteUpdate({ id, title, content });
-        upsertNoteInLists(queryClient, note);
-        await localDrafts.clear(id);
+        updateNoteRef.current({ id, title });
       } catch {
         // The note stays untitled; the list shows its first line instead.
       }
     })();
-  }, [persist, queryClient]);
+  }, [persist]);
   const leaveRef = useRef(leave);
   leaveRef.current = leave;
 
@@ -592,14 +606,22 @@ export default function NoteEditorScreen() {
     }
   }, [leave, router]);
 
+  // Until the server has it: sending now, or kept here for when the phone
+  // is back online.
+  const pendingHere = useIsPending(noteId ? `note:${noteId}` : null);
+  const online = useOnline();
   const statusLabel =
-    status === "saving"
-      ? "Saving…"
-      : status === "saved"
-        ? "Saved"
-        : status === "offline"
-          ? "Saved on this device"
-          : "";
+    status === "idle"
+      ? ""
+      : pendingHere
+        ? online
+          ? "Saving…"
+          : "Saved on this device"
+        : status === "saving"
+          ? "Saving…"
+          : status === "offline"
+            ? "Saved on this device"
+            : "Saved";
 
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
@@ -720,31 +742,11 @@ export default function NoteEditorScreen() {
           value={editorTab}
           onChange={(value) => {
             if (value === "tasks") {
-              // Save in the background (only if anything changed) and switch
-              // at once. A note not yet created needs its id first.
-              // A new note's first autosave may still be creating it; this
-              // save then returns at once, so wait for that create as well.
-              const saving = persist(titleRef.current, contentRef.current).then(() =>
-                (createInFlightRef.current ?? Promise.resolve()).then(
-                  () => undefined,
-                  () => undefined,
-                ),
-              );
-              pendingSaveRef.current = saving;
-              void saving.finally(() => {
-                if (pendingSaveRef.current === saving) pendingSaveRef.current = null;
-              });
-              if (noteIdRef.current) {
-                setEditorTab("tasks");
-              } else {
-                // Tasks belong to a saved note: open them once it has an id.
-                void saving.then(() => {
-                  if (noteIdRef.current) setEditorTab("tasks");
-                  else if (!titleRef.current.trim() && !contentRef.current.trim())
-                    toast.show("Write something in the note first; its tasks are kept with it once it is saved.");
-                  else toast.show("This note could not be saved just now, so its tasks can't open yet. Please try again.");
-                });
-              }
+              // Saving puts the note in the outbox under its own id, so its
+              // tasks can open at once, online or not.
+              void persist(titleRef.current, contentRef.current);
+              if (noteIdRef.current) setEditorTab("tasks");
+              else toast.show("Write something in the note first; its tasks are kept with it.");
             } else {
               setEditorTab("note");
             }
@@ -886,7 +888,11 @@ export default function NoteEditorScreen() {
               <NoteTasks
                 noteId={noteId}
                 enabled={editorTab === "tasks"}
-                ensureSaved={() => pendingSaveRef.current ?? Promise.resolve()}
+                ensureSaved={async () => {
+                  // Find tasks reads the note on the server: wait for it to land.
+                  const id = noteIdRef.current;
+                  if (id) await waitUntilSynced(`note:${id}`, 15_000);
+                }}
               />
             </ScrollView>
           </View>

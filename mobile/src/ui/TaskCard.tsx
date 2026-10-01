@@ -19,6 +19,9 @@ import { hapticDone, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
 import type { TaskFocusSummary, TaskRecord, TaskStatus } from "../types";
 import { SwipeToComplete } from "./SwipeToComplete";
+import { UnsyncedMark } from "./UnsyncedMark";
+import { useOnline } from "../sync/network";
+import { useIsPending } from "../sync/SyncProvider";
 
 // How long a row takes to settle into, or lift out of, its done field.
 const SETTLE_MS = 280;
@@ -84,6 +87,7 @@ export function TaskCard({
   onStartFocus,
 }: Props) {
   const router = useRouter();
+  const online = useOnline();
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const done = task.status === "done";
@@ -180,6 +184,8 @@ export function TaskCard({
 
   // What sits under an open task's words: its area, then its day, its focus
   // time or where it was moved from, then the note it came from.
+  // Changed while offline: say it is still only on this phone.
+  const waitingOffline = useIsPending(`task:${task.id}`) && !online;
   const metaParts: React.ReactNode[] = [];
   if (showProject) {
     metaParts.push(
@@ -208,6 +214,7 @@ export function TaskCard({
       </View>,
     );
   }
+  if (waitingOffline) metaParts.push(<UnsyncedMark key="unsynced" subject={`task:${task.id}`} />);
   // One linked note is named and opens; several are counted and open the
   // task's notes, with their summary.
   const noteIds = linkedNoteIds(task);

@@ -10,6 +10,7 @@ import { useTaskNotes, useTaskSummary, useTasks } from "../../../src/hooks/useTa
 import { atNoon, formatPlannedDate } from "../../../src/lib/dates";
 import { linkedNoteIds } from "../../../src/lib/taskLinks";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
+import { useOnline } from "../../../src/sync/network";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { fonts, spacing, textSize, type Colors } from "../../../src/theme";
 import type { NoteRecord } from "../../../src/types";
@@ -51,6 +52,7 @@ export default function TaskNotesScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { colors, scale, aiSuggestions } = useAppTheme();
+  const online = useOnline();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
   const tasks = useTasks();
@@ -161,7 +163,9 @@ export default function TaskNotesScreen() {
                 <Text style={styles.label}>SUMMARY</Text>
                 {summary.isFetching && summary.data ? <Text style={styles.updating}>Updating…</Text> : null}
               </View>
-              {!wantSummary ? (
+              {!online && !summary.data ? (
+                <Text style={styles.muted}>The summary needs a connection. It will be here when you're online.</Text>
+              ) : !wantSummary ? (
                 <Pressable
                   onPress={() => setWantSummary(true)}
                   style={({ pressed }) => [styles.summarise, pressed && styles.pressed]}
@@ -223,7 +227,9 @@ export default function TaskNotesScreen() {
                   <Text style={styles.link}>Link a note</Text>
                 </Pressable>
               </View>
-              {notes.isLoading ? (
+              {!online && !notes.data ? (
+                <Text style={styles.muted}>This task's notes show here when you're online.</Text>
+              ) : notes.isLoading ? (
                 <ActivityIndicator color={colors.primary} style={styles.spinner} />
               ) : notes.isError && !notes.data ? (
                 <View style={styles.loading}>
@@ -280,7 +286,9 @@ export default function TaskNotesScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            {picker.isLoading ? (
+            {!online && !picker.data ? (
+              <Text style={styles.muted}>Finding notes to link needs a connection.</Text>
+            ) : picker.isLoading ? (
               <ActivityIndicator color={colors.primary} style={styles.spinner} />
             ) : (picker.data?.notes ?? []).length === 0 ? (
               <Text style={styles.muted}>{query ? "No notes match." : "You have no notes yet."}</Text>

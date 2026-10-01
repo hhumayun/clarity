@@ -6,31 +6,29 @@ import {
   type InfiniteData,
   type QueryClient,
 } from "@tanstack/react-query";
+import { randomUUID } from "expo-crypto";
 import {
   getNote,
   getNoteCounts,
   getNotesList,
   getNotesPage,
-  postNoteCreate,
-  postNoteDelete,
-  postNoteUpdate,
   postNotesReindex,
   type ListNotesInput,
   type NotesPage,
 } from "../api/notes";
-
-import type { NoteRecord } from "../types";
+import { pageUnlessSyncing, unlessSyncing } from "../sync/cache";
+import { outbox } from "../sync/store";
+import type { NoteRecord, TaskRecord } from "../types";
 
 export const NOTES_QUERY_KEY = ["notes"] as const;
 
-function invalidateNotes(queryClient: QueryClient) {
-  return queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
-}
-
 export const useNotes = (params: ListNotesInput, opts: { enabled?: boolean } = {}) => {
+  const queryClient = useQueryClient();
+  const queryKey = [...NOTES_QUERY_KEY, "list", params];
   return useQuery({
-    queryKey: [...NOTES_QUERY_KEY, "list", params],
-    queryFn: () => getNotesList(params),
+    queryKey,
+    // While changes made here are still on their way, keep showing them.
+    queryFn: () => unlessSyncing(queryClient, queryKey, () => getNotesList(params)),
     enabled: opts.enabled ?? true,
     placeholderData: (previous) => previous,
   });
@@ -41,9 +39,14 @@ export const NOTES_PAGE_SIZE = 50;
 
 /** The Notes list in pages, newest written first. */
 export const useNotesPages = (params: ListNotesInput, opts: { enabled?: boolean } = {}) => {
+  const queryClient = useQueryClient();
+  const queryKey = [...NOTES_QUERY_KEY, "pages", params];
   return useInfiniteQuery({
-    queryKey: [...NOTES_QUERY_KEY, "pages", params],
-    queryFn: ({ pageParam }) => getNotesPage({ ...params, limit: NOTES_PAGE_SIZE, cursor: pageParam }),
+    queryKey,
+    queryFn: ({ pageParam }) =>
+      pageUnlessSyncing(queryClient, queryKey, pageParam, () =>
+        getNotesPage({ ...params, limit: NOTES_PAGE_SIZE, cursor: pageParam }),
+      ),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: opts.enabled ?? true,
@@ -174,42 +177,111 @@ export function upsertNoteInLists(queryClient: QueryClient, note: NoteRecord) {
   void queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY, refetchType: "none" });
 }
 
+/**
+ * A new note, made here at once and queued: it is in the lists straight away,
+ * with or without a connection. A thought parked during focus is linked to
+ * its task here too.
+ */
 export const useCreateNote = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: {
+    mutationFn: async (body: {
       title?: string;
       content?: string;
       source?: "focus";
       taskId?: string;
       projectIds?: string[];
-    }) =>
-      postNoteCreate(body),
-    onSuccess: () => invalidateNotes(queryClient),
+    }) => {
+      const now = new Date();
+      const note: NoteRecord = {
+        id: randomUUID(),
+        title: body.title ?? "",
+        content: body.content ?? "",
+        archived: false,
+        source: body.source ?? null,
+        createdAt: now,
+        updatedAt: now,
+        projectIds: body.projectIds ?? [],
+      };
+      outbox.enqueue({
+        kind: "note.create",
+        body: {
+          id: note.id,
+          createdAt: now,
+          title: note.title,
+          content: note.content,
+          ...(body.source ? { source: body.source } : {}),
+          ...(body.taskId ? { taskId: body.taskId } : {}),
+          ...(body.projectIds?.length ? { projectIds: body.projectIds } : {}),
+        },
+      });
+      upsertNoteInLists(queryClient, note);
+      if (body.taskId) {
+        const taskId = body.taskId;
+        queryClient.setQueriesData<{ tasks: TaskRecord[] }>({ queryKey: ["tasks"] }, (old) =>
+          old?.tasks
+            ? {
+                ...old,
+                tasks: old.tasks.map((task) =>
+                  task.id === taskId ? { ...task, noteIds: [...(task.noteIds ?? []), note.id] } : task,
+                ),
+              }
+            : old,
+        );
+      }
+      return { note };
+    },
   });
 };
 
+/** A change to a note (its words, its areas, archived), made here and queued. */
 export const useUpdateNote = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: {
+    mutationFn: async (body: {
       id: string;
       title?: string;
       content?: string;
       archived?: boolean;
       projectIds?: string[];
-    }) => postNoteUpdate(body),
-    onSuccess: () => invalidateNotes(queryClient),
+    }) => {
+      outbox.enqueue({ kind: "note.update", body });
+      const current = findCachedNote(queryClient, body.id);
+      if (!current) return { note: null };
+      const { id: _id, ...changes } = body;
+      const note: NoteRecord = { ...current, ...changes, updatedAt: new Date() };
+      upsertNoteInLists(queryClient, note);
+      return { note };
+    },
   });
 };
 
 export const useDeleteNote = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { id: string }) => postNoteDelete(body),
-    onSuccess: () => invalidateNotes(queryClient),
+    mutationFn: async (body: { id: string }) => {
+      outbox.enqueue({ kind: "note.delete", body });
+      removeNoteFromLists(queryClient, body.id);
+      return { deleted: true as const };
+    },
   });
 };
+
+/** Take a note out of every cached list. */
+export function removeNoteFromLists(queryClient: QueryClient, id: string) {
+  for (const [key, data] of queryClient.getQueriesData<{ notes: NoteRecord[] }>({ queryKey: [...NOTES_QUERY_KEY, "list"] })) {
+    if (data?.notes.some((note) => note.id === id)) {
+      queryClient.setQueryData(key, { ...data, notes: data.notes.filter((note) => note.id !== id) });
+    }
+  }
+  for (const [key, data] of queryClient.getQueriesData<InfiniteData<NotesPage>>({ queryKey: [...NOTES_QUERY_KEY, "pages"] })) {
+    if (!data) continue;
+    queryClient.setQueryData(key, {
+      ...data,
+      pages: data.pages.map((page) => ({ ...page, notes: page.notes.filter((note) => note.id !== id) })),
+    });
+  }
+}
 
 export const useReindexNotes = () => {
   return useMutation({
@@ -218,7 +290,7 @@ export const useReindexNotes = () => {
   });
 };
 
-export { getNote, postNoteCreate, postNoteUpdate };
+export { getNote };
 
 /**
  * The note as the lists already hold it, if any list has it: the whole

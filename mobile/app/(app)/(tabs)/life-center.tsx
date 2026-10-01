@@ -43,6 +43,7 @@ import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { Segmented } from "../../../src/ui/Segmented";
 import { Skeleton } from "../../../src/ui/Skeleton";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
+import { SyncBar } from "../../../src/ui/SyncBar";
 import { TaskCard } from "../../../src/ui/TaskCard";
 import { TaskSheet, type TaskDraft } from "../../../src/ui/TaskSheet";
 
@@ -262,6 +263,7 @@ export default function LifeCenterScreen() {
 
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
+      <SyncBar />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}

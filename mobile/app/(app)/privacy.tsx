@@ -7,6 +7,7 @@ import React, { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAccountExport, postAccountDelete } from "../../src/api/account";
+import { clearOfflineData } from "../../src/sync/persist";
 import {
   useClearPersonalization,
   usePreferences,
@@ -160,7 +161,7 @@ export default function PrivacyScreen() {
           setDeleting(true);
           try {
             await postAccountDelete();
-            queryClient.clear();
+            await clearOfflineData(queryClient);
             router.replace("/login");
           } catch {
             toast.show("Couldn't delete the account. Please try again.");

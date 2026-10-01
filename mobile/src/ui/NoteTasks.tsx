@@ -6,6 +6,7 @@ import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useToast } from "../providers/ToastProvider";
+import { onlineManager } from "@tanstack/react-query";
 import { useAfterExit } from "../hooks/useAfterExit";
 import { useTasks } from "../hooks/useTasks";
 import { formatDue } from "../lib/taskDates";
@@ -110,6 +111,10 @@ export function NoteTasks({
 
   const runExtract = async () => {
     if (!noteId) return;
+    if (!onlineManager.isOnline()) {
+      toast.show("Finding tasks needs a connection. Your note is saved; try again when you're online.");
+      return;
+    }
     await ensureSavedRef.current?.().catch(() => {});
     extract.mutate(
       { noteId },
@@ -132,6 +137,8 @@ export function NoteTasks({
   useEffect(() => {
     if (!enabled || !noteId || !data?.extraction) return;
     if (data.extraction.hasExtracted || attemptedRef.current) return;
+    // Needs the AI: try on a later visit, once there is a connection.
+    if (!onlineManager.isOnline()) return;
     attemptedRef.current = true;
     void (ensureSavedRef.current?.() ?? Promise.resolve()).catch(() => {}).then(() => extractRef.current(
       { noteId },

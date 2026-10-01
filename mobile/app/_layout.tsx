@@ -5,7 +5,9 @@ import {
 } from "@expo-google-fonts/nunito-sans";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { resourceCache } from "@clerk/clerk-expo/resource-cache";
 import { useFonts } from "expo-font";
 import { Redirect, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -19,6 +21,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppThemeProvider, useAppTheme } from "../src/providers/AppThemeProvider";
 import { AuthProvider, useAuth } from "../src/providers/AuthProvider";
 import { ToastProvider } from "../src/providers/ToastProvider";
+import { startNetworkWatch } from "../src/sync/network";
+import { CACHE_VERSION, keepOnPhone, OFFLINE_MAX_AGE_MS, queryPersister } from "../src/sync/persist";
+import { SyncProvider } from "../src/sync/SyncProvider";
 import { fonts, textSize } from "../src/theme";
 
 export { ErrorBoundary } from "expo-router";
@@ -28,8 +33,14 @@ SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
+// Offline, queries pause and keep what they have rather than failing.
+startNetworkWatch();
+
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient());
+  // Data is kept long enough to be written to the phone and read back offline.
+  const [queryClient] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { gcTime: OFFLINE_MAX_AGE_MS } } }),
+  );
   const [loaded, error] = useFonts({
     NunitoSans_400Regular,
     NunitoSans_600SemiBold,
@@ -60,8 +71,19 @@ export default function RootLayout() {
   return (
     // Native gestures (a task row's swipe to done) need this at the root.
     <GestureHandlerRootView style={styles.root}>
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <QueryClientProvider client={queryClient}>
+    // Clerk's resource cache lets the session load with no connection.
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} __experimental_resourceCache={resourceCache}>
+      {/* Notes, tasks and the session are kept on the phone, so the app
+          opens with them offline. */}
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: queryPersister,
+          maxAge: OFFLINE_MAX_AGE_MS,
+          buster: CACHE_VERSION,
+          dehydrateOptions: { shouldDehydrateQuery: keepOnPhone },
+        }}
+      >
         <SafeAreaProvider>
           {/* Keyboard-aware scrolling and footers that ride on the keyboard
               (react-native-keyboard-controller, included in Expo Go). */}
@@ -69,13 +91,15 @@ export default function RootLayout() {
           <AppThemeProvider>
             <AuthProvider>
               <ToastProvider>
-                <RootNav />
+                <SyncProvider>
+                  <RootNav />
+                </SyncProvider>
               </ToastProvider>
             </AuthProvider>
           </AppThemeProvider>
           </KeyboardProvider>
         </SafeAreaProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </ClerkProvider>
     </GestureHandlerRootView>
   );

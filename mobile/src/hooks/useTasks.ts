@@ -1,21 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  getTasksList,
-  postProjectCreate,
-  postProjectDelete,
-  postProjectUpdate,
-  postTaskCreate,
-  getTaskNotes,
-  postTaskDelete,
-  postTaskLink,
-  postTaskSummary,
-  postTaskUpdate,
-  postTasksAdd,
-  postTasksClearDone,
-  postTasksExtract,
-} from "../api/tasks";
+import { randomUUID } from "expo-crypto";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { getTaskNotes, getTasksList, postTaskSummary, postTasksAdd, postTasksExtract } from "../api/tasks";
 import { linkedNoteIds } from "../lib/taskLinks";
-import type { TaskRecord, TaskStatus } from "../types";
+import { unlessSyncing } from "../sync/cache";
+import { outbox } from "../sync/store";
+import type { LinkedNote, ProjectRecord, TaskRecord, TaskStatus } from "../types";
+import { findCachedNote } from "./useNotes";
 
 export const TASKS_QUERY_KEY = ["tasks"] as const;
 export const TASK_NOTES_KEY = ["task-notes"] as const;
@@ -23,19 +13,61 @@ export const TASK_SUMMARY_KEY = ["task-summary"] as const;
 
 type TasksListOutput = Awaited<ReturnType<typeof getTasksList>>;
 
+/**
+ * Every cached task list, changed the same way. `listNote` is the note a list
+ * belongs to, or "all".
+ */
+function editTaskLists(queryClient: QueryClient, edit: (data: TasksListOutput, listNote: string) => TasksListOutput) {
+  for (const [key, data] of queryClient.getQueriesData<TasksListOutput>({ queryKey: TASKS_QUERY_KEY })) {
+    if (data) queryClient.setQueryData(key, edit(data, String(key[1])));
+  }
+}
+
+/** The areas the phone knows about. */
+function cachedProjects(queryClient: QueryClient): ProjectRecord[] {
+  for (const [, data] of queryClient.getQueriesData<TasksListOutput>({ queryKey: TASKS_QUERY_KEY })) {
+    if (data?.projects?.length) return data.projects;
+  }
+  return [];
+}
+
+const sameName = (a: string, b: string) =>
+  a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * An area by name: the one already here, or a new one made here and queued.
+ * (The server keeps one area per name; if it already has this one, the
+ * runner swaps in its id.)
+ */
+function ensureProject(queryClient: QueryClient, rawName: string): ProjectRecord {
+  const name = rawName.trim().replace(/\s+/g, " ");
+  const existing = cachedProjects(queryClient).find((project) => sameName(project.name, name));
+  if (existing) return existing;
+  const now = new Date();
+  const project: ProjectRecord = { id: randomUUID(), name, createdAt: now, updatedAt: now };
+  outbox.enqueue({ kind: "project.create", body: { id: project.id, name } });
+  editTaskLists(queryClient, (data) => ({ ...data, projects: [project, ...data.projects] }));
+  return project;
+}
+
+/**
+ * Tasks and areas. Every change is made here at once (the lists update before
+ * any answer) and queued in the outbox, which sends it when there is a
+ * connection — straight away, or later if the phone is offline.
+ */
 export function useTasks(noteId?: string, enabled = true) {
   const queryClient = useQueryClient();
   const queryKey = [...TASKS_QUERY_KEY, noteId ?? "all"] as const;
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
 
   const query = useQuery({
     queryKey,
-    queryFn: () => getTasksList(noteId ? { noteId } : {}),
+    queryFn: () => unlessSyncing(queryClient, queryKey, () => getTasksList(noteId ? { noteId } : {})),
     enabled,
     placeholderData: (previous) => previous,
   });
 
+  // Finding tasks in a note and adding them asks the AI and the server, so
+  // these need a connection.
   const extract = useMutation({
     mutationFn: (body: { noteId: string }) => postTasksExtract(body),
   });
@@ -44,10 +76,21 @@ export function useTasks(noteId?: string, enabled = true) {
       noteId: string;
       tasks: { text: string; projectName: string; completeBy?: Date | null }[];
     }) => postTasksAdd(body),
-    onSuccess: invalidate,
+    onSuccess: ({ tasks }) => {
+      editTaskLists(queryClient, (data, listNote) => {
+        const fresh = tasks.filter(
+          (task) =>
+            !data.tasks.some((existing) => existing.id === task.id) &&
+            (listNote === "all" || linkedNoteIds(task).includes(listNote)),
+        );
+        return fresh.length ? { ...data, tasks: [...fresh, ...data.tasks] } : data;
+      });
+      void queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+    },
   });
+
   const create = useMutation({
-    mutationFn: (body: {
+    mutationFn: async (body: {
       text: string;
       description?: string;
       projectId?: string;
@@ -55,134 +98,188 @@ export function useTasks(noteId?: string, enabled = true) {
       completeBy?: Date | null;
       status?: TaskStatus;
       noteId?: string | null;
-    }) => postTaskCreate(body),
-    onSuccess: ({ task }) => {
-      // Show the new card at once rather than after the refetch, so the
-      // screen can scroll to it and flash it the moment the dialog closes.
-      const insert = (old: TasksListOutput | undefined) =>
-        old && !old.tasks.some((t) => t.id === task.id)
-          ? { ...old, tasks: [task, ...old.tasks] }
-          : old;
-      queryClient.setQueryData<TasksListOutput>([...TASKS_QUERY_KEY, "all"], insert);
-      for (const noteId of linkedNoteIds(task)) {
-        queryClient.setQueryData<TasksListOutput>([...TASKS_QUERY_KEY, noteId], insert);
-      }
-      invalidate();
+    }) => {
+      const project = body.projectId
+        ? cachedProjects(queryClient).find((item) => item.id === body.projectId)
+        : body.projectName
+          ? ensureProject(queryClient, body.projectName)
+          : undefined;
+      const projectId = body.projectId ?? project?.id;
+      if (!projectId) throw new Error("Choose an area for this task.");
+      const now = new Date();
+      const task: TaskRecord = {
+        id: randomUUID(),
+        text: body.text.trim().replace(/\s+/g, " "),
+        description: body.description?.trim() ?? "",
+        status: body.status ?? "todo",
+        projectId,
+        projectName: project?.name ?? "",
+        noteId: body.noteId ?? null,
+        noteIds: body.noteId ? [body.noteId] : [],
+        completeBy: body.completeBy ?? null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      outbox.enqueue({
+        kind: "task.create",
+        body: {
+          id: task.id,
+          createdAt: now,
+          text: task.text,
+          description: task.description,
+          projectId,
+          completeBy: task.completeBy,
+          status: task.status,
+          noteId: task.noteId,
+        },
+      });
+      // On screen at once, so it can be scrolled to and flashed.
+      editTaskLists(queryClient, (data, listNote) =>
+        listNote === "all" || listNote === task.noteId ? { ...data, tasks: [task, ...data.tasks] } : data,
+      );
+      return { task };
     },
   });
 
   const update = useMutation({
-    mutationFn: (body: {
+    mutationFn: async (body: {
       id: string;
       text?: string;
       description?: string;
       projectId?: string;
       completeBy?: Date | null;
       status?: TaskStatus;
-    }) => postTaskUpdate(body),
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY });
-      const snapshots = queryClient.getQueriesData<TasksListOutput>({
-        queryKey: TASKS_QUERY_KEY,
-      });
-      queryClient.setQueriesData<TasksListOutput>(
-        { queryKey: TASKS_QUERY_KEY },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            tasks: old.tasks.map((task) =>
-              task.id === input.id
-                ? {
-                    ...task,
-                    ...(input.status !== undefined ? { status: input.status } : {}),
-                    ...(input.text !== undefined ? { text: input.text } : {}),
-                    ...(input.description !== undefined ? { description: input.description } : {}),
-                    ...(input.completeBy !== undefined
-                      ? { completeBy: input.completeBy }
-                      : {}),
-                    ...(input.projectId !== undefined
-                      ? {
-                          projectId: input.projectId,
-                          projectName:
-                            old.projects.find((p) => p.id === input.projectId)
-                              ?.name ?? task.projectName,
-                        }
-                      : {}),
-                    updatedAt: new Date(),
-                  }
-                : task,
-            ) as TaskRecord[],
-          };
-        },
-      );
-      return { snapshots };
+    }) => {
+      outbox.enqueue({ kind: "task.update", body });
+      const projects = cachedProjects(queryClient);
+      editTaskLists(queryClient, (data) => ({
+        ...data,
+        tasks: data.tasks.map((task) =>
+          task.id === body.id
+            ? {
+                ...task,
+                ...(body.status !== undefined ? { status: body.status } : {}),
+                ...(body.text !== undefined ? { text: body.text } : {}),
+                ...(body.description !== undefined ? { description: body.description } : {}),
+                ...(body.completeBy !== undefined ? { completeBy: body.completeBy } : {}),
+                ...(body.projectId !== undefined
+                  ? {
+                      projectId: body.projectId,
+                      projectName: projects.find((p) => p.id === body.projectId)?.name ?? task.projectName,
+                    }
+                  : {}),
+                updatedAt: new Date(),
+              }
+            : task,
+        ),
+      }));
     },
-    onError: (_error, _input, context) => {
-      for (const [key, data] of context?.snapshots ?? []) {
-        queryClient.setQueryData(key, data);
-      }
-    },
-    onSettled: invalidate,
   });
 
-  // Link or unlink a note: the task joins or leaves that note's list at once,
-  // and its note count everywhere follows, before the server has answered.
+  // Link or unlink a note: the task joins or leaves that note's list, its
+  // note count follows, and so does the task's own list of notes.
   const link = useMutation({
-    mutationFn: (body: { taskId: string; noteId: string; linked: boolean }) => postTaskLink(body),
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY });
-      const snapshots = queryClient.getQueriesData<TasksListOutput>({ queryKey: TASKS_QUERY_KEY });
-      const known = snapshots.flatMap(([, data]) => data?.tasks ?? []).find((task) => task.id === input.taskId);
+    mutationFn: async (body: { taskId: string; noteId: string; linked: boolean }) => {
+      outbox.enqueue({ kind: "task.link", body });
+      const known = queryClient
+        .getQueriesData<TasksListOutput>({ queryKey: TASKS_QUERY_KEY })
+        .flatMap(([, data]) => data?.tasks ?? [])
+        .find((task) => task.id === body.taskId);
       const relink = (task: TaskRecord): TaskRecord => {
-        const ids = linkedNoteIds(task).filter((id) => id !== input.noteId);
-        return { ...task, noteIds: input.linked ? [...ids, input.noteId] : ids };
+        const ids = linkedNoteIds(task).filter((id) => id !== body.noteId);
+        return { ...task, noteIds: body.linked ? [...ids, body.noteId] : ids };
       };
-      for (const [key, data] of snapshots) {
-        if (!data) continue;
-        const listNote = key[1];
-        let tasks = data.tasks.map((task) => (task.id === input.taskId ? relink(task) : task));
-        if (listNote === input.noteId) {
-          const has = tasks.some((task) => task.id === input.taskId);
-          if (input.linked && !has && known) tasks = [relink(known), ...tasks];
-          if (!input.linked) tasks = tasks.filter((task) => task.id !== input.taskId);
+      editTaskLists(queryClient, (data, listNote) => {
+        let tasks = data.tasks.map((task) => (task.id === body.taskId ? relink(task) : task));
+        if (listNote === body.noteId) {
+          const has = tasks.some((task) => task.id === body.taskId);
+          if (body.linked && !has && known) tasks = [relink(known), ...tasks];
+          if (!body.linked) tasks = tasks.filter((task) => task.id !== body.taskId);
         }
-        queryClient.setQueryData<TasksListOutput>(key, { ...data, tasks });
-      }
-      return { snapshots };
-    },
-    onError: (_error, _input, context) => {
-      for (const [key, data] of context?.snapshots ?? []) {
-        queryClient.setQueryData(key, data);
-      }
-    },
-    onSettled: (_data, _error, input) => {
-      void queryClient.invalidateQueries({ queryKey: [...TASK_NOTES_KEY, input.taskId] });
-      void queryClient.invalidateQueries({ queryKey: [...TASK_SUMMARY_KEY, input.taskId] });
-      invalidate();
+        return { ...data, tasks };
+      });
+      queryClient.setQueryData<{ notes: LinkedNote[] }>([...TASK_NOTES_KEY, body.taskId], (old) => {
+        if (!old) return old;
+        const others = old.notes.filter((note) => note.id !== body.noteId);
+        if (!body.linked) return { notes: others };
+        const note = findCachedNote(queryClient, body.noteId);
+        if (!note) return old;
+        const linkedNote: LinkedNote = {
+          id: note.id,
+          title: note.title,
+          preview: note.content.replace(/\s+/g, " ").trim().slice(0, 220),
+          source: note.source ?? null,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt,
+        };
+        return { notes: [linkedNote, ...others].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()) };
+      });
     },
   });
 
   const remove = useMutation({
-    mutationFn: (body: { id: string }) => postTaskDelete(body),
-    onSuccess: invalidate,
+    mutationFn: async (body: { id: string }) => {
+      outbox.enqueue({ kind: "task.delete", body });
+      editTaskLists(queryClient, (data) => ({ ...data, tasks: data.tasks.filter((task) => task.id !== body.id) }));
+      return { deleted: true as const };
+    },
   });
+
   const clearDone = useMutation({
-    mutationFn: (body: { projectId?: string } = {}) => postTasksClearDone(body),
-    onSuccess: invalidate,
+    mutationFn: async (body: { projectId?: string } = {}) => {
+      const isCleared = (task: TaskRecord) =>
+        task.status === "done" && (!body.projectId || task.projectId === body.projectId);
+      const all = queryClient.getQueryData<TasksListOutput>([...TASKS_QUERY_KEY, "all"]);
+      const cleared = all?.tasks.filter(isCleared).length ?? 0;
+      outbox.enqueue({ kind: "tasks.clearDone", body });
+      editTaskLists(queryClient, (data) => ({ ...data, tasks: data.tasks.filter((task) => !isCleared(task)) }));
+      return { cleared };
+    },
   });
+
   const createProject = useMutation({
-    mutationFn: (body: { name: string }) => postProjectCreate(body),
-    onSuccess: invalidate,
+    mutationFn: async (body: { name: string }) => ({ project: ensureProject(queryClient, body.name) }),
   });
+
   const renameProject = useMutation({
-    mutationFn: (body: { id: string; name: string }) => postProjectUpdate(body),
-    onSuccess: invalidate,
+    mutationFn: async (body: { id: string; name: string }) => {
+      const name = body.name.trim().replace(/\s+/g, " ");
+      outbox.enqueue({ kind: "project.update", body: { id: body.id, name } });
+      editTaskLists(queryClient, (data) => ({
+        ...data,
+        projects: data.projects.map((project) =>
+          project.id === body.id ? { ...project, name, updatedAt: new Date() } : project,
+        ),
+        tasks: data.tasks.map((task) => (task.projectId === body.id ? { ...task, projectName: name } : task)),
+      }));
+      const project = cachedProjects(queryClient).find((item) => item.id === body.id);
+      return { project: project ?? { id: body.id, name, createdAt: new Date(), updatedAt: new Date() } };
+    },
   });
+
   const deleteProject = useMutation({
-    mutationFn: (body: { id: string; moveTasksTo?: string }) =>
-      postProjectDelete(body),
-    onSuccess: invalidate,
+    mutationFn: async (body: { id: string; moveTasksTo?: string }) => {
+      outbox.enqueue({ kind: "project.delete", body });
+      const target = body.moveTasksTo
+        ? cachedProjects(queryClient).find((item) => item.id === body.moveTasksTo)
+        : undefined;
+      const all = queryClient.getQueryData<TasksListOutput>([...TASKS_QUERY_KEY, "all"]);
+      const affected = all?.tasks.filter((task) => task.projectId === body.id).length ?? 0;
+      editTaskLists(queryClient, (data) => ({
+        ...data,
+        projects: data.projects.filter((project) => project.id !== body.id),
+        tasks: target
+          ? data.tasks.map((task) =>
+              task.projectId === body.id ? { ...task, projectId: target.id, projectName: target.name } : task,
+            )
+          : data.tasks.filter((task) => task.projectId !== body.id),
+      }));
+      return {
+        deleted: true as const,
+        movedTasks: target ? affected : 0,
+        removedTasks: target ? 0 : affected,
+      };
+    },
   });
 
   return {
@@ -202,9 +299,11 @@ export function useTasks(noteId?: string, enabled = true) {
 
 /** The notes linked to one task, newest first. */
 export function useTaskNotes(taskId: string, enabled = true) {
+  const queryClient = useQueryClient();
+  const queryKey = [...TASK_NOTES_KEY, taskId];
   return useQuery({
-    queryKey: [...TASK_NOTES_KEY, taskId],
-    queryFn: () => getTaskNotes(taskId),
+    queryKey,
+    queryFn: () => unlessSyncing(queryClient, queryKey, () => getTaskNotes(taskId)),
     enabled,
     // One more try, then say so, rather than spinning through three.
     retry: 1,
@@ -214,7 +313,7 @@ export function useTaskNotes(taskId: string, enabled = true) {
 /**
  * The AI summary of a task. The server keeps it until the task's notes or
  * focus time change, so asking again is cheap; `enabled` holds it back until
- * the person wants one.
+ * the person wants one. It needs a connection.
  */
 export function useTaskSummary(taskId: string, enabled: boolean) {
   return useQuery({

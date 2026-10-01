@@ -41,6 +41,8 @@ import { Collapse } from "../../../src/ui/Collapse";
 import { DayTasks } from "../../../src/ui/DayTasks";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
+import { SyncBar } from "../../../src/ui/SyncBar";
+import { UnsyncedMark } from "../../../src/ui/UnsyncedMark";
 import { TaskMenu } from "../../../src/ui/TaskMenu";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -648,7 +650,10 @@ export default function NotesListScreen() {
                     accessibilityLabel={`${title}, ${formatClockTime(note.createdAt)}`}
                   >
                     <View style={styles.noteBody}>
-                      <Text style={styles.noteTime}>{formatClockTime(note.createdAt)}</Text>
+                      <View style={styles.noteTimeRow}>
+                        <Text style={styles.noteTime}>{formatClockTime(note.createdAt)}</Text>
+                        <UnsyncedMark subject={`note:${note.id}`} />
+                      </View>
                       <Text style={styles.noteTitle}>{title}</Text>
                       {preview ? (
                         <Text style={styles.notePreview} numberOfLines={2}>
@@ -708,6 +713,7 @@ export default function NotesListScreen() {
   return (
     <SafeAreaView style={styles.page} edges={["top"]}>
       {dayView ? dayHeader : null}
+      <SyncBar />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
@@ -907,6 +913,7 @@ function makeStyles(colors: Colors, scale: number) {
     // and linked tasks.
     noteRow: { flexDirection: "row" },
     noteBody: { flex: 1, minWidth: 0, gap: 4, paddingBottom: 22 },
+    noteTimeRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
     noteTime: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     noteTitle: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, lineHeight: 21 * scale, color: colors.foreground },
     notePreview: { fontFamily: fonts.base, fontSize: textSize.small * scale, lineHeight: 20 * scale, color: colors.mutedForeground },

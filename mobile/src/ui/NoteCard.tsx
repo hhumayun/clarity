@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaTag } from "../lib/lifeCenter";
 import { displayTitle, noteTimeLabel } from "../lib/notesList";
+import { UnsyncedMark } from "./UnsyncedMark";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../theme";
 import type { NoteRecord } from "../types";
@@ -90,6 +91,7 @@ export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "
       {areaLine}
       <View style={styles.footer}>
         <Text style={styles.when}>{when}</Text>
+        <UnsyncedMark subject={`note:${note.id}`} />
         <NoteTags note={note} taskCount={taskCount} />
       </View>
     </Pressable>

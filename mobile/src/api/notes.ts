@@ -94,6 +94,9 @@ export async function getNote(
 
 export async function postNoteCreate(
   body: {
+    /** Made on the phone (it may be sent later, from the outbox). */
+    id?: string;
+    createdAt?: Date;
     title?: string;
     content?: string;
     source?: "focus";

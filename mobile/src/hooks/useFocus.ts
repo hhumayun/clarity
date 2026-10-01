@@ -1,7 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
+import { randomUUID } from "expo-crypto";
 import { getFocusSummary, postFocusRecord, postTaskFirstSteps } from "../api/focus";
+import { outbox } from "../sync/store";
 import { DEFAULT_FOCUS_MINUTES, localMidnight } from "../lib/focus";
 import { localIsoDay } from "../lib/dates";
 
@@ -19,11 +21,43 @@ export function useFocusSummary(enabled = true) {
   });
 }
 
+type FocusSummary = Awaited<ReturnType<typeof getFocusSummary>>;
+
+/**
+ * A finished session, kept here and queued, so it counts at once and is
+ * recorded on the server whenever there is a connection (with the time it
+ * really ended).
+ */
 export function useRecordFocus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: Parameters<typeof postFocusRecord>[0]) => postFocusRecord(body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: FOCUS_QUERY_KEY }),
+    mutationFn: async (body: Omit<Parameters<typeof postFocusRecord>[0], "id" | "endedAt">) => {
+      const endedAt = new Date();
+      const id = randomUUID();
+      outbox.enqueue({
+        kind: "focus.record",
+        body: { ...body, id, endedAt, firstStep: body.firstStep ?? "", leftOff: body.leftOff ?? "" },
+      });
+      // Today's minutes and the task's sessions and "where you left off".
+      queryClient.setQueryData<FocusSummary>([...FOCUS_QUERY_KEY, "summary", localIsoDay(endedAt)], (old) => {
+        if (!old) return old;
+        const previous = old.tasks.find((item) => item.taskId === body.taskId);
+        const entry = {
+          taskId: body.taskId,
+          sessions: (previous?.sessions ?? 0) + 1,
+          totalSeconds: (previous?.totalSeconds ?? 0) + body.focusedSeconds,
+          lastLeftOff: (body.leftOff ?? "").trim(),
+          lastOutcome: body.outcome,
+          lastPlannedMinutes: body.plannedMinutes,
+          lastEndedAt: endedAt,
+        };
+        return {
+          todaySeconds: old.todaySeconds + body.focusedSeconds,
+          tasks: [entry, ...old.tasks.filter((item) => item.taskId !== body.taskId)],
+        };
+      });
+      return { recorded: true as const, id };
+    },
   });
 }
 
