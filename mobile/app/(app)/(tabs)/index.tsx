@@ -179,7 +179,9 @@ export default function NotesListScreen() {
         firstFocus.current = false;
         return;
       }
-      void queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
+      // Only what is out of date: refetching every loaded page on every
+      // visit redrew the whole list each time.
+      void queryClient.refetchQueries({ queryKey: NOTES_QUERY_KEY, type: "active", stale: true });
     }, [queryClient]),
   );
 
@@ -217,18 +219,19 @@ export default function NotesListScreen() {
   const archivedCount = noteCounts.data?.archived ?? 0;
   const loading = isFetching && !data;
 
-  const openNote = (note: NoteRecord) => router.push(`/note/${note.id}`);
-  // Cards fade in and out as a search narrows the list, and the rest slide
-  // into the gaps instead of jumping.
+  const openNote = useCallback((note: NoteRecord) => router.push(`/note/${note.id}`), [router]);
+  // One card per note, with nothing that changes on every render (the open
+  // function and the area names are shared), so cards only redraw when their
+  // note does. No per-card animations: in a long list they were worked out
+  // for every card on every change.
   const card = (note: NoteRecord) => (
-    <Animated.View key={note.id} entering={motion.enter} exiting={motion.exit} layout={motion.layout}>
-      <NoteCard
-        note={note}
-        taskCount={counts.get(note.id)}
-        areas={areasOf(note)}
-        onPress={() => openNote(note)}
-      />
-    </Animated.View>
+    <NoteCard
+      key={note.id}
+      note={note}
+      taskCount={counts.get(note.id)}
+      projectNames={projectNames}
+      onOpen={openNote}
+    />
   );
 
   const groups = useMemo(() => groupNotesByDay(notes), [notes]);

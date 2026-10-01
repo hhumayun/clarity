@@ -1,5 +1,5 @@
 import { CircleCheck, Timer } from "lucide-react-native";
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { areaTag } from "../lib/lifeCenter";
 import { displayTitle, noteTimeLabel } from "../lib/notesList";
@@ -12,9 +12,13 @@ type Props = {
   note: NoteRecord;
   /** Open tasks in Life Center that came from this note. */
   taskCount?: number;
-  /** The areas the note is tagged with, already resolved to names. */
-  areas?: Array<{ id: string; name: string }>;
-  onPress: () => void;
+  /**
+   * Area names by id, shared by every card (a new array per card would make
+   * every card redraw on every change to the list).
+   */
+  projectNames?: Map<string, string>;
+  /** Opens the note; one function for every card. */
+  onOpen: (note: NoteRecord) => void;
   /** "card" is the list; "timeline" is the journal, drawn without a box. */
   variant?: "card" | "timeline";
 };
@@ -22,7 +26,7 @@ type Props = {
 /** The two small tags a note can carry, shared by both views. */
 export function NoteTags({ note, taskCount = 0, compact = false }: { note: NoteRecord; taskCount?: number; compact?: boolean }) {
   const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const styles = stylesFor(colors, scale);
   if (taskCount <= 0 && note.source !== "focus") return null;
   return (
     <View style={styles.tags}>
@@ -44,9 +48,24 @@ export function NoteTags({ note, taskCount = 0, compact = false }: { note: NoteR
   );
 }
 
-export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "card" }: Props) {
+/**
+ * A note in the Notes list. Memoised: a card redraws only when its note, its
+ * task count or the area names change, not when anything else on the screen
+ * does (a search letter, a menu opening).
+ */
+export const NoteCard = React.memo(function NoteCard({
+  note,
+  taskCount = 0,
+  projectNames,
+  onOpen,
+  variant = "card",
+}: Props) {
   const { colors, scale, dark } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const styles = stylesFor(colors, scale);
+  const areas = (note.projectIds ?? []).flatMap((id) => {
+    const name = projectNames?.get(id);
+    return name ? [{ id, name }] : [];
+  });
   const { title, preview } = displayTitle(note);
   const when = noteTimeLabel(note.createdAt);
   const areaLine =
@@ -62,7 +81,7 @@ export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "
 
   if (variant === "timeline") {
     return (
-      <Pressable onPress={onPress} style={styles.timelineBody} accessibilityRole="button" accessibilityLabel={`Open note: ${title}`}>
+      <Pressable onPress={() => onOpen(note)} style={styles.timelineBody} accessibilityRole="button" accessibilityLabel={`Open note: ${title}`}>
         <Text style={styles.title}>{title}</Text>
         {preview ? (
           <Text style={styles.preview} numberOfLines={2}>
@@ -77,7 +96,7 @@ export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => onOpen(note)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       accessibilityRole="button"
       accessibilityLabel={`Open note: ${title}`}
@@ -96,6 +115,22 @@ export function NoteCard({ note, taskCount = 0, areas = [], onPress, variant = "
       </View>
     </Pressable>
   );
+});
+
+// One set of styles per theme and text size, shared by every card.
+const styleCache = new WeakMap<Colors, Map<number, ReturnType<typeof makeStyles>>>();
+function stylesFor(colors: Colors, scale: number) {
+  let byScale = styleCache.get(colors);
+  if (!byScale) {
+    byScale = new Map();
+    styleCache.set(colors, byScale);
+  }
+  let styles = byScale.get(scale);
+  if (!styles) {
+    styles = makeStyles(colors, scale);
+    byScale.set(scale, styles);
+  }
+  return styles;
 }
 
 function makeStyles(colors: Colors, scale: number) {

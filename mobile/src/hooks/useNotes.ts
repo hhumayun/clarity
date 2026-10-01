@@ -22,6 +22,10 @@ import type { NoteRecord, TaskRecord } from "../types";
 
 export const NOTES_QUERY_KEY = ["notes"] as const;
 
+// How long a list of notes counts as fresh. Changes made on this phone are
+// already in it; coming back to a screen within this long fetches nothing.
+const NOTES_FRESH_MS = 60_000;
+
 export const useNotes = (params: ListNotesInput, opts: { enabled?: boolean } = {}) => {
   const queryClient = useQueryClient();
   const queryKey = [...NOTES_QUERY_KEY, "list", params];
@@ -29,6 +33,7 @@ export const useNotes = (params: ListNotesInput, opts: { enabled?: boolean } = {
     queryKey,
     // While changes made here are still on their way, keep showing them.
     queryFn: () => unlessSyncing(queryClient, queryKey, () => getNotesList(params)),
+    staleTime: NOTES_FRESH_MS,
     enabled: opts.enabled ?? true,
     placeholderData: (previous) => previous,
   });
@@ -47,6 +52,7 @@ export const useNotesPages = (params: ListNotesInput, opts: { enabled?: boolean 
       pageUnlessSyncing(queryClient, queryKey, pageParam, () =>
         getNotesPage({ ...params, limit: NOTES_PAGE_SIZE, cursor: pageParam }),
       ),
+    staleTime: NOTES_FRESH_MS,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: opts.enabled ?? true,
@@ -74,6 +80,7 @@ export const useNoteCounts = () => {
   return useQuery({
     queryKey: [...NOTES_QUERY_KEY, "counts"],
     queryFn: () => getNoteCounts(),
+    staleTime: NOTES_FRESH_MS,
   });
 };
 

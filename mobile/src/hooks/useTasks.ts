@@ -63,6 +63,8 @@ export function useTasks(noteId?: string, enabled = true) {
     queryKey,
     queryFn: () => unlessSyncing(queryClient, queryKey, () => getTasksList(noteId ? { noteId } : {})),
     enabled,
+    // Changes made here are already in it; within a minute nothing is refetched.
+    staleTime: 60_000,
     placeholderData: (previous) => previous,
   });
 

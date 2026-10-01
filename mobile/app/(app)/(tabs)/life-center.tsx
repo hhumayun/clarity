@@ -1,6 +1,7 @@
-import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useFocusEffect, useRouter } from "expo-router";
 import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeInDown,
@@ -80,6 +81,16 @@ export default function LifeCenterScreen() {
   const movedFrom = useMovedFrom();
   const focusSummary = useFocusSummary();
   const focusedMotion = useFocusedMotion();
+  // Coming back to the tab: refresh what is out of date (changed elsewhere,
+  // or marked so after a sync), and nothing else.
+  const queryClientForFocus = useQueryClient();
+  useFocusEffect(
+    useCallback(() => {
+      for (const key of [["tasks"], ["focus"]]) {
+        void queryClientForFocus.refetchQueries({ queryKey: key, type: "active", stale: true });
+      }
+    }, [queryClientForFocus]),
+  );
 
   // Today is the calm place to start; All tasks is one tap away.
   const [view, setView] = useState<View_>("today");
@@ -96,7 +107,10 @@ export default function LifeCenterScreen() {
     opacity: viewReveal.value,
     transform: [{ translateY: (1 - viewReveal.value) * 8 }],
   }));
-  const motionFor = (which: View_) => (which === view ? focusedMotion : STILL);
+  // Rows animate on Today (a short list) only. All tasks is the long one:
+  // working out enter, leave and movement for every row on every change was
+  // a large part of its lag.
+  const motionFor = (which: View_) => (which === view && which === "today" ? focusedMotion : STILL);
   const allMotion = motionFor("all");
   const todayMotion = motionFor("today");
   useEffect(() => {

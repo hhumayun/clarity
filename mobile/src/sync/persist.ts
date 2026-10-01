@@ -14,7 +14,8 @@ export const CACHE_VERSION = "1";
 export const queryPersister = createAsyncStoragePersister({
   storage: AsyncStorage,
   key: "clarity:query-cache:v1",
-  throttleTime: 1_000,
+  // Written at most every few seconds: each write serialises the whole copy.
+  throttleTime: 5_000,
   // superjson, not plain JSON: notes and tasks carry Dates, which JSON would
   // bring back as strings.
   serialize: (client) => superjson.stringify(client),

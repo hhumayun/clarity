@@ -47,10 +47,30 @@ export function kick() {
   void run();
 }
 
+/** The kinds of data an operation changes, for marking them out of date. */
+function touchedData(op: Op): string[] {
+  switch (op.kind) {
+    case "note.create":
+      // A thought parked during focus is also linked to its task.
+      return op.body.taskId ? ["notes", "tasks", "task-notes"] : ["notes"];
+    case "note.update":
+    case "note.delete":
+      return ["notes"];
+    case "task.link":
+      return ["tasks", "task-notes", "task-summary"];
+    case "focus.record":
+      return ["focus"];
+    default:
+      // Tasks, clearing done, and areas (which tasks carry by name).
+      return ["tasks"];
+  }
+}
+
 async function run() {
   if (!queryClient) return;
   running = true;
   let landed = false;
+  const touched = new Set<string>();
   try {
     for (;;) {
       if (!onlineManager.isOnline()) break;
@@ -62,6 +82,7 @@ async function run() {
         outbox.remove(entry.seq);
         failures = 0;
         landed = true;
+        for (const key of touchedData(entry.op)) touched.add(key);
       } catch (error) {
         outbox.markSending(null);
         const kind = classifyFailure(entry.op, error);
@@ -74,6 +95,8 @@ async function run() {
         if (kind === "auth") break;
         outbox.remove(entry.seq);
         landed = true;
+        // Dropped: what is on screen may now differ from the server's copy.
+        for (const key of touchedData(entry.op)) touched.add(key);
         if (kind === "reject") {
           notify?.(`One change couldn't be saved: ${describeOp(entry.op)}.`);
         }
@@ -83,10 +106,13 @@ async function run() {
     outbox.markSending(null);
     running = false;
   }
-  // Everything is in: let the server's copies replace the ones made here.
+  // Everything is in. The lists already show these changes, so nothing is
+  // reloaded now (that redrew every list on every typing pause); the data
+  // they touched is only marked out of date, and refreshes the next time a
+  // screen showing it comes into view, the app comes back, or it reconnects.
   if (landed && outbox.pendingCount() === 0) {
-    for (const key of [["notes"], ["tasks"], ["focus"], ["task-notes"], ["task-summary"]]) {
-      void queryClient.invalidateQueries({ queryKey: key });
+    for (const key of touched) {
+      void queryClient.invalidateQueries({ queryKey: [key], refetchType: "none" });
     }
   }
   if (rerun) {
