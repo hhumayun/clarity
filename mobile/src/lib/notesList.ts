@@ -161,15 +161,36 @@ export type StripDay = { key: string; date: Date; letter: string; day: number };
 export function weekStrip(now: Date = new Date(), weeksBack = 0): StripDay[] {
   const today = startOfDay(now);
   const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7 * weeksBack);
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (6 - i));
-    return {
-      key: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
-      date,
-      letter: WEEKDAYS[date.getDay()].charAt(0),
-      day: date.getDate(),
-    };
-  });
+  return Array.from({ length: 7 }, (_, i) =>
+    stripDay(new Date(end.getFullYear(), end.getMonth(), end.getDate() - (6 - i))),
+  );
+}
+
+/** A day's key in strips and grids: the same for any time on that day. */
+export function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function stripDay(date: Date): StripDay {
+  return { key: dayKey(date), date, letter: WEEKDAYS[date.getDay()].charAt(0), day: date.getDate() };
+}
+
+/**
+ * The six weeks a month is shown in, Monday first: its own days, with the
+ * end of the month before and the start of the one after filling the first
+ * and last weeks. Always 42 days, so the grid never changes height.
+ */
+export function monthGrid(month: Date): StripDay[] {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const lead = (first.getDay() + 6) % 7;
+  return Array.from({ length: 42 }, (_, i) =>
+    stripDay(new Date(first.getFullYear(), first.getMonth(), 1 - lead + i)),
+  );
+}
+
+/** "October 2026". */
+export function monthTitle(month: Date): string {
+  return `${MONTHS[month.getMonth()]} ${month.getFullYear()}`;
 }
 
 /** A day's notes, newest first. */

@@ -39,6 +39,16 @@ export const useNotes = (params: ListNotesInput, opts: { enabled?: boolean } = {
   });
 };
 
+/** Ask for a range of notes ahead of time (the next month), as useNotes would. */
+export function prefetchNotes(queryClient: QueryClient, params: ListNotesInput) {
+  const queryKey = [...NOTES_QUERY_KEY, "list", params];
+  return queryClient.prefetchQuery({
+    queryKey,
+    queryFn: () => unlessSyncing(queryClient, queryKey, () => getNotesList(params)),
+    staleTime: NOTES_FRESH_MS,
+  });
+}
+
 /** Notes per page of the Notes list; older pages load as you scroll. */
 export const NOTES_PAGE_SIZE = 50;
 

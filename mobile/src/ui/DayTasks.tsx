@@ -14,6 +14,8 @@ type Props = {
   onOpenMenu: (task: TaskRecord) => void;
   /** Add a task due on this day. */
   onAdd: () => void;
+  /** What an empty day says; a day still to come is not "was". */
+  emptyText?: string;
 };
 
 /**
@@ -21,7 +23,7 @@ type Props = {
  * then the done ones settled into their fields under DONE. Swipe a row right
  * to mark it done.
  */
-export function DayTasks({ tasks, onStatusChange, onOpenMenu, onAdd }: Props) {
+export function DayTasks({ tasks, onStatusChange, onOpenMenu, onAdd, emptyText = "Nothing was scheduled." }: Props) {
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
@@ -53,7 +55,7 @@ export function DayTasks({ tasks, onStatusChange, onOpenMenu, onAdd }: Props) {
           <Plus size={18} color={colors.primary} strokeWidth={2.2} />
         </Pressable>
       </View>
-      {tasks.length === 0 ? <Text style={styles.empty}>Nothing was scheduled.</Text> : null}
+      {tasks.length === 0 ? <Text style={styles.empty}>{emptyText}</Text> : null}
       {open.map(row)}
       {done.length > 0 ? (
         <>
