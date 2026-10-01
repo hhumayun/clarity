@@ -6,6 +6,40 @@ evidence is the point, not the status.
 
 ---
 
+## Changes made offline are stamped with the time they sync, not when they were made
+
+**Reported:** 2026-10-01 · **Status:** open, small follow-up to offline support, not started
+
+### Symptom
+
+A note or task edited offline shows the time it reached the server as its
+"last edited" time, not the time it was edited. A note changed at 10:00 on a
+plane and synced at 14:00 reads as edited at 14:00, and moves in "recently
+edited" ordering accordingly.
+
+### Cause
+
+The outbox (`mobile/src/sync/`) sends each change when there is a connection.
+`notes/update_POST.ts` and `tasks/update_POST.ts` set `updatedAt: new Date()`,
+the server's clock at arrival. Creates already carry the phone's time
+(`createdAt`, and `endedAt` for focus sessions, clamped by
+`helpers/clientIds.tsx#notInFuture`), but updates do not.
+
+### Suggested fix
+
+- **Phone:** stamp each queued `note.update` and `task.update` with the time it
+  was made (`changedAt`). When the outbox folds several edits together
+  (`addToQueue` in `mobile/src/sync/outbox.ts`), keep the latest.
+- **Server:** accept an optional `changedAt` in `notes/update` and
+  `tasks/update`, and use `notInFuture(changedAt)` for `updatedAt`. Older
+  clients that leave it out keep today's behaviour.
+- **Check:** the note editor compares a local draft's time with the server's
+  `updatedAt` to pick the newer copy (`note/[id].tsx`, `applyNote`). A
+  back-dated `updatedAt` must not make an older server copy look newer than a
+  draft written after it.
+
+---
+
 ## Suggested tasks disappear if you leave a note without deciding
 
 **Reported:** 2026-09-23 · **Status:** open, fix recommended but not started
