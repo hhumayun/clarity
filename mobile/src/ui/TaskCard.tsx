@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, {
   interpolateColor,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { CalendarDays, Check, FileText, Timer } from "lucide-react-native";
@@ -72,7 +74,30 @@ type Props = {
  * Tapping opens the task's actions, where Mark done is; pulling the row to
  * the right marks it done (or, when done, not done) straight away.
  */
-export function TaskCard({
+/**
+ * Rows only redraw when what they show changes, not every time their list
+ * does: the parents' callbacks are recreated each render but do the same
+ * thing (they act on this task), so they are left out of the comparison.
+ * The row's sync mark and theme still update through their own hooks.
+ */
+function sameRow(a: Props, b: Props): boolean {
+  return (
+    a.task === b.task &&
+    a.showProject === b.showProject &&
+    a.showNoteLink === b.showNoteLink &&
+    a.showDue === b.showDue &&
+    a.flashKey === b.flashKey &&
+    a.variant === b.variant &&
+    a.noteTitle === b.noteTitle &&
+    (a.movedFrom?.getTime() ?? null) === (b.movedFrom?.getTime() ?? null) &&
+    a.focusSummary === b.focusSummary &&
+    Boolean(a.onStartFocus) === Boolean(b.onStartFocus)
+  );
+}
+
+export const TaskCard = React.memo(TaskCardRow, sameRow);
+
+function TaskCardRow({
   task,
   showProject = true,
   showNoteLink = true,
@@ -89,7 +114,7 @@ export function TaskCard({
   const router = useRouter();
   const online = useOnline();
   const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
+  const styles = stylesFor(colors, scale);
   const done = task.status === "done";
   const focus = variant === "focus";
   const due = task.completeBy ? dueState(task.completeBy) : null;
@@ -154,26 +179,18 @@ export function TaskCard({
     width: (RING_SIZE * scale + RING_GAP) * (1 - settle.value),
     opacity: 1 - settle.value,
   }));
-  const checkStyle = useAnimatedStyle(() => ({
-    opacity: settle.value,
-    transform: [{ scale: 0.6 + 0.4 * settle.value }],
-  }));
 
-  // Two soft pulses of the accent over the row, then gone. Only runs when the
-  // key changes, so a row mounting with a key does not flash on its own.
-  const flash = useSharedValue(0);
+  // Two soft pulses of the accent over the row, then gone. Only when the key
+  // changes, so a row mounting with a key does not flash on its own; the
+  // pulse exists only while it plays.
+  const [pulse, setPulse] = useState<number | null>(null);
   const lastFlashKey = useRef(flashKey);
   useEffect(() => {
     if (flashKey === undefined || flashKey === lastFlashKey.current) return;
     lastFlashKey.current = flashKey;
-    flash.value = withSequence(
-      withTiming(1, { duration: 180 }),
-      withTiming(0, { duration: 320 }),
-      withTiming(1, { duration: 180 }),
-      withTiming(0, { duration: 460 }),
-    );
-  }, [flashKey, flash]);
-  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value * 0.3 }));
+    setPulse(flashKey);
+  }, [flashKey]);
+  const endPulse = useCallback(() => setPulse(null), []);
 
   const focusMeta = focus && focusSummary ? focusMetaLabel(focusSummary) : null;
   const leftOff =
@@ -245,7 +262,7 @@ export function TaskCard({
       style={[styles.bleed, shownDone && styles.doneSpacing]}
     >
       <Animated.View style={[styles.row, shownDone ? styles.rowDone : styles.rowOpen, fieldStyle]}>
-        <Animated.View pointerEvents="none" style={[styles.flash, flashStyle]} />
+        {pulse !== null ? <FlashPulse key={pulse} style={styles.flash} onDone={endPulse} /> : null}
         <View style={styles.line}>
           {/* The ring (2b): a thin grey outline, so colour means done.
               Tapping it marks the task done; it shrinks away as the row
@@ -297,11 +314,7 @@ export function TaskCard({
               <Timer size={20} color={colors.mutedForeground} />
             </Pressable>
           ) : null}
-          {shownDone ? (
-            <Animated.View style={[styles.check, checkStyle]} pointerEvents="none">
-              <Check size={18} color={colors.primary} strokeWidth={2.4} />
-            </Animated.View>
-          ) : null}
+          {shownDone ? <DoneCheck settle={settle} style={styles.check} color={colors.primary} /> : null}
         </View>
 
         {leftOff ? (
@@ -315,6 +328,63 @@ export function TaskCard({
       </Animated.View>
     </SwipeToComplete>
   );
+}
+
+/** The trailing check of a done field, growing in as the row settles. */
+function DoneCheck({
+  settle,
+  style,
+  color,
+}: {
+  settle: SharedValue<number>;
+  style: StyleProp<ViewStyle>;
+  color: string;
+}) {
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: settle.value,
+    transform: [{ scale: 0.6 + 0.4 * settle.value }],
+  }));
+  return (
+    <Animated.View style={[style, checkStyle]} pointerEvents="none">
+      <Check size={18} color={color} strokeWidth={2.4} />
+    </Animated.View>
+  );
+}
+
+/** Two soft pulses of the accent over a row, to point at it. */
+function FlashPulse({ style, onDone }: { style: StyleProp<ViewStyle>; onDone: () => void }) {
+  const flash = useSharedValue(0);
+  useEffect(() => {
+    flash.value = withSequence(
+      withTiming(1, { duration: 180 }),
+      withTiming(0, { duration: 320 }),
+      withTiming(1, { duration: 180 }),
+      withTiming(0, { duration: 460 }, (finished) => {
+        if (finished) runOnJS(onDone)();
+      }),
+    );
+    // Plays once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value * 0.3 }));
+  return <Animated.View pointerEvents="none" style={[style, flashStyle]} />;
+}
+
+// One set of styles per theme and text size, shared by every row rather than
+// built again for each.
+const styleCache = new WeakMap<Colors, Map<number, ReturnType<typeof makeStyles>>>();
+function stylesFor(colors: Colors, scale: number) {
+  let byScale = styleCache.get(colors);
+  if (!byScale) {
+    byScale = new Map();
+    styleCache.set(colors, byScale);
+  }
+  let styles = byScale.get(scale);
+  if (!styles) {
+    styles = makeStyles(colors, scale);
+    byScale.set(scale, styles);
+  }
+  return styles;
 }
 
 function makeStyles(colors: Colors, scale: number) {

@@ -2,9 +2,17 @@ import { useRouter } from "expo-router";
 import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { EASE_IN, EASE_OUT, MOTION } from "../../../src/ui/motion";
 import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
-import { FadeSwitch } from "../../../src/ui/FadeSwitch";
 import { fadeInFast, fadeOut } from "../../../src/ui/motion";
 import { RotatingChevron } from "../../../src/ui/RotatingChevron";
 import { Collapse } from "../../../src/ui/Collapse";
@@ -48,6 +56,17 @@ import { TaskCard } from "../../../src/ui/TaskCard";
 import { TaskSheet, type TaskDraft } from "../../../src/ui/TaskSheet";
 
 type View_ = "today" | "all";
+
+const VIEW_OUT_MS = 110;
+// No enter, leave or layout animations: for building a whole list unseen.
+const STILL = {
+  enter: undefined,
+  exit: undefined,
+  layout: undefined,
+  rowEnter: undefined,
+  rowExit: undefined,
+  rowLayout: undefined,
+};
 const ALL = "__all__";
 
 export default function LifeCenterScreen() {
@@ -60,10 +79,57 @@ export default function LifeCenterScreen() {
   const notes = useNotes({});
   const movedFrom = useMovedFrom();
   const focusSummary = useFocusSummary();
-  const motion = useFocusedMotion();
+  const focusedMotion = useFocusedMotion();
 
   // Today is the calm place to start; All tasks is one tap away.
   const [view, setView] = useState<View_>("today");
+  // Switching between Today and All tasks. The control moves at once; the
+  // list fades out, the other is built while nothing is showing (with the
+  // rows' own enter and leave animations off, so dozens of rows do not all
+  // animate at once), then it fades in rising slightly.
+  const [pendingView, setPendingView] = useState<View_ | null>(null);
+  const [quiet, setQuiet] = useState(false);
+  const swapTo = useRef<View_ | null>(null);
+  const revealView = useRef(false);
+  const viewReveal = useSharedValue(1);
+  const viewRevealStyle = useAnimatedStyle(() => ({
+    opacity: viewReveal.value,
+    transform: [{ translateY: (1 - viewReveal.value) * 8 }],
+  }));
+  const motion = quiet ? STILL : focusedMotion;
+  const hideForSwap = (next: View_) => {
+    swapTo.current = next;
+    // First a render with the rows' animations off, so the rows that are
+    // about to go leave without one; the swap follows in the effect below.
+    setQuiet(true);
+  };
+  const endSwitch = () => setQuiet(false);
+  const switchView = (next: View_) => {
+    setAreaMenuOpen(false);
+    if (next === (pendingView ?? view)) return;
+    setPendingView(next);
+    viewReveal.value = withTiming(0, { duration: VIEW_OUT_MS, easing: EASE_IN }, (finished) => {
+      if (finished) runOnJS(hideForSwap)(next);
+    });
+  };
+  useEffect(() => {
+    if (!quiet || !swapTo.current) return;
+    const next = swapTo.current;
+    swapTo.current = null;
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    revealView.current = true;
+    setView(next);
+    setPendingView(null);
+  }, [quiet]);
+  useEffect(() => {
+    if (!revealView.current) return;
+    revealView.current = false;
+    viewReveal.value = withTiming(1, { duration: MOTION.slow, easing: EASE_OUT }, (finished) => {
+      if (finished) runOnJS(endSwitch)();
+    });
+    // Runs when the new view has been committed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
   const [areaFilter, setAreaFilter] = useState<string>(ALL);
   const [areaMenuOpen, setAreaMenuOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
@@ -235,12 +301,8 @@ export default function LifeCenterScreen() {
     <Segmented
       size="sm"
       accessibilityLabel="Which tasks to show"
-      value={view}
-      onChange={(next) => {
-        scrollRef.current?.scrollTo({ y: 0, animated: false });
-        setView(next);
-        setAreaMenuOpen(false);
-      }}
+      value={pendingView ?? view}
+      onChange={switchView}
       options={[
         { label: "Today", value: "today" },
         { label: "All tasks", value: "all" },
@@ -273,7 +335,7 @@ export default function LifeCenterScreen() {
         }}
         scrollEventThrottle={16}
       >
-        <FadeSwitch switchKey={view} style={styles.viewBody}>
+        <Animated.View style={[styles.viewBody, viewRevealStyle]}>
         {view === "all" ? (
           <>
             <View style={styles.titleRow}>
@@ -503,10 +565,7 @@ export default function LifeCenterScreen() {
                   </Animated.View>
                 ))}
                 <Pressable
-                  onPress={() => {
-                    scrollRef.current?.scrollTo({ y: 0, animated: false });
-                    setView("all");
-                  }}
+                  onPress={() => switchView("all")}
                   style={styles.seeAll}
                 >
                   <Text style={styles.seeAllText}>See all tasks</Text>
@@ -515,7 +574,7 @@ export default function LifeCenterScreen() {
             ) : null}
           </>
         ) : null}
-        </FadeSwitch>
+        </Animated.View>
       </ScrollView>
 
       <View style={styles.addBarWrap}>

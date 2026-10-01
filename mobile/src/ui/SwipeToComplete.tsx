@@ -1,5 +1,5 @@
 import { Check, RotateCcw } from "lucide-react-native";
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  type SharedValue,
 } from "react-native-reanimated";
 import { hapticTick } from "../lib/haptics";
 import { useAppTheme } from "../providers/AppThemeProvider";
@@ -41,17 +42,21 @@ type Props = {
  *
  * Horizontal only: a mostly vertical drag fails the swipe and scrolls the
  * list, and a tap still reaches the row.
+ *
+ * Kept light, as a list can hold dozens: at rest a row has one animated
+ * style and its gesture; the colour behind it is only built once a swipe
+ * starts, and taken away when the row has sprung back.
  */
 export function SwipeToComplete({ done, onSwipe, enabled = true, radius = 0, style, children }: Props) {
-  const { colors, scale } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const x = useSharedValue(0);
   const armed = useSharedValue(false);
+  const [swiping, setSwiping] = useState(false);
 
   // The gesture is built once; it calls whatever onSwipe is current.
   const onSwipeRef = useRef(onSwipe);
   onSwipeRef.current = onSwipe;
   const fire = useCallback(() => onSwipeRef.current(), []);
+  const settle = useCallback(() => setSwiping(false), []);
 
   const pan = useMemo(
     () =>
@@ -60,6 +65,9 @@ export function SwipeToComplete({ done, onSwipe, enabled = true, radius = 0, sty
         // Only a drag to the right starts it; a vertical one lets the list scroll.
         .activeOffsetX(12)
         .failOffsetY([-10, 10])
+        .onStart(() => {
+          runOnJS(setSwiping)(true);
+        })
         .onUpdate((event) => {
           const dx = Math.max(0, event.translationX);
           x.value = dx <= THRESHOLD ? dx : THRESHOLD + (dx - THRESHOLD) * PAST_THRESHOLD_GIVE;
@@ -74,12 +82,29 @@ export function SwipeToComplete({ done, onSwipe, enabled = true, radius = 0, sty
         })
         .onFinalize(() => {
           armed.value = false;
-          x.value = withSpring(0, RETURN_SPRING);
+          x.value = withSpring(0, RETURN_SPRING, (finished) => {
+            if (finished) runOnJS(settle)();
+          });
         }),
-    [enabled, fire, x, armed],
+    [enabled, fire, settle, x, armed],
   );
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+
+  return (
+    <View style={style}>
+      {swiping ? <SwipeBack x={x} done={done} radius={radius} /> : null}
+      <GestureDetector gesture={pan}>
+        <Animated.View style={rowStyle}>{children}</Animated.View>
+      </GestureDetector>
+    </View>
+  );
+}
+
+/** The colour and the check behind a row being swiped. */
+function SwipeBack({ x, done, radius }: { x: SharedValue<number>; done: boolean; radius: number }) {
+  const { colors, scale } = useAppTheme();
+  const styles = stylesFor(colors, scale);
   const backStyle = useAnimatedStyle(() => ({
     opacity: interpolate(x.value, [0, 20], [0, 1], Extrapolation.CLAMP),
   }));
@@ -88,30 +113,39 @@ export function SwipeToComplete({ done, onSwipe, enabled = true, radius = 0, sty
     opacity: interpolate(x.value, [16, THRESHOLD * 0.7], [0, 1], Extrapolation.CLAMP),
     transform: [{ scale: interpolate(x.value, [16, THRESHOLD], [0.6, 1], Extrapolation.CLAMP) }],
   }));
-
   const ink = done ? colors.foreground : colors.primaryForeground;
-
   return (
-    <View style={style}>
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          styles.back,
-          { borderRadius: radius, backgroundColor: done ? colors.muted : colors.primary },
-          backStyle,
-        ]}
-      >
-        <Animated.View style={[styles.mark, markStyle]}>
-          {done ? <RotateCcw size={18} color={ink} /> : <Check size={20} color={ink} strokeWidth={2.6} />}
-          <Text style={[styles.markText, { color: ink }]}>{done ? "Not done" : "Done"}</Text>
-        </Animated.View>
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        styles.back,
+        { borderRadius: radius, backgroundColor: done ? colors.muted : colors.primary },
+        backStyle,
+      ]}
+    >
+      <Animated.View style={[styles.mark, markStyle]}>
+        {done ? <RotateCcw size={18} color={ink} /> : <Check size={20} color={ink} strokeWidth={2.6} />}
+        <Text style={[styles.markText, { color: ink }]}>{done ? "Not done" : "Done"}</Text>
       </Animated.View>
-      <GestureDetector gesture={pan}>
-        <Animated.View style={rowStyle}>{children}</Animated.View>
-      </GestureDetector>
-    </View>
+    </Animated.View>
   );
+}
+
+// One set of styles per theme and text size, shared by every row.
+const styleCache = new WeakMap<Colors, Map<number, ReturnType<typeof makeStyles>>>();
+function stylesFor(colors: Colors, scale: number) {
+  let byScale = styleCache.get(colors);
+  if (!byScale) {
+    byScale = new Map();
+    styleCache.set(colors, byScale);
+  }
+  let styles = byScale.get(scale);
+  if (!styles) {
+    styles = makeStyles(colors, scale);
+    byScale.set(scale, styles);
+  }
+  return styles;
 }
 
 function makeStyles(colors: Colors, scale: number) {
