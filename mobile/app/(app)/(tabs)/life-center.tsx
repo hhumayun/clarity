@@ -41,7 +41,6 @@ import { ConfirmModal } from "../../../src/ui/ConfirmModal";
 import { ProjectSheet } from "../../../src/ui/ProjectSheet";
 import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { Segmented } from "../../../src/ui/Segmented";
-import { SegmentBar } from "../../../src/ui/SegmentBar";
 import { Skeleton } from "../../../src/ui/Skeleton";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
 import { TaskCard } from "../../../src/ui/TaskCard";
@@ -355,18 +354,6 @@ export default function LifeCenterScreen() {
                 <Text style={styles.subtitle}>{formatLongDate(now)}</Text>
               )}
             </View>
-            {focus.today.length > 0 ? (
-              <View style={styles.progress}>
-                <SegmentBar
-                  total={focus.today.length}
-                  filled={focus.doneCount}
-                  accessibilityLabel={`${focus.doneCount} of ${focus.today.length} done today`}
-                />
-                <Text style={styles.progressText}>
-                  {focus.doneCount} of {focus.today.length} done today
-                </Text>
-              </View>
-            ) : null}
           </>
         )}
 
@@ -703,8 +690,6 @@ function makeStyles(colors: Colors, scale: number) {
     greetingBlock: { gap: 2 },
     focusLine: { flexDirection: "row", alignItems: "center", gap: spacing[1], marginTop: 2 },
     greeting: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
-    progress: { gap: spacing[2] },
-    progressText: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     section: { gap: spacing[2] },
     sectionLabel: {
       fontFamily: fonts.baseSemi,
