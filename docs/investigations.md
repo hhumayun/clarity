@@ -6,6 +6,54 @@ evidence is the point, not the status.
 
 ---
 
+## "Next year oct 2" is read as this year's Oct 2
+
+**Reported:** 2026-10-01 · **Status:** open, fix suggested, not started
+
+### Symptom
+
+Typing "Call dr lee on next year oct 2" in the add-task box set the date to
+Fri 2 Oct 2026, tomorrow at the time, instead of 2 Oct 2027. "next year" was
+left in the task's words ("Call dr lee on next year").
+
+### Cause
+
+Checked with chrono-node 2.10.1 against today = Thu 1 Oct 2026:
+
+| Line | chrono's results | Our date |
+|---|---|---|
+| "…on next year oct 2" | "next year" (only `year` certain), "oct 2" (`month`, `day`) | 2026-10-02 |
+| "…next year on oct 2" | same two results | 2026-10-02 |
+| "…on oct 2 next year" | same two results | 2026-10-02 |
+| "…on oct 2 2027" | one result, "oct 2 2027" (`year`, `month`, `day`) | 2027-10-02 ✓ |
+| "Call dr lee next year" | "next year" (only `year`) | none |
+
+1. chrono returns "next year" and "oct 2" as separate results. Its merging
+   refiners join a date with a time ("Friday at 3pm"), never a relative year
+   with a month and day. On its own, "oct 2" resolves to the next Oct 2
+   (`forwardDate`).
+2. `readDueDate` (`mobile/src/lib/dueDate.ts`, mirrored in
+   `helpers/dueDate.tsx`) keeps only results with a certain `day`, `weekday`
+   or `month`, to ignore vague matches. "next year" only has `year`, so it is
+   skipped and left in the text. On its own it gives no date at all.
+
+### Suggested fix
+
+In `readDueDate`, not in chrono:
+
+- **Combine:** when a line has a month-and-day result and a separate relative
+  year result ("next year", "in 2 years", "the year after"), take the month
+  and day from one and the year from the other, and strip both phrases from
+  the text.
+  - Expected: "Call dr lee on next year oct 2" becomes "Call dr lee", due Sat
+    2 Oct 2027.
+- **Open question:** "next year" on its own, either left undated as
+  "someday" is, or read like "in a year" (the same day next year).
+- **Keep the two copies in step:** add the cases above to the date-reading
+  test list, and change both copies.
+
+---
+
 ## Changes made offline are stamped with the time they sync, not when they were made
 
 **Reported:** 2026-10-01 · **Status:** open, small follow-up to offline support, not started
