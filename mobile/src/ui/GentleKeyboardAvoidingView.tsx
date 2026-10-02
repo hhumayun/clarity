@@ -36,11 +36,19 @@ export function useKeyboardRoom(): SharedValue<number> | null {
 export function GentleKeyboardAvoidingView({
   style,
   children,
+  room,
 }: {
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
+  /**
+   * Holds the room being made, for a caller that has to watch it: the note
+   * editor keeps the cursor in view as the page gets shorter. Without it the
+   * view keeps its own.
+   */
+  room?: SharedValue<number>;
 }) {
-  const padding = useSharedValue(0);
+  const ownRoom = useSharedValue(0);
+  const padding = room ?? ownRoom;
   // Opened with the keyboard already up: start with its room made.
   const { height: keyboardNow } = useReanimatedKeyboardAnimation();
   useEffect(() => {

@@ -6,6 +6,159 @@ evidence is the point, not the status.
 
 ---
 
+## Note editor: the note jumps while typing at the end of a line
+
+**Reported:** 2026-10-02 · **Status:** fixed 2026-10-02.
+
+- **Checked on the phone with logging:** taps in the text, flicks through
+  a long note, the keyboard opening and closing, and typing in a short
+  note.
+- **Not yet in a logged session:** typing past the end of a line in a
+  long note, and a tap under the text.
+
+### Symptoms
+
+- Scrolling in the note editor felt unpredictable.
+- Typing at the end of a long note sometimes threw the view back to the top
+  of the note, just as a line wrapped.
+- Tapping just under the last line put the keyboard away.
+
+### Causes
+
+1. **The jump to the top.**
+   - The text (a multiline `TextInput`, its own scrolling off, no height)
+     grows with its words inside a `ScrollView`, the page.
+   - A line that wraps at the end is in the text one render before the box
+     grows to fit it; Fabric applies the new frame in `updateLayoutMetrics`.
+   - In between, iOS asks where the cursor is, on a line with no layout yet,
+     and gets no usable position. keyboard-controller's source notes that a
+     growing input reports its selection as 0/-1 there, and waits a frame
+     before reading it.
+   - iOS then scrolls the page to that position: the top of the text.
+   - The same bug is reported upstream in react-native
+     [#49226](https://github.com/facebook/react-native/issues/49226),
+     [#48412](https://github.com/react/react-native/issues/48412) and
+     [#58517](https://github.com/react/react-native/issues/58517).
+   - The upstream fix,
+     [#58520](https://github.com/react/react-native/pull/58520), isn't in
+     React Native 0.86.3. Expo Go can't take native patches.
+2. **The cursor jumping to the end.** The logs caught this three times.
+   - A flick that started on the text counted as a press when the finger
+     lifted. iOS defaults `rejectResponderTermination` to true, so the
+     text's press handling (Pressability) is not cancelable and a scroll
+     can't take the touch away.
+   - The press focused the text with the cursor where it last was, often
+     the end. iOS had not seen a tap, so it had placed nothing, and the page
+     went after the cursor.
+3. **The keyboard going away.** A tap under the last line lands on the
+   page, not the text, and `keyboardShouldPersistTaps="handled"` dismisses
+   the keyboard for a tap no child handles.
+
+### What did not work: letting the text scroll itself
+
+The first fix made the text fill the pane and scroll itself.
+
+- **What it fixed:** the jump to the top stopped.
+- **What it broke:** typing at the end of a long note moved the view a
+  line or two at a time.
+- **Why:** a text view that scrolls itself only lays out the lines on
+  screen and estimates the height of the rest (TextKit 2). It keeps
+  correcting the estimate, and each correction moves what is on screen.
+  Apple says this is by design
+  ([TextKit 2: the promised land](https://blog.krzyzanowskim.com/2025/08/14/textkit-2-the-promised-land/)).
+- **What the logs showed:**
+  - The same text, while scrolling, reported heights of 3,230 → 3,184 →
+    3,204 → 3,218 → 3,140 → 3,234 → 3,296 points.
+  - While typing, it went 3,453 → 3,503 → 3,453 within 6 ms, and the view
+    moved 35 points up and back.
+- **Why it stays out:** nothing the app can reach in Expo Go turns this
+  off. A text that does not scroll has to lay out every line, which is
+  why the growing text is back.
+
+### Fix
+
+- **The text grows with its words again, and the page scrolls.** Every
+  line is laid out.
+- **iOS's own scrolling of the page is switched off.**
+  - It uses keyboard-controller's `ClippingScrollView`, which makes the
+    page's `scrollRectToVisible:animated:` do nothing.
+  - It is the piece keyboard-controller's `KeyboardAwareScrollView` is
+    built on. That component itself would make room for the keyboard a
+    second time, on top of `GentleKeyboardAvoidingView`.
+- **`useCaretFollow` (`mobile/src/hooks/useCaretFollow.ts`) keeps the
+  cursor in view instead,** on the UI thread. It acts:
+  - when the cursor moves, using keyboard-controller's positions and
+    skipping ones with no usable position;
+  - frame by frame while the room for the keyboard grows;
+  - when the text grows with the cursor at its end.
+
+  It keeps a line of room under the cursor, so a line that wraps at the end
+  is on screen before the text grows. Until keyboard-controller reports,
+  the touch point stands in for the cursor, because keyboard-controller
+  starts listening a frame after the text gains focus.
+- **A scroll takes the touch away from the text:**
+  `rejectResponderTermination={false}`.
+- **The rest of the page under the text is a `Pressable`.** A tap there
+  puts the cursor at the end and keeps the keyboard up, as in Notes.
+- **There is room under the last line,** so the page is never at its very
+  end while writing there. Lines that come and go below the cursor (iOS's
+  grey completions wrapping) change nothing on screen.
+
+### Known gaps
+
+- **Cursors set by the app.** A cursor placed in the middle of the text by
+  the app (a suggestion added mid-note) is only followed from the next
+  keystroke.
+- **`ClippingScrollView` is not meant to be used directly.**
+  keyboard-controller calls it a low-level piece, so check it again on the
+  next Expo SDK upgrade.
+  - Its patch stays on the native scroll view, which React Native reuses
+    for other `ScrollView`s.
+  - The Focus screen's `KeyboardAwareScrollView` already does the same.
+- **The title suggestion** still pushes the note down when it opens above
+  the text.
+
+---
+
+## iOS's grey word completions reach the app as typed text
+
+**Reported:** 2026-10-02 (found in the editor's logs) · **Status:** open,
+not confirmed.
+
+### Suspected symptom
+
+Leaving a note while a grey completion is showing may save the completion
+as if it had been typed.
+
+### Evidence
+
+While a predicted word was being typed, the app's copy of the text grew to
+the full predicted length after each key (3,505 characters typed, 3,513
+with the completion), then dropped back before the next.
+
+### Cause
+
+- iOS shows its inline predictions as marked text, the same mechanism as
+  Chinese or Japanese input in progress.
+  [Flutter had to handle this](https://github.com/flutter/flutter/pull/183650).
+- React Native reports marked text as part of the text, so `content`
+  holds the completion while it is showing.
+- `leave()` saves `contentRef.current` at once.
+
+### To confirm
+
+1. Type part of a word until a grey completion appears.
+2. Tap back straight away.
+3. Reopen the note and see whether the completed word is there.
+
+### Possible fix
+
+On leaving, blur the text first and save once iOS has removed the
+completion. With react-navigation, that means `beforeRemove` with
+`preventDefault()`, then dispatching the navigation again.
+
+---
+
 ## "Next year oct 2" is read as this year's Oct 2
 
 **Reported:** 2026-10-01 · **Status:** open, fix suggested, not started

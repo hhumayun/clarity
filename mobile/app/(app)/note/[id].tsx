@@ -17,6 +17,8 @@ import {
   View,
 } from "react-native";
 import { GentleKeyboardAvoidingView } from "../../../src/ui/GentleKeyboardAvoidingView";
+import { ClippingScrollView } from "react-native-keyboard-controller";
+import { useCaretFollow } from "../../../src/hooks/useCaretFollow";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postSuggestTitle } from "../../../src/api/notes";
 import { onlineManager } from "@tanstack/react-query";
@@ -59,6 +61,8 @@ const SERVER_SAVE_DELAY_MS = 900;
 const REINDEX_DELAY_MS = 4_000;
 // Roughly four lines: below this the note stops feeling like somewhere to write.
 const MIN_BODY_HEIGHT = 120;
+// The note's line height, before the text size setting scales it.
+const BODY_LINE_HEIGHT = 28;
 // An untitled note's title idea waits for a pause in the writing, so it comes
 // from a thought rather than half a word.
 const TITLE_IDEA_PAUSE_MS = 2_000;
@@ -384,6 +388,31 @@ export default function NoteEditorScreen() {
     });
   }, [noteId, queryClient]);
 
+  // The room made for the keyboard, shared so the page can keep the cursor in
+  // view while it gets shorter.
+  const keyboardRoom = useSharedValue(0);
+  const follow = useCaretFollow({
+    textRef: bodyRef,
+    textLength: () => contentRef.current.length,
+    lineHeight: BODY_LINE_HEIGHT * scale,
+    keyboardRoom,
+  });
+  // Off the Note tab the text is gone, and with it any focus to follow.
+  const { onTextBlur, onSelectionEnd, onCaretToEnd } = follow;
+  useEffect(() => {
+    if (editorTab !== "note") onTextBlur();
+  }, [editorTab, onTextBlur]);
+
+  // A tap under the text writes on from its end, as in Notes. It used to land
+  // on the page, which takes a tap outside the text as the sign to put the
+  // keyboard away.
+  const writeAtEnd = useCallback(() => {
+    const end = contentRef.current.length;
+    onCaretToEnd();
+    bodyRef.current?.focus();
+    bodyRef.current?.setSelection(end, end);
+  }, [onCaretToEnd]);
+
   const textBeforeCursor = useMemo(() => content.slice(0, cursorPos), [content, cursorPos]);
   const {
     suggestions,
@@ -453,10 +482,13 @@ export default function NoteEditorScreen() {
       contentRef.current = next;
       setContent(next);
       setPendingSelection(caret);
+      // Set from here, the cursor is never reported: the page follows it
+      // if the text grows with it at the end.
+      onSelectionEnd(caret);
       accept(suggestion);
       return caret;
     },
-    [accept, cursorPos],
+    [accept, cursorPos, onSelectionEnd],
   );
 
   // A question goes in as its own line where the cursor is, with the cursor
@@ -472,9 +504,10 @@ export default function NoteEditorScreen() {
       contentRef.current = next;
       setContent(next);
       setPendingSelection(caret);
+      onSelectionEnd(caret);
       return caret;
     },
-    [cursorPos],
+    [cursorPos, onSelectionEnd],
   );
 
   const openTray = useCallback(() => {
@@ -629,7 +662,7 @@ export default function NoteEditorScreen() {
           slower than the keyboard itself. React Native's own avoiding view
           drove this with LayoutAnimation, which under the new renderer ran
           out of step with the keyboard and lurched. */}
-      <GentleKeyboardAvoidingView style={styles.flex}>
+      <GentleKeyboardAvoidingView style={styles.flex} room={keyboardRoom}>
         <View style={styles.header}>
           <Button variant="ghost" size="icon" accessibilityLabel="Back to your notes" onPress={goBack}>
             <ChevronLeft size={26} color={colors.foreground} />
@@ -763,10 +796,20 @@ export default function NoteEditorScreen() {
         <FadeSwitch switchKey={editorTab} style={styles.flex}>
         {!TASKS_ENABLED || editorTab === "note" ? (
           <View style={styles.flex}>
-            <ScrollView
+            {/* iOS's own scrolling of this page is switched off: it scrolled
+                the page to the top of the note when a line wrapped at the
+                end (see the text below). The page follows the cursor itself
+                (useCaretFollow). ClippingScrollView is keyboard-controller's
+                piece for this, the one its KeyboardAwareScrollView sits on;
+                that whole component would make room for the keyboard a
+                second time, on top of the page's own. */}
+            <ClippingScrollView style={styles.flex}>
+            <Animated.ScrollView
+              ref={follow.pageRef}
               style={styles.flex}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.notePanel}
+              contentContainerStyle={styles.notePage}
+              scrollEventThrottle={16}
             >
               {!loaded ? (
                 <Animated.View style={styles.bodySkeleton} exiting={FadeOut.duration(MOTION.fast)}>
@@ -775,20 +818,25 @@ export default function NoteEditorScreen() {
                   <Skeleton style={styles.skeletonLineShort} />
                 </Animated.View>
               ) : (
-                <Animated.View style={revealStyle}>
+                <Animated.View style={revealStyle} onLayout={follow.onTextFrameLayout}>
               <TextInput
                 ref={bodyRef}
                 multiline
                 autoFocus={isNew}
                 onFocus={() => {
                   lastFieldRef.current = "body";
+                  follow.onTextFocus();
                 }}
+                onBlur={follow.onTextBlur}
+                onPressIn={(event) => follow.onTextPressIn(event.nativeEvent.locationY)}
+                onLayout={follow.onTextLayout}
                 // With the tray open a tap places the cursor and nothing
                 // more; only Keyboard brings the keyboard back.
                 showSoftInputOnFocus={!trayOpen}
                 value={content}
                 onChangeText={(value) => setContent(value)}
                 onSelectionChange={(event) => {
+                  follow.onSelectionEnd(event.nativeEvent.selection.end);
                   if (pendingSelection === null) {
                     setCursorPos(event.nativeEvent.selection.start);
                   }
@@ -797,22 +845,34 @@ export default function NoteEditorScreen() {
                 placeholder="Start writing…"
                 placeholderTextColor={colors.mutedForeground}
                 accessibilityLabel="Note text"
+                // The text grows with its words and the page scrolls; the
+                // text never scrolls itself. A text that scrolls itself only
+                // lays out the lines on screen and estimates the rest
+                // (TextKit 2), and each new estimate moved the note under the
+                // writer by a line or two. Grown to its full height, every
+                // line is laid out.
+                //
                 // No height here, on purpose. Under the new architecture the
                 // shadow node measures the text on every keystroke, so an
                 // unsized multiline input grows with its content by itself.
                 // Pinning the height from onContentSizeChange defeats that:
                 // that event only fires from updateLayoutMetrics, i.e. when
                 // the frame changes — which a pinned height never lets happen.
-                // With the box always fitting the text there is nothing for
-                // the input to scroll, so its own scrolling is off and the
-                // surrounding ScrollView carries the note and chips together.
                 scrollEnabled={false}
+                // A drag that scrolls the page lets go of the text. By
+                // default a text input keeps hold of the touch, so a flick
+                // that started on the note still counted as a press when the
+                // finger lifted, and focused the text with the cursor where it
+                // last was (often the end), and the page went after it.
+                rejectResponderTermination={false}
                 style={styles.body}
                 textAlignVertical="top"
               />
                 </Animated.View>
               )}
-            </ScrollView>
+              {loaded ? <Pressable style={styles.pageEnd} onPress={writeAtEnd} accessible={false} /> : null}
+            </Animated.ScrollView>
+            </ClippingScrollView>
             <View style={[styles.footer, trayOpen && styles.footerTray]}>
               {trayOpen ? (
                 // The tray's own bar: what to do, a fresh set, and the way back.
@@ -1117,13 +1177,30 @@ function makeStyles(colors: Colors, scale: number) {
       paddingBottom: spacing[16],
       gap: spacing[3],
     },
+    // The page under the note's text, at least as tall as the screen.
+    notePage: {
+      flexGrow: 1,
+      paddingHorizontal: spacing[4],
+      paddingTop: spacing[3],
+    },
+    // The rest of the page, under the last line, edge to edge; a tap here
+    // writes on from the end. It is never shorter than the line of room the
+    // cursor is kept above, and more under that, so the page is never
+    // scrolled to its very end while writing there: a line that comes and
+    // goes below the cursor (iOS's grey word completions wrap) then changes
+    // nothing on screen.
+    pageEnd: {
+      flexGrow: 1,
+      minHeight: BODY_LINE_HEIGHT * scale + spacing[16],
+      marginHorizontal: -spacing[4],
+    },
     body: {
       // Height comes from the text itself (see the input). The floor keeps a
       // usable tap target on an empty note.
       minHeight: MIN_BODY_HEIGHT,
       fontFamily: fonts.base,
       fontSize: textSize.large * scale,
-      lineHeight: 28 * scale,
+      lineHeight: BODY_LINE_HEIGHT * scale,
       color: colors.foreground,
     },
     footer: {
