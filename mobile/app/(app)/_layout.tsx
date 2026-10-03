@@ -27,6 +27,8 @@ export default function AppLayout() {
         {/* A task, with everything about it: a screen of its own, like a
             note, swiped back to close. */}
         <Stack.Screen name="task/[id]" />
+        {/* Developer only: the rich text candidates side by side. */}
+        <Stack.Screen name="editor-lab" />
         <Stack.Screen
           name="catch-up"
           options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }}

@@ -81,6 +81,19 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {__DEV__ ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Developer</Text>
+            <Pressable style={styles.linkRow} onPress={() => router.push("/editor-lab")}>
+              <View style={styles.settingText}>
+                <Text style={styles.settingLabel}>Editor lab</Text>
+                <Text style={styles.settingHint}>Try the rich text editors on your notes. Nothing is saved.</Text>
+              </View>
+              <ChevronRight size={22} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Account</Text>
           {email ? <Text style={styles.settingHint}>Signed in as {email}</Text> : null}
