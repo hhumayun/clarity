@@ -146,6 +146,20 @@ function upsertInPages(
 }
 
 /**
+ * Whether a note belongs in a list fetched with these filters, as far as the
+ * phone can tell: a search's matches are the server's call.
+ */
+function belongsIn(params: ListNotesInput, note: NoteRecord): boolean {
+  return (
+    Boolean(params.archived) === note.archived &&
+    !params.q &&
+    (!params.from || note.createdAt >= params.from) &&
+    (!params.to || note.createdAt < params.to) &&
+    (!params.projectId || (note.projectIds ?? []).includes(params.projectId))
+  );
+}
+
+/**
  * Put a note the editor just saved into every cached list it belongs in, so
  * it shows the moment you go back rather than after the next fetch. The
  * editor saves through the API directly (it debounces its own writes), so
@@ -161,11 +175,7 @@ export function upsertNoteInLists(queryClient: QueryClient, note: NoteRecord) {
     if (!data) continue;
     const params = (key[2] ?? {}) as ListNotesInput;
     const index = data.notes.findIndex((n) => n.id === note.id);
-    const belongs =
-      Boolean(params.archived) === note.archived &&
-      !params.q &&
-      (!params.from || note.createdAt >= params.from) &&
-      (!params.to || note.createdAt < params.to);
+    const belongs = belongsIn(params, note);
     let notes = data.notes;
     if (index >= 0) {
       notes = belongs || params.q ? data.notes.map((n, i) => (i === index ? note : n)) : data.notes.filter((_, i) => i !== index);
@@ -182,11 +192,7 @@ export function upsertNoteInLists(queryClient: QueryClient, note: NoteRecord) {
   for (const [key, data] of paged) {
     if (!data) continue;
     const params = (key[2] ?? {}) as ListNotesInput;
-    const belongs =
-      Boolean(params.archived) === note.archived &&
-      !params.q &&
-      (!params.from || note.createdAt >= params.from) &&
-      (!params.to || note.createdAt < params.to);
+    const belongs = belongsIn(params, note);
     const next = upsertInPages(data, note, belongs, Boolean(params.q));
     if (next) queryClient.setQueryData(key, next);
   }

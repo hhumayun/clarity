@@ -10,6 +10,8 @@ export const schema = z.object({
   from: z.coerce.date().optional(),
   /** ...and before this one. */
   to: z.coerce.date().optional(),
+  /** Only notes tagged with this area. */
+  projectId: z.string().min(1).max(64).optional(),
   /**
    * Ask for pages of this many notes, newest written first. Without it the
    * list is the newest-edited 200 in one go.
@@ -37,6 +39,7 @@ export const getNotesList = async (
   if (validated.archived) search.set("archived", "true");
   if (validated.from) search.set("from", validated.from.toISOString());
   if (validated.to) search.set("to", validated.to.toISOString());
+  if (validated.projectId) search.set("projectId", validated.projectId);
   if (validated.limit) search.set("limit", String(validated.limit));
   if (validated.cursor) search.set("cursor", validated.cursor);
   const query = search.toString();

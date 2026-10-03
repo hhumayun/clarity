@@ -11,9 +11,11 @@ export type NoteFilters = {
   from?: Date;
   /** ...and before this one. */
   to?: Date;
+  /** Only notes tagged with this area. */
+  projectId?: string;
 };
 
-/** The filters every notes list shares: whose, archived or not, dates, words. */
+/** The filters every notes list shares: whose, archived or not, dates, area, words. */
 export function filterNotes<O>(
   query: SelectQueryBuilder<DB, "notes", O>,
   userId: number,
@@ -24,6 +26,18 @@ export function filterNotes<O>(
     .where("archived", "=", filters.archived === true);
   if (filters.from) filtered = filtered.where("createdAt", ">=", filters.from);
   if (filters.to) filtered = filtered.where("createdAt", "<", filters.to);
+  const projectId = filters.projectId;
+  if (projectId) {
+    filtered = filtered.where((eb) =>
+      eb.exists(
+        eb
+          .selectFrom("noteProjects")
+          .select("noteProjects.noteId")
+          .whereRef("noteProjects.noteId", "=", "notes.id")
+          .where("noteProjects.projectId", "=", projectId),
+      ),
+    );
+  }
 
   const term = filters.q?.trim();
   if (term) {

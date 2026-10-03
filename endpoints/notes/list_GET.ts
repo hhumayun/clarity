@@ -16,6 +16,7 @@ export async function handle(request: Request) {
       archived: url.searchParams.get("archived") === "true" ? true : undefined,
       from: url.searchParams.get("from") ?? undefined,
       to: url.searchParams.get("to") ?? undefined,
+      projectId: url.searchParams.get("projectId") ?? undefined,
       limit: url.searchParams.get("limit") ?? undefined,
       cursor: url.searchParams.get("cursor") ?? undefined,
     });

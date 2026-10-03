@@ -71,13 +71,14 @@ import {
   stripRange,
   weeksBetween,
 } from "../../../src/lib/notesList";
-import { taskCountByNote } from "../../../src/lib/taskSort";
+import { sortProjects, taskCountByNote } from "../../../src/lib/taskSort";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../../../src/theme";
 import type { NoteRecord, TaskRecord, TaskStatus } from "../../../src/types";
 import { Button } from "../../../src/ui/Button";
 import { NoteCard } from "../../../src/ui/NoteCard";
+import { AreaMenu, AreaPill } from "../../../src/ui/AreaFilter";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Skeleton } from "../../../src/ui/Skeleton";
 import { Sheet } from "../../../src/ui/Sheet";
@@ -106,6 +107,9 @@ export default function NotesListScreen() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  // The area the list is narrowed to, and its menu under the header.
+  const [areaId, setAreaId] = useState<string | null>(null);
+  const [areaMenuOpen, setAreaMenuOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [jumpOpen, setJumpOpen] = useState(false);
   // The day view's dates fold away when its title is tapped (4a).
@@ -144,6 +148,7 @@ export default function NotesListScreen() {
     toTop();
     setView(next);
     setSearchOpen(false);
+    setAreaMenuOpen(false);
     void AsyncStorage.setItem(VIEW_KEY, next).catch(() => {});
   };
 
@@ -158,21 +163,27 @@ export default function NotesListScreen() {
   // The list, search results and the archive show notes as a list (and load
   // older pages as it scrolls); the day view shows its own week.
   const listShown = view === "list" || searching || showArchived;
-  // Both go to the server, so a search reaches every note, not just the
-  // pages loaded so far.
+  const tasks = useTasks(undefined, TASKS_ENABLED);
+  const areas = useMemo(() => sortProjects(tasks.query.data?.projects ?? []), [tasks.query.data?.projects]);
+  // Only the list is narrowed to an area; the day view and the archive show
+  // every area. An area deleted since shows them all again.
+  const area = view === "list" && !showArchived ? (areas.find((candidate) => candidate.id === areaId) ?? null) : null;
+  const projectId = area?.id ?? null;
+  // All of these go to the server, so a search or an area reaches every
+  // note, not just the pages loaded so far.
   const params = useMemo(
     () => ({
       ...(parsed.text ? { q: parsed.text } : {}),
       ...(parsed.range ? { from: parsed.range.start, to: parsed.range.end } : {}),
       ...(showArchived ? { archived: true } : {}),
+      ...(projectId ? { projectId } : {}),
     }),
-    [parsed.text, parsed.range, showArchived],
+    [parsed.text, parsed.range, showArchived, projectId],
   );
   // The newest notes first; older pages load as the list scrolls near its end.
-  const { data, isFetching, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isFetching, isError, isPlaceholderData, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useNotesPages(params);
   const noteCounts = useNoteCounts();
-  const tasks = useTasks(undefined, TASKS_ENABLED);
   const toast = useToast();
   const queryClient = useQueryClient();
   const firstFocus = useRef(true);
@@ -203,7 +214,12 @@ export default function NotesListScreen() {
     })();
   }, []);
 
-  const notes = useMemo(() => flattenPages(data), [data]);
+  // Narrowed here as well: until an area's own list arrives (and offline)
+  // the list on screen is the one before, with notes from every area.
+  const notes = useMemo(() => {
+    const all = flattenPages(data);
+    return projectId ? all.filter((note) => (note.projectIds ?? []).includes(projectId)) : all;
+  }, [data, projectId]);
   const counts = useMemo(
     () => (TASKS_ENABLED ? taskCountByNote(tasks.query.data?.tasks ?? []) : new Map<string, number>()),
     [tasks.query.data?.tasks],
@@ -220,7 +236,9 @@ export default function NotesListScreen() {
       return name ? [{ id, name }] : [];
     });
   const archivedCount = noteCounts.data?.archived ?? 0;
-  const loading = isFetching && !data;
+  // An area with none of its notes among those already here waits for its
+  // own list rather than saying it has none.
+  const loading = isFetching && (!data || (isPlaceholderData && projectId !== null && notes.length === 0));
 
   const openNote = useCallback((note: NoteRecord) => router.push(`/note/${note.id}`), [router]);
   // Cards get nothing that changes on every render (the open function and the
@@ -465,6 +483,13 @@ export default function NotesListScreen() {
     </>
   );
 
+  const pickArea = (id: string | null) => {
+    setAreaMenuOpen(false);
+    if (id === projectId) return;
+    toTop();
+    setAreaId(id);
+  };
+
   const header = showArchived ? (
     <View style={styles.header}>
       <Pressable
@@ -480,11 +505,18 @@ export default function NotesListScreen() {
       <Text style={[styles.title, styles.flex]}>Archived</Text>
     </View>
   ) : (
-    <View style={styles.header}>
-      {/* No heading: the tab bar already says Notes. The spacer keeps the
-          buttons on the right. */}
-      <View style={styles.flex} />
-      {headerIcons}
+    <View>
+      <View style={styles.header}>
+        {/* No heading: the tab bar already says Notes. On the left, the area
+            the list shows; the buttons stay on the right. */}
+        <View style={styles.headerLead}>
+          {areas.length > 0 ? (
+            <AreaPill area={area} open={areaMenuOpen} onPress={() => setAreaMenuOpen((open) => !open)} />
+          ) : null}
+        </View>
+        {headerIcons}
+      </View>
+      <AreaMenu open={areaMenuOpen} projects={areas} selected={projectId} onPick={pickArea} />
     </View>
   );
 
@@ -567,14 +599,17 @@ export default function NotesListScreen() {
   ) : null;
 
   // Under the list: older notes loading, and the way into the archive.
+  // The archive holds every area, so it is offered only with all of them.
+  const archiveRow = view === "list" && !searching && !showArchived && !area && archivedCount > 0;
   const listFooter =
-    isFetchingNextPage || (view === "list" && !searching && !showArchived && archivedCount > 0) ? (
+    isFetchingNextPage || archiveRow ? (
       <View style={styles.listFooter}>
         {isFetchingNextPage ? <Text style={styles.loadingMore}>Loading older notes…</Text> : null}
-        {view === "list" && !searching && !showArchived && archivedCount > 0 ? (
+        {archiveRow ? (
           <Pressable
             onPress={() => {
               toTop();
+              setAreaMenuOpen(false);
               setShowArchived(true);
             }}
             style={({ pressed }) => [styles.archivedRow, pressed && styles.pressed]}
@@ -588,6 +623,8 @@ export default function NotesListScreen() {
       </View>
     ) : null;
 
+  // " in #Work", for saying what a search found while one area shows.
+  const inArea = area ? ` in ${areaTag(area.name)}` : "";
   let body: React.ReactNode;
   if (loading) {
     body = (
@@ -614,8 +651,18 @@ export default function NotesListScreen() {
             {showArchived && !searching
               ? "No archived notes."
               : parsed.range && !parsed.text
-                ? `No notes from ${parsed.range.label}.`
-                : `No notes match "${debouncedSearch}".`}
+                ? `No notes${inArea} from ${parsed.range.label}.`
+                : `No notes${inArea} match "${debouncedSearch}".`}
+          </Text>
+        </View>
+      );
+  } else if (view === "list" && area) {
+    body =
+      notes.length > 0 ? null : (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No notes in {areaTag(area.name)} yet.</Text>
+          <Text style={styles.emptyHint}>
+            A note you write now starts in {areaTag(area.name)}. To add one you already have, open it and tap + Area.
           </Text>
         </View>
       );
@@ -731,7 +778,7 @@ export default function NotesListScreen() {
                 field stays out of this, so typing never loses focus. */}
             {body ? (
               <FadeSwitch
-                switchKey={`${showArchived ? "archived" : view}-${searching ? "search" : "browse"}`}
+                switchKey={`${showArchived ? "archived" : view}-${searching ? "search" : "browse"}-${projectId ?? "all"}`}
                 style={styles.body}
               >
                 {body}
@@ -776,7 +823,9 @@ export default function NotesListScreen() {
           {/* The microphone joins this bar with voice writing (N3). */}
           <Pressable
             style={({ pressed }) => [styles.writeBar, pressed && styles.pressed]}
-            onPress={() => router.push("/note/new")}
+            // While one area shows, a new note starts tagged with it, so it
+            // is in the list on the way back.
+            onPress={() => router.push(area ? `/note/new?area=${encodeURIComponent(area.id)}` : "/note/new")}
             accessibilityRole="button"
             accessibilityLabel="Write a note"
           >
@@ -803,6 +852,7 @@ function makeStyles(colors: Colors, scale: number) {
     listCard: { paddingBottom: spacing[2] },
     listFooter: { gap: spacing[3], paddingTop: spacing[3] },
     header: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
+    headerLead: { flex: 1, minWidth: 0, alignItems: "flex-start" },
     body: { gap: spacing[4] },
     title: { fontFamily: fonts.display, fontSize: textSize.display * scale, color: colors.foreground },
     iconButton: {
@@ -860,6 +910,14 @@ function makeStyles(colors: Colors, scale: number) {
     archivedText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
     empty: { alignItems: "center", gap: spacing[3], paddingVertical: spacing[12] },
     emptyText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground, textAlign: "center" },
+    emptyHint: {
+      fontFamily: fonts.base,
+      fontSize: textSize.small * scale,
+      lineHeight: 20 * scale,
+      color: colors.mutedForeground,
+      textAlign: "center",
+      paddingHorizontal: spacing[4],
+    },
     // Day view (4a): a pinned header with a hairline under it.
     dayHeader: {
       paddingHorizontal: spacing[4],

@@ -11,6 +11,8 @@ export const listNotesSchema = z.object({
   from: z.date().optional(),
   /** ...until (not including) this one. */
   to: z.date().optional(),
+  /** Only notes tagged with this area. */
+  projectId: z.string().min(1).max(64).optional(),
 });
 export type ListNotesInput = z.infer<typeof listNotesSchema>;
 
@@ -24,6 +26,7 @@ export async function getNotesList(
   if (validated.archived) search.set("archived", "true");
   if (validated.from) search.set("from", validated.from.toISOString());
   if (validated.to) search.set("to", validated.to.toISOString());
+  if (validated.projectId) search.set("projectId", validated.projectId);
   const query = search.toString();
   const result = await apiFetch(`/_api/notes/list${query ? `?${query}` : ""}`, {
     method: "GET",
@@ -49,6 +52,7 @@ export async function getNotesPage(
   if (validated.archived) search.set("archived", "true");
   if (validated.from) search.set("from", validated.from.toISOString());
   if (validated.to) search.set("to", validated.to.toISOString());
+  if (validated.projectId) search.set("projectId", validated.projectId);
   const result = await apiFetch(`/_api/notes/list?${search.toString()}`, {
     method: "GET",
     ...init,

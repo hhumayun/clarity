@@ -77,7 +77,7 @@ function shouldCapitalize(before: string): boolean {
 }
 
 export default function NoteEditorScreen() {
-  const { id: routeId } = useLocalSearchParams<{ id: string }>();
+  const { id: routeId, area: startArea } = useLocalSearchParams<{ id: string; area?: string }>();
   const isNew = routeId === "new";
   const router = useRouter();
   const toast = useToast();
@@ -110,7 +110,8 @@ export default function NoteEditorScreen() {
   const queryClient = useQueryClient();
   // Areas this note is tagged with. For a note not yet saved they wait here
   // and go in with its creation.
-  const [tagIds, setTagIds] = useState<string[]>([]);
+  // A new note written while the Notes list shows one area starts in it.
+  const [tagIds, setTagIds] = useState<string[]>(() => (isNew && startArea ? [startArea] : []));
   const tagIdsRef = useRef(tagIds);
   tagIdsRef.current = tagIds;
   const [areasOpen, setAreasOpen] = useState(false);

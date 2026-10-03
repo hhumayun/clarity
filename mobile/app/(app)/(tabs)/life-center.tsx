@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useRouter } from "expo-router";
-import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
+import { ArrowRight, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
@@ -16,7 +16,7 @@ import { EASE_IN, EASE_OUT, MOTION } from "../../../src/ui/motion";
 import { useFocusedMotion } from "../../../src/hooks/useFocusedMotion";
 import { fadeInFast, fadeOut } from "../../../src/ui/motion";
 import { RotatingChevron } from "../../../src/ui/RotatingChevron";
-import { Collapse } from "../../../src/ui/Collapse";
+import { AreaMenu, AreaPill } from "../../../src/ui/AreaFilter";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusSummary } from "../../../src/hooks/useFocus";
 import { useNotes } from "../../../src/hooks/useNotes";
@@ -30,7 +30,6 @@ import {
   isSameDay,
 } from "../../../src/lib/dates";
 import {
-  areaTag,
   greeting,
   groupAllTasks,
   slippedLabel,
@@ -340,50 +339,21 @@ export default function LifeCenterScreen() {
             <View>
             <View style={styles.controls}>
               {viewSwitch}
-              <Pressable
-                onPress={() => setAreaMenuOpen((open) => !open)}
-                style={[styles.areaPill, areaMenuOpen && styles.areaPillOpen]}
-                accessibilityLabel={`Area: ${activeArea?.name ?? "All areas"}. Change area`}
-              >
-                <Text style={styles.areaPillText} numberOfLines={1}>
-                  {activeArea ? areaTag(activeArea.name) : "All areas"}
-                </Text>
-                <ChevronDown size={16} color={colors.mutedForeground} />
-              </Pressable>
+              <AreaPill area={activeArea} open={areaMenuOpen} onPress={() => setAreaMenuOpen((open) => !open)} />
             </View>
-            <Collapse open={areaMenuOpen}>
-              <View style={styles.menuSpace}>
-              <View style={styles.areaMenu}>
-                {[{ id: ALL, name: "All areas" }, ...projects].map((area) => {
-                  const active = area.id === areaFilter;
-                  return (
-                    <Pressable
-                      key={area.id}
-                      style={styles.areaItem}
-                      onPress={() => {
-                        setAreaFilter(area.id);
-                        setAreaMenuOpen(false);
-                      }}
-                    >
-                      <Text style={[styles.areaItemText, active && styles.areaItemActive]}>
-                        {area.id === ALL ? area.name : areaTag(area.name)}
-                      </Text>
-                      {active ? <Check size={16} color={colors.primary} /> : null}
-                    </Pressable>
-                  );
-                })}
-                <Pressable
-                  style={[styles.areaItem, styles.areaManage]}
-                  onPress={() => {
-                    setAreaMenuOpen(false);
-                    setProjectsOpen(true);
-                  }}
-                >
-                  <Text style={styles.areaManageText}>Manage areas…</Text>
-                </Pressable>
-              </View>
-              </View>
-            </Collapse>
+            <AreaMenu
+              open={areaMenuOpen}
+              projects={projects}
+              selected={activeArea?.id ?? null}
+              onPick={(id) => {
+                setAreaFilter(id ?? ALL);
+                setAreaMenuOpen(false);
+              }}
+              onManage={() => {
+                setAreaMenuOpen(false);
+                setProjectsOpen(true);
+              }}
+            />
             </View>
           </>
         ) : (
@@ -664,38 +634,6 @@ function makeStyles(colors: Colors, scale: number) {
     },
     controls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing[2] },
     controlsTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    areaPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing[1],
-      maxWidth: 170,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: spacing[3],
-      paddingVertical: spacing[2],
-    },
-    areaPillOpen: { borderColor: colors.primary },
-    areaPillText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.foreground },
-    menuSpace: { paddingTop: spacing[3] },
-    areaMenu: {
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      overflow: "hidden",
-    },
-    areaItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing[2],
-      paddingHorizontal: spacing[4],
-      paddingVertical: spacing[3],
-    },
-    areaItemText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
-    areaItemActive: { fontFamily: fonts.baseSemi },
-    areaManage: { borderTopWidth: 1, borderTopColor: colors.border },
-    areaManageText: { fontFamily: fonts.baseSemi, fontSize: textSize.body * scale, color: colors.primary },
     dot: { width: 8, height: 8, borderRadius: 4 },
     greetingBlock: { gap: 2 },
     focusLine: { flexDirection: "row", alignItems: "center", gap: spacing[1], marginTop: 2 },
