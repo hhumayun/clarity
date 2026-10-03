@@ -1,6 +1,6 @@
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { BlurView } from "expo-blur";
-import { CalendarDays, FileText, Link2, Timer } from "lucide-react-native";
+import { CalendarDays, FileText, Link2, Timer, Unlink } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -24,14 +24,16 @@ type Props = {
   /** The task's linked notes and how it is going. */
   onNotes: (task: TaskRecord) => void;
   onLinkNote: (task: TaskRecord) => void;
+  /** Shows "Remove from this note", in a note's own tasks. */
+  onUnlink?: (task: TaskRecord) => void;
   /** Once the menu has fully gone; anything that presents next waits for it. */
   onExited?: () => void;
 };
 
 /**
- * A task's menu, opened by pressing and holding it: the screen blurs, the task
- * is lifted above it, and a short menu sits under it. Tap anywhere else to put
- * it away.
+ * A task's quick menu, opened by pressing and holding it (a tap opens the
+ * task itself): the screen blurs, the task is lifted above it, and a short
+ * menu sits under it. Tap anywhere else to put it away.
  *
  * Date turns the menu into the day choices in place rather than opening a
  * sheet: a second Modal presented while this one is still going away is
@@ -40,7 +42,7 @@ type Props = {
  * Like the other dialogs, the Modal is unmounted once its exit has played: a
  * hidden Modal left mounted keeps eating touches under the new renderer.
  */
-export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onNotes, onLinkNote, onExited }: Props) {
+export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onNotes, onLinkNote, onUnlink, onExited }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
   const open = task !== null;
@@ -137,6 +139,17 @@ export function TaskMenu({ task, dueLabel, onClose, onMove, onFocus, onNotes, on
                   <Link2 size={19} color={colors.mutedForeground} />
                   <Text style={styles.itemText}>Link a note</Text>
                 </Pressable>
+                {onUnlink ? (
+                  <Pressable
+                    onPress={() => onUnlink(current)}
+                    style={({ pressed }) => [styles.item, styles.divider, pressed && styles.itemPressed]}
+                    accessibilityRole="button"
+                    accessibilityHint="The task stays in Life Center and in any other notes"
+                  >
+                    <Unlink size={19} color={colors.mutedForeground} />
+                    <Text style={styles.itemText}>Remove from this note</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           ) : (

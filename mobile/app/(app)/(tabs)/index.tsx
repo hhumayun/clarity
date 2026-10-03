@@ -40,7 +40,7 @@ import { QuickAddTask, type QuickAddDraft } from "../../../src/ui/QuickAddTask";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
 import { SyncBar } from "../../../src/ui/SyncBar";
 import { UnsyncedMark } from "../../../src/ui/UnsyncedMark";
-import { TaskMenu } from "../../../src/ui/TaskMenu";
+import { TaskQuickMenu } from "../../../src/ui/TaskQuickMenu";
 import { EASE_IN, EASE_OUT, fadeOut, MOTION } from "../../../src/ui/motion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
@@ -53,7 +53,6 @@ import {
   useNotesPages,
   useReindexNotes,
 } from "../../../src/hooks/useNotes";
-import { useAfterExit } from "../../../src/hooks/useAfterExit";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { atNoon, dateChipLabel, formatClockTime, formatLongDate, isSameDay } from "../../../src/lib/dates";
@@ -72,7 +71,6 @@ import {
   stripRange,
   weeksBetween,
 } from "../../../src/lib/notesList";
-import { dueTimeLabel } from "../../../src/lib/reminderRules";
 import { taskCountByNote } from "../../../src/lib/taskSort";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
@@ -114,8 +112,6 @@ export default function NotesListScreen() {
   const [stripOpen, setStripOpen] = useState(true);
   // A task's press-and-hold menu; its Date row picks a new day in place.
   const [menuTask, setMenuTask] = useState<TaskRecord | null>(null);
-  // Its Notes and Link a note open the task's notes once the menu has gone.
-  const afterMenu = useAfterExit();
   // The day's + opens the task box, dated to the day shown.
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [added, setAdded] = useState<TaskRecord | null>(null);
@@ -688,6 +684,7 @@ export default function NotesListScreen() {
             <DayTasks
               tasks={dayTasks}
               onStatusChange={setTaskStatus}
+              onOpen={(task) => router.push(`/task/${task.id}`)}
               onOpenMenu={setMenuTask}
               onAdd={() => setQuickAddOpen(true)}
               emptyText={daysAgo(selectedDay) < 0 ? "Nothing scheduled yet." : "Nothing was scheduled."}
@@ -760,39 +757,7 @@ export default function NotesListScreen() {
         <DateTimePicker value={selectedDay} mode="date" display="default" onChange={onJumpPicked} />
       ) : null}
 
-      <TaskMenu
-        task={menuTask}
-        dueLabel={
-          menuTask?.completeBy
-            ? `${dateChipLabel(menuTask.completeBy)}${menuTask.dueTime ? `, ${dueTimeLabel(menuTask.dueTime)}` : ""}`
-            : "None"
-        }
-        onClose={() => setMenuTask(null)}
-        onMove={(task, date) => {
-          setMenuTask(null);
-          // It leaves this day's list, so say where it went once it has.
-          tasks.update.mutate(
-            { id: task.id, completeBy: date },
-            {
-              onSuccess: () => toast.show(date ? `Moved to ${dateChipLabel(date)}.` : "Date removed."),
-              onError: () => toast.show("That task could not be moved. Please try again."),
-            },
-          );
-        }}
-        onFocus={(task) => {
-          setMenuTask(null);
-          router.push(`/focus/${task.id}`);
-        }}
-        onNotes={(task) => {
-          setMenuTask(null);
-          afterMenu.later(() => router.push(`/task/${task.id}`));
-        }}
-        onLinkNote={(task) => {
-          setMenuTask(null);
-          afterMenu.later(() => router.push(`/task/${task.id}?link=1`));
-        }}
-        onExited={afterMenu.run}
-      />
+      <TaskQuickMenu task={menuTask} onClose={() => setMenuTask(null)} />
       {TASKS_ENABLED ? (
         <QuickAddTask
           open={quickAddOpen}

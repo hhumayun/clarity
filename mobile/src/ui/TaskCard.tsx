@@ -17,7 +17,7 @@ import { formatPlannedDate } from "../lib/dates";
 import { areaTag } from "../lib/lifeCenter";
 import { linkedNoteIds } from "../lib/taskLinks";
 import { focusMetaLabel } from "../lib/focus";
-import { hapticDone, hapticUndone } from "../lib/haptics";
+import { hapticDone, hapticTick, hapticUndone } from "../lib/haptics";
 import { dueState, formatDue } from "../lib/taskDates";
 import { dueTimeLabel, reminderLabel } from "../lib/reminderRules";
 import type { TaskFocusSummary, TaskRecord, TaskStatus } from "../types";
@@ -61,8 +61,10 @@ type Props = {
   /** Sessions, time, and where the person left off, for Today. */
   focusSummary?: TaskFocusSummary;
   onStatusChange: (status: TaskStatus) => void;
-  /** Tapping the row: its actions (focus, done, move, edit, delete). */
+  /** Tapping the row: the task's own screen. */
   onOpen: () => void;
+  /** Pressing and holding the row: its quick menu. */
+  onLongPress?: () => void;
   /** Today only: the small timer button, which opens focus setup. */
   onStartFocus?: () => void;
 };
@@ -72,8 +74,8 @@ type Props = {
  * hairline, with their area and day beneath; there is no checkbox. Done tasks
  * settle into a soft teal field with a check at the end.
  *
- * Tapping opens the task's actions, where Mark done is; pulling the row to
- * the right marks it done (or, when done, not done) straight away.
+ * Tapping opens the task; pressing and holding opens its quick menu; pulling
+ * the row to the right marks it done (or, when done, not done) straight away.
  */
 /**
  * Rows only redraw when what they show changes, not every time their list
@@ -92,7 +94,8 @@ function sameRow(a: Props, b: Props): boolean {
     a.noteTitle === b.noteTitle &&
     (a.movedFrom?.getTime() ?? null) === (b.movedFrom?.getTime() ?? null) &&
     a.focusSummary === b.focusSummary &&
-    Boolean(a.onStartFocus) === Boolean(b.onStartFocus)
+    Boolean(a.onStartFocus) === Boolean(b.onStartFocus) &&
+    Boolean(a.onLongPress) === Boolean(b.onLongPress)
   );
 }
 
@@ -110,6 +113,7 @@ function TaskCardRow({
   focusSummary,
   onStatusChange,
   onOpen,
+  onLongPress,
   onStartFocus,
 }: Props) {
   const router = useRouter();
@@ -318,9 +322,17 @@ function TaskCardRow({
           <Pressable
             style={({ pressed }) => [styles.body, pressed && styles.pressed]}
             onPress={onOpen}
+            onLongPress={
+              onLongPress
+                ? () => {
+                    hapticTick();
+                    onLongPress();
+                  }
+                : undefined
+            }
             accessibilityRole="button"
             accessibilityLabel={`${task.text}${shownDone ? ", done" : ""}`}
-            accessibilityHint="Opens the task's actions. Swipe right to mark it done."
+            accessibilityHint="Opens the task. Swipe right to mark it done."
             accessibilityActions={[{ name: "toggle", label: shownDone ? "Mark not done" : "Mark done" }]}
             onAccessibilityAction={(event) => {
               if (event.nativeEvent.actionName === "toggle") toggleDone();

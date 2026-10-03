@@ -1,31 +1,15 @@
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import {
-  Bell,
-  Check,
-  Clock,
-  ChevronDown,
-  FileText,
-  Link2,
-  Unlink,
-  ChevronLeft,
-  CalendarDays,
-  CircleCheck,
-  Pencil,
-  Plus,
-  RotateCcw,
-  Trash2,
-} from "lucide-react-native";
+import { CalendarDays, Check, ChevronLeft, Plus } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { fadeInFast } from "./motion";
 import { atNoon, dateChipLabel, daysFromToday, dueDayOptions, formatClockTime, isSameDay } from "../lib/dates";
 import { ensureNotificationPermission } from "../lib/notifications";
 import {
   DAY_MINUTES,
-  dueTimeLabel,
   MAX_REMIND_BEFORE,
   reminderChoices,
   reminderLabel,
@@ -39,66 +23,39 @@ import {
   upcomingReminder,
   type ReminderUnit,
 } from "../lib/reminderRules";
-import { hapticDone, hapticUndone } from "../lib/haptics";
 import { areaTag } from "../lib/lifeCenter";
-import { linkedNoteIds } from "../lib/taskLinks";
 import { useToast } from "../providers/ToastProvider";
 import { useAppTheme } from "../providers/AppThemeProvider";
 import { fonts, radius, spacing, type Colors, textSize } from "../theme";
-import {
-  type ProjectRecord,
-  type ReminderRepeat,
-  type TaskRecord,
-  type TaskStatus,
-} from "../types";
+import type { ProjectRecord, ReminderRepeat, TaskRecord } from "../types";
 import { Button } from "./Button";
 import { Input } from "./Input";
-import { PomodoroBadge } from "./PomodoroBadge";
 import { Sheet } from "./Sheet";
-import { TextArea } from "./TextArea";
 
-export type TaskDraft = {
-  text: string;
-  /**
-   * Only the edit form sends this. The quick actions (Mark done, Move) leave
-   * it out, so they can never blank a description they did not show.
-   */
-  description?: string;
-  projectId: string | null;
-  completeBy: Date | null;
+/** The part of a task the sheet changes; each has its own page of choices. */
+export type TaskField = "date" | "time" | "reminder" | "area" | "delete";
+
+/** What a choice changes: only the fields it touched. */
+export type TaskFieldChange = {
+  projectId?: string;
+  completeBy?: Date | null;
   /** Its time on its day, "HH:MM"; null for any time that day. */
-  dueTime: string | null;
+  dueTime?: string | null;
   /** Minutes before its time (or 9:00 on its day) to remind; null for none. */
-  remindBefore: number | null;
-  remindRepeat: ReminderRepeat | null;
-  status: TaskStatus;
+  remindBefore?: number | null;
+  remindRepeat?: ReminderRepeat | null;
 };
 
 type Props = {
-  open: boolean;
+  task: TaskRecord | null;
+  /** The field being changed; null when the sheet is closed. */
+  field: TaskField | null;
   onClose: () => void;
-  task?: TaskRecord | null;
   projects: ProjectRecord[];
-  defaultProjectId?: string | null;
-  onSave: (draft: TaskDraft) => Promise<void>;
-  onDelete?: () => Promise<void>;
+  /** Saves a choice; the sheet closes once it is in. */
+  onSave: (change: TaskFieldChange) => Promise<void>;
+  onDelete: () => Promise<void>;
   onCreateProject: (name: string) => Promise<ProjectRecord>;
-  /**
-   * "actions" opens an existing task on its action panel (Start focus time,
-   * Mark done, Move to another day, Edit task), which replaces the old "…"
-   * menu. "task" opens straight on the edit form.
-   */
-  startPanel?: "task" | "actions" | "move";
-  /** Shows Start focus time on the action panel. */
-  onStartFocus?: () => void;
-  /** Called once Mark done has saved, so the screen can confirm it. */
-  onMarkedDone?: (task: TaskRecord) => void;
-  /** Shows "Notes" on the action panel: the task's linked notes and summary. */
-  onNotes?: () => void;
-  /** Shows "Link a note" on the action panel. */
-  onLinkNote?: () => void;
-  /** Shows "Remove from this note", when opened from a note's tasks. */
-  onUnlink?: () => void;
   /** Once the sheet has fully gone; anything that presents next waits for it. */
   onExited?: () => void;
 };
@@ -118,73 +75,58 @@ function sameDue(a: Date | null, b: Date | null): boolean {
  * Which face of the sheet is showing. Deliberately one sheet with faces
  * rather than sheets opened on top of each other: on iOS a second Modal
  * presented over a first is fragile, and the failure mode is a screen that
- * still looks right but answers no touches. That includes confirming a
- * delete, which once opened a dialog over the sheet and froze the screen
- * behind it after both closed.
+ * still looks right but answers no touches.
  */
-type Panel = "actions" | "move" | "task" | "chooseProject" | "project" | "date" | "time" | "reminder" | "confirmDelete";
+type Panel = "date" | "time" | "reminder" | "chooseProject" | "project" | "confirmDelete";
 
-function draftFrom(
-  task: TaskRecord | null | undefined,
-  defaultProjectId: string | null | undefined,
-  projects: ProjectRecord[],
-): TaskDraft {
-  if (task) {
-    return {
-      text: task.text,
-      description: task.description ?? "",
-      projectId: task.projectId,
-      completeBy: task.completeBy,
-      dueTime: task.completeBy ? (task.dueTime ?? null) : null,
-      remindBefore: task.remindBefore ?? null,
-      remindRepeat: task.remindRepeat ?? null,
-      status: task.status,
-    };
-  }
+const PANEL_FOR: Record<TaskField, Panel> = {
+  date: "date",
+  time: "time",
+  reminder: "reminder",
+  area: "chooseProject",
+  delete: "confirmDelete",
+};
+
+/** A task's day, time and reminder, as the pages work on them. */
+type Schedule = {
+  completeBy: Date | null;
+  dueTime: string | null;
+  remindBefore: number | null;
+  remindRepeat: ReminderRepeat | null;
+};
+
+function scheduleOf(task: TaskRecord | null): Schedule {
   return {
-    text: "",
-    description: "",
-    projectId: defaultProjectId ?? projects[0]?.id ?? null,
-    completeBy: null,
-    dueTime: null,
-    remindBefore: null,
-    remindRepeat: null,
-    status: "todo",
+    completeBy: task?.completeBy ?? null,
+    dueTime: task?.completeBy ? (task.dueTime ?? null) : null,
+    remindBefore: task?.remindBefore ?? null,
+    remindRepeat: task?.remindRepeat ?? null,
   };
 }
 
-
-export function TaskSheet({
-  open,
-  onClose,
-  task,
-  projects,
-  defaultProjectId,
-  onSave,
-  onDelete,
-  onCreateProject,
-  startPanel = "task",
-  onStartFocus,
-  onMarkedDone,
-  onNotes,
-  onLinkNote,
-  onUnlink,
-  onExited,
-}: Props) {
+/**
+ * One of a task's fields, changed on a page of its own: its day, its time,
+ * its reminder (and how it repeats), its area, or deleting it. A choice is
+ * saved as it is made and the sheet goes, back to the task's screen.
+ *
+ * A reminder needs a day: asked for one with none, the reminder page sends
+ * the writer to the day's choices first, and the day goes in with the
+ * reminder.
+ */
+export function TaskSheet({ task, field, onClose, projects, onSave, onDelete, onCreateProject, onExited }: Props) {
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
-  const { height: windowHeight } = useWindowDimensions();
   const toast = useToast();
-  const [draft, setDraft] = useState<TaskDraft>(() =>
-    draftFrom(task, defaultProjectId, projects),
-  );
+  const open = field !== null && task !== null;
+  // The page the sheet opened on; "back" from any other returns to it.
+  const [home, setHome] = useState<Panel>("date");
+  const [panel, setPanel] = useState<Panel>("date");
+  const [schedule, setSchedule] = useState<Schedule>(() => scheduleOf(task));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [newProject, setNewProject] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [panel, setPanel] = useState<Panel>("task");
-  const [movePickerOpen, setMovePickerOpen] = useState(false);
   // Android's calendar is a dialog of its own, opened from the date page.
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   // The time page's clock, kept apart until "Set time".
@@ -196,116 +138,24 @@ export function TaskSheet({
   const [customAmount, setCustomAmount] = useState("1");
   const [customUnit, setCustomUnit] = useState<ReminderUnit>("hours");
   const [reminderRepeat, setReminderRepeat] = useState<ReminderRepeat | null>(null);
-  const editing = Boolean(task);
-  const noteCount = task ? linkedNoteIds(task).length : 0;
-  // Where "back" goes from a sub-face: the panel the sheet opened on.
-  // "move" opens straight on Move to another day (e.g. from a task's menu).
-  const home: Panel = task && (startPanel === "actions" || startPanel === "move") ? startPanel : "task";
 
-  useEffect(() => {
-    if (open) {
-      setDraft(draftFrom(task, defaultProjectId, projects));
-      setError("");
-      setNewProject("");
-      setPanel(task && (startPanel === "actions" || startPanel === "move") ? startPanel : "task");
-      setMovePickerOpen(false);
-      setDatePickerOpen(false);
-      setTimePickerOpen(false);
-    }
-  }, [open, task?.id, defaultProjectId, projects, startPanel]);
-
-  const projectName =
-    projects.find((project) => project.id === draft.projectId)?.name ??
-    (task && task.projectId === draft.projectId ? task.projectName : null);
-
-  const canSave = draft.text.trim().length > 0 && Boolean(draft.projectId) && !saving;
-
-  const save = async () => {
-    if (!canSave) return;
-    setSaving(true);
-    setError("");
-    try {
-      await onSave({
-        ...draft,
-        text: draft.text.trim().replace(/\s+/g, " "),
-        description: (draft.description ?? "").trim(),
-      });
-      onClose();
-      if (task && !sameDue(task.completeBy, draft.completeBy)) confirmMoved(draft.completeBy);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "That task could not be saved. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const addProject = async () => {
-    const name = newProject.trim().replace(/\s+/g, " ");
-    if (!name) return;
-    setCreatingProject(true);
-    try {
-      const project = await onCreateProject(name);
-      setDraft((current) => ({ ...current, projectId: project.id }));
-      setNewProject("");
-      setPanel("task");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "That project could not be added.");
-      setPanel("chooseProject");
-    } finally {
-      setCreatingProject(false);
-    }
-  };
-
-  // A time goes with a day: no day, no time.
-  const setDate = (date: Date | null) =>
-    setDraft((current) => ({ ...current, completeBy: date, dueTime: date ? current.dueTime : null }));
-
-  const openTime = () => {
+  // A new time starts at the next whole hour today, or 9:00 on a later day.
+  const prepareTime = (current: Schedule) => {
     const now = new Date();
-    const later = draft.completeBy !== null && !isSameDay(draft.completeBy, now) && draft.completeBy.getTime() > now.getTime();
-    // A new time starts at the next whole hour today, or 9:00 on a later day.
+    const later =
+      current.completeBy !== null && !isSameDay(current.completeBy, now) && current.completeBy.getTime() > now.getTime();
     setTimeValue(
-      draft.dueTime
-        ? timeToday(draft.dueTime, now)
+      current.dueTime
+        ? timeToday(current.dueTime, now)
         : new Date(now.getFullYear(), now.getMonth(), now.getDate(), later ? 9 : Math.min(now.getHours() + 1, 23), 0),
     );
     setTimePickerOpen(false);
-    setPanel("time");
   };
 
-  const setTime = () => {
-    const dueTime = timeOf(timeValue);
-    setDraft((current) => {
-      if (current.completeBy) return { ...current, dueTime };
-      // A time with no day: today while it is still to come, else tomorrow.
-      const now = new Date();
-      const todayAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), timeValue.getHours(), timeValue.getMinutes());
-      return { ...current, completeBy: daysFromToday(todayAt.getTime() > now.getTime() ? 0 : 1, now), dueTime };
-    });
-    setPanel("task");
-  };
-
-  // A reminder counted in minutes from the time becomes whole days before 9:00.
-  const clearTime = () => {
-    setDraft((current) => ({
-      ...current,
-      dueTime: null,
-      remindBefore:
-        current.remindBefore == null ? null : Math.floor(current.remindBefore / DAY_MINUTES) * DAY_MINUTES,
-    }));
-    setPanel("task");
-  };
-
-  const handleTimePicked = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS !== "ios") setTimePickerOpen(false);
-    if (event.type === "dismissed" || !date) return;
-    setTimeValue(date);
-  };
-
-  // Reminders count back from the task's time, or from 9:00 on its day.
-  const timed = Boolean(draft.dueTime);
-  const openReminder = () => {
-    const before = draft.remindBefore;
+  // The reminder page opens on what is set, or on the usual choice.
+  const prepareReminder = (current: Schedule) => {
+    const timed = Boolean(current.dueTime);
+    const before = current.remindBefore;
     if (before != null && reminderChoices(timed).includes(before)) {
       setReminderChoice(before);
     } else if (before != null) {
@@ -320,88 +170,64 @@ export function TaskSheet({
       setCustomAmount(timed ? "1" : "2");
       setCustomUnit(timed ? "hours" : "days");
     }
-    setReminderRepeat(draft.remindRepeat ?? null);
-    setPanel("reminder");
+    setReminderRepeat(current.remindRepeat ?? null);
   };
 
-  // The reminder the page describes, in minutes before the task, and when it
-  // would next go off.
-  const customValue = Number.parseInt(customAmount, 10);
-  const chosenBefore =
-    reminderChoice !== "custom"
-      ? reminderChoice
-      : Number.isFinite(customValue) && customValue >= 0
-        ? Math.min(customValue * UNIT_MINUTES[customUnit], MAX_REMIND_BEFORE)
-        : null;
-  const nextReminder =
-    chosenBefore !== null && draft.completeBy
-      ? upcomingReminder({
-          id: task?.id ?? "new",
-          status: "todo",
-          completeBy: draft.completeBy,
-          dueTime: draft.dueTime,
-          remindBefore: chosenBefore,
-          remindRepeat: reminderRepeat,
-        })
-      : null;
+  useEffect(() => {
+    if (!field || !task) return;
+    const current = scheduleOf(task);
+    setSchedule(current);
+    setError("");
+    setNewProject("");
+    setDatePickerOpen(false);
+    if (field === "time") prepareTime(current);
+    if (field === "reminder") prepareReminder(current);
+    setHome(PANEL_FOR[field]);
+    setPanel(PANEL_FOR[field]);
+    // Set up once per opening: later edits to the task must not reset the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field, task?.id]);
 
-  const setReminder = async () => {
-    if (chosenBefore === null) return;
-    setDraft((current) => ({ ...current, remindBefore: chosenBefore, remindRepeat: reminderRepeat }));
-    setPanel("task");
-    // Asked here, the first time it matters; saved either way.
-    if (!(await ensureNotificationPermission())) {
-      toast.show("Notifications are off, so this reminder will not sound. You can turn them on in Settings.");
-    }
-  };
-
-  const clearReminder = () => {
-    setDraft((current) => ({ ...current, remindBefore: null, remindRepeat: null }));
-    setPanel("task");
-  };
-
-  // A new day, once saved, is said out loud: the task has usually just left
-  // the list on screen.
-  const confirmMoved = (date: Date | null) => {
-    toast.show(date ? `Moved to ${dateChipLabel(date)}.` : "Date removed.");
-  };
-
-  // Save one change straight from the action panel, without the edit form.
-  const commit = async (change: Partial<TaskDraft>) => {
-    if (!task || saving) return;
+  const save = async (change: TaskFieldChange) => {
+    if (saving) return false;
     setSaving(true);
     setError("");
     try {
-      // Everything but the description, which this path never showed.
-      const { description: _unshown, ...current } = draftFrom(task, defaultProjectId, projects);
-      await onSave({ ...current, ...change });
+      await onSave(change);
       onClose();
-      if (change.completeBy !== undefined && !sameDue(task.completeBy, change.completeBy)) {
-        confirmMoved(change.completeBy);
-      }
-      if (change.status === "done" && task.status !== "done") {
-        hapticDone();
-        onMarkedDone?.(task);
-      } else if (change.status && change.status !== "done" && task.status === "done") {
-        hapticUndone();
-      }
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "That change could not be saved. Please try again.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const handleMovePicked = (event: DateTimePickerEvent, date?: Date) => {
-    setMovePickerOpen(false);
-    if (event.type === "dismissed" || !date) return;
-    void commit({ completeBy: atNoon(date.getFullYear(), date.getMonth(), date.getDate()) });
+  const addProject = async () => {
+    const name = newProject.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    setCreatingProject(true);
+    try {
+      const project = await onCreateProject(name);
+      await save({ projectId: project.id });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That area could not be added.");
+    } finally {
+      setCreatingProject(false);
+    }
   };
 
-  // A day chosen on the date page goes straight back to the task.
+  // A day chosen on the date page is saved at once, unless it was asked for
+  // on the way to a reminder: then it waits to go in with the reminder.
   const chooseDate = (date: Date | null) => {
-    setDate(date);
-    setPanel("task");
+    if (home === "reminder") {
+      setSchedule((current) => ({ ...current, completeBy: date, dueTime: date ? current.dueTime : null }));
+      setPanel("reminder");
+      return;
+    }
+    // A time goes with a day: no day, no time.
+    void save(date ? { completeBy: date } : { completeBy: null, dueTime: null });
   };
 
   const handlePicked = (event: DateTimePickerEvent, date?: Date) => {
@@ -412,19 +238,79 @@ export function TaskSheet({
     chooseDate(atNoon(date.getFullYear(), date.getMonth(), date.getDate()));
   };
 
+  const setTime = () => {
+    const dueTime = timeOf(timeValue);
+    if (schedule.completeBy) {
+      void save({ dueTime });
+      return;
+    }
+    // A time with no day: today while it is still to come, else tomorrow.
+    const now = new Date();
+    const todayAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), timeValue.getHours(), timeValue.getMinutes());
+    void save({ completeBy: daysFromToday(todayAt.getTime() > now.getTime() ? 0 : 1, now), dueTime });
+  };
+
+  // A reminder counted in minutes from the time becomes whole days before 9:00.
+  const clearTime = () => {
+    void save({
+      dueTime: null,
+      remindBefore:
+        schedule.remindBefore == null ? null : Math.floor(schedule.remindBefore / DAY_MINUTES) * DAY_MINUTES,
+    });
+  };
+
+  const handleTimePicked = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== "ios") setTimePickerOpen(false);
+    if (event.type === "dismissed" || !date) return;
+    setTimeValue(date);
+  };
+
+  // Reminders count back from the task's time, or from 9:00 on its day.
+  const timed = Boolean(schedule.dueTime);
+  // The reminder the page describes, in minutes before the task, and when it
+  // would next go off.
+  const customValue = Number.parseInt(customAmount, 10);
+  const chosenBefore =
+    reminderChoice !== "custom"
+      ? reminderChoice
+      : Number.isFinite(customValue) && customValue >= 0
+        ? Math.min(customValue * UNIT_MINUTES[customUnit], MAX_REMIND_BEFORE)
+        : null;
+  const nextReminder =
+    chosenBefore !== null && schedule.completeBy
+      ? upcomingReminder({
+          id: task?.id ?? "new",
+          status: "todo",
+          completeBy: schedule.completeBy,
+          dueTime: schedule.dueTime,
+          remindBefore: chosenBefore,
+          remindRepeat: reminderRepeat,
+        })
+      : null;
+
+  const setReminder = async () => {
+    if (chosenBefore === null || !task) return;
+    const change: TaskFieldChange = { remindBefore: chosenBefore, remindRepeat: reminderRepeat };
+    // A day chosen on the way here goes in with the reminder.
+    if (!sameDue(task.completeBy, schedule.completeBy)) change.completeBy = schedule.completeBy;
+    if (!(await save(change))) return;
+    // Asked here, the first time it matters; saved either way.
+    if (!(await ensureNotificationPermission())) {
+      toast.show("Notifications are off, so this reminder will not sound. You can turn them on in Settings.");
+    }
+  };
+
+  const clearReminder = () => void save({ remindBefore: null, remindRepeat: null });
+
   const titles: Record<Panel, { title: string; description?: string }> = {
-    actions: { title: task?.text ?? "" },
-    move: { title: "Move to another day" },
-    // Drawn as the task's own text, editable, in the title's place.
-    task: { title: draft.text || (editing ? "Edit task" : "Add a task") },
-    chooseProject: { title: "Project" },
-    project: {
-      title: "New project",
-      description: "A short name is easiest to recognise later.",
-    },
     date: { title: "Due date" },
     time: { title: "Time" },
     reminder: { title: "Reminder" },
+    chooseProject: { title: "Area" },
+    project: {
+      title: "New area",
+      description: "A short name is easiest to recognise later.",
+    },
     confirmDelete: {
       title: "Delete this task?",
       description: "It will stay hidden even if you refresh tasks from the note it came from.",
@@ -432,330 +318,77 @@ export function TaskSheet({
   };
 
   return (
-    <>
-      <Sheet
-        open={open}
-        title={titles[panel].title}
-        titleInput={
-          panel === "task" ? (
-            <TextInput
-              value={draft.text}
-              // One line of task: a return finishes it rather than breaking it.
-              onChangeText={(text) => setDraft((current) => ({ ...current, text: text.replace(/\n/g, " ") }))}
-              placeholder="New task"
-              placeholderTextColor={colors.mutedForeground}
-              multiline
-              scrollEnabled={false}
-              submitBehavior="blurAndSubmit"
+    <Sheet
+      open={open}
+      title={titles[panel].title}
+      description={titles[panel].description}
+      // The ×, a drag down or a tap outside closes the sheet. Android's back
+      // button steps back a page: to the areas from a new one, and to the
+      // reminder from the day it needed.
+      onClose={onClose}
+      onBack={panel === home ? onClose : () => setPanel(panel === "project" ? "chooseProject" : home)}
+      onExited={onExited}
+    >
+      {/* Each face fades in as it replaces the last, while the sheet's
+          height glides between them. */}
+      <Animated.View key={panel} entering={fadeInFast} style={styles.face}>
+        {panel === "chooseProject" ? (
+          <View>
+            {projects.map((project, index) => {
+              const active = task?.projectId === project.id;
+              return (
+                <Pressable
+                  key={project.id}
+                  onPress={() => void save({ projectId: project.id })}
+                  disabled={saving}
+                  style={({ pressed }) => [styles.optionRow, index > 0 && styles.divider, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={project.name}
+                >
+                  <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>
+                    {areaTag(project.name)}
+                  </Text>
+                  {active ? <Check size={20} color={colors.primary} /> : null}
+                </Pressable>
+              );
+            })}
+            <Pressable
+              onPress={() => {
+                setNewProject("");
+                setPanel("project");
+              }}
+              style={({ pressed }) => [styles.optionRow, projects.length > 0 && styles.divider, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Add a new area"
+            >
+              <Plus size={20} color={colors.mutedForeground} />
+              <Text style={[styles.optionText, styles.optionTextMuted]}>New area</Text>
+            </Pressable>
+          </View>
+        ) : panel === "project" ? (
+          <>
+            <Input
+              value={newProject}
+              onChangeText={setNewProject}
+              placeholder="For example, Health"
+              autoFocus
+              maxLength={100}
               returnKeyType="done"
-              maxLength={500}
-              style={styles.titleInput}
-              accessibilityLabel="Task"
+              onSubmitEditing={() => void addProject()}
             />
-          ) : undefined
-        }
-        description={titles[panel].description}
-        // The ×, a drag down or a tap outside closes the whole sheet. Android's
-        // back button steps back a page: to the actions from Move or Edit,
-        // and to the form from a project, a date or the delete confirmation.
-        onClose={onClose}
-        onBack={
-          panel === home
-            ? onClose
-            : () =>
-                setPanel(
-                  panel === "move" || panel === "task"
-                    ? "actions"
-                    : panel === "project"
-                      ? "chooseProject"
-                      : panel === "confirmDelete"
-                        ? "actions"
-                        : "task",
-                )
-        }
-        // The edit page gives its title, the task, the whole width.
-        showClose={panel !== "task"}
-        onExited={onExited}
-      >
-        {/* Each face fades in as it replaces the last, while the sheet's
-            height glides between them. */}
-        <Animated.View key={panel} entering={fadeInFast} style={styles.face}>
-        {panel === "actions" && task ? (
-          <>
-            {onStartFocus && task.status !== "done" ? (
-              <Pressable
-                style={({ pressed }) => [styles.focusButton, pressed && styles.focusPressed]}
-                onPress={onStartFocus}
-                accessibilityRole="button"
-                accessibilityLabel="Start focus time. Set aside a few minutes for just this"
-              >
-                {/* Grows with the text size, so it stays in proportion. */}
-                <PomodoroBadge size={Math.round(44 * scale)} />
-                <View style={styles.flexShrink}>
-                  <Text style={styles.focusTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
-                    Start focus time
-                  </Text>
-                  <Text style={styles.focusHint} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-                    Set aside a few minutes for just this
-                  </Text>
-                </View>
-              </Pressable>
-            ) : null}
-            <View>
-              <Pressable
-                style={styles.actionRow}
-                onPress={() => void commit({ status: task.status === "done" ? "todo" : "done" })}
-                disabled={saving}
-                accessibilityRole="button"
-              >
-                {task.status === "done" ? (
-                  <RotateCcw size={20} color={colors.foreground} />
-                ) : (
-                  <CircleCheck size={20} color={colors.foreground} />
-                )}
-                <Text style={styles.actionText}>
-                  {task.status === "done" ? "Mark not done" : "Mark done"}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.actionRow, styles.actionDivider]}
-                onPress={() => setPanel("move")}
-                accessibilityRole="button"
-              >
-                <CalendarDays size={20} color={colors.foreground} />
-                <Text style={styles.actionText}>Move to another day</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.actionRow, styles.actionDivider]}
-                onPress={() => setPanel("task")}
-                accessibilityRole="button"
-              >
-                <Pencil size={20} color={colors.foreground} />
-                <Text style={styles.actionText}>Edit task</Text>
-              </Pressable>
-              {onNotes ? (
-                <Pressable
-                  style={[styles.actionRow, styles.actionDivider]}
-                  onPress={onNotes}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Notes, ${noteCount}. See this task's notes and how it is going`}
-                >
-                  <FileText size={20} color={colors.foreground} />
-                  <Text style={[styles.actionText, styles.flexShrink]}>Notes</Text>
-                  <View style={styles.flexFill} />
-                  <Text style={styles.actionCount}>{noteCount}</Text>
-                </Pressable>
-              ) : null}
-              {onLinkNote ? (
-                <Pressable
-                  style={[styles.actionRow, styles.actionDivider]}
-                  onPress={onLinkNote}
-                  accessibilityRole="button"
-                >
-                  <Link2 size={20} color={colors.foreground} />
-                  <Text style={styles.actionText}>Link a note</Text>
-                </Pressable>
-              ) : null}
-              {onUnlink ? (
-                <Pressable
-                  style={[styles.actionRow, styles.actionDivider]}
-                  onPress={onUnlink}
-                  accessibilityRole="button"
-                  accessibilityHint="The task stays in Life Center and in any other notes"
-                >
-                  <Unlink size={20} color={colors.foreground} />
-                  <Text style={styles.actionText}>Remove from this note</Text>
-                </Pressable>
-              ) : null}
-              {onDelete ? (
-                // Last, away from the rest, and it still asks first.
-                <Pressable
-                  style={[styles.actionRow, styles.actionDivider]}
-                  onPress={() => {
-                    setError("");
-                    setPanel("confirmDelete");
-                  }}
-                  accessibilityRole="button"
-                >
-                  <Trash2 size={20} color={colors.error} />
-                  <Text style={[styles.actionText, styles.deleteText]}>Delete task</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </>
-        ) : panel === "move" && task ? (
-          <>
-            <View style={styles.chips}>
-              {dueDayOptions().map((option) => {
-                const active =
-                  option.value === null
-                    ? task.completeBy === null
-                    : isSameDay(option.value, task.completeBy);
-                return (
-                  <Pressable
-                    key={option.label}
-                    onPress={() => void commit({ completeBy: option.value })}
-                    disabled={saving}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              <Pressable
-                onPress={() => setMovePickerOpen(true)}
-                style={[styles.chip, styles.chipWithIcon]}
-                accessibilityLabel="Pick a date"
-              >
-                <CalendarDays size={14} color={colors.mutedForeground} />
-                <Text style={styles.chipText}>Pick a date</Text>
-              </Pressable>
-            </View>
-            {movePickerOpen ? (
-              <View style={styles.picker}>
-                <DateTimePicker
-                  value={task.completeBy ?? new Date()}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "inline" : "default"}
-                  accentColor={colors.primary}
-                  themeVariant={dark ? "dark" : "light"}
-                  onChange={handleMovePicked}
-                />
-              </View>
-            ) : null}
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            <Button variant="ghost" onPress={() => setPanel("actions")}>
+            <Button
+              size="lg"
+              loading={creatingProject || saving}
+              disabled={!newProject.trim()}
+              onPress={() => void addProject()}
+            >
+              Add area
+            </Button>
+            <Button variant="ghost" onPress={() => setPanel("chooseProject")}>
               <ChevronLeft size={18} color={colors.foreground} />
               <Text style={styles.backText}>Back</Text>
             </Button>
-          </>
-        ) : panel === "task" ? (
-          <>
-            {/* One line to start, growing as it is written in; past a third
-                of the screen it scrolls inside itself. */}
-            <TextArea
-              value={draft.description ?? ""}
-              onChangeText={(description) => setDraft((current) => ({ ...current, description }))}
-              placeholder="Add a description"
-              maxLength={5000}
-              style={[styles.description, { maxHeight: Math.round(windowHeight / 3) }]}
-              accessibilityLabel="Description"
-            />
-
-            {/* Just what is chosen; each opens its own page of choices. */}
-            <View style={styles.chips}>
-              <Pressable
-                onPress={() => setPanel("chooseProject")}
-                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={projectName ? `Project: ${projectName}. Change project` : "Choose a project"}
-              >
-                <Text style={styles.pickText} numberOfLines={1}>
-                  {projectName ? areaTag(projectName) : "Choose a project"}
-                </Text>
-                <ChevronDown size={15} color={colors.mutedForeground} />
-              </Pressable>
-              <Pressable
-                onPress={() => setPanel("date")}
-                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  draft.completeBy ? `Due ${dateChipLabel(draft.completeBy)}. Change date` : "No date. Set a date"
-                }
-              >
-                <CalendarDays size={15} color={draft.completeBy ? colors.foreground : colors.mutedForeground} />
-                <Text style={[styles.pickText, !draft.completeBy && styles.pickTextEmpty]}>
-                  {draft.completeBy ? dateChipLabel(draft.completeBy) : "No date"}
-                </Text>
-                <ChevronDown size={15} color={colors.mutedForeground} />
-              </Pressable>
-              <Pressable
-                onPress={openTime}
-                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={draft.dueTime ? `At ${dueTimeLabel(draft.dueTime)}. Change time` : "No time. Set a time"}
-              >
-                <Clock size={15} color={draft.dueTime ? colors.foreground : colors.mutedForeground} />
-                <Text style={[styles.pickText, !draft.dueTime && styles.pickTextEmpty]}>
-                  {draft.dueTime ? dueTimeLabel(draft.dueTime) : "Time"}
-                </Text>
-                <ChevronDown size={15} color={colors.mutedForeground} />
-              </Pressable>
-              <Pressable
-                onPress={openReminder}
-                style={({ pressed }) => [styles.pick, pressed && styles.pickPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  draft.remindBefore != null
-                    ? `Reminder: ${reminderLabel(draft.remindBefore, timed, true)}. Change reminder`
-                    : "No reminder. Set a reminder"
-                }
-              >
-                <Bell size={15} color={draft.remindBefore != null ? colors.foreground : colors.mutedForeground} />
-                <Text style={[styles.pickText, draft.remindBefore == null && styles.pickTextEmpty]} numberOfLines={1}>
-                  {draft.remindBefore != null
-                    ? `${reminderLabel(draft.remindBefore, timed)}${draft.remindRepeat ? ` · ${REPEAT_LABELS[draft.remindRepeat]}` : ""}`
-                    : "Reminder"}
-                </Text>
-                <ChevronDown size={15} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-
-            <Button size="lg" loading={saving} disabled={!canSave} onPress={() => void save()}>
-              {editing ? "Save changes" : "Add task"}
-            </Button>
-          </>
-        ) : panel === "chooseProject" ? (
-          <>
-            <View>
-              {projects.map((project, index) => {
-                const active = draft.projectId === project.id;
-                return (
-                  <Pressable
-                    key={project.id}
-                    onPress={() => {
-                      setDraft((current) => ({ ...current, projectId: project.id }));
-                      setPanel("task");
-                    }}
-                    style={({ pressed }) => [
-                      styles.optionRow,
-                      index > 0 && styles.actionDivider,
-                      pressed && styles.pickPressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={project.name}
-                  >
-                    <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>
-                      {areaTag(project.name)}
-                    </Text>
-                    {active ? <Check size={20} color={colors.primary} /> : null}
-                  </Pressable>
-                );
-              })}
-              <Pressable
-                onPress={() => {
-                  setNewProject("");
-                  setPanel("project");
-                }}
-                style={({ pressed }) => [
-                  styles.optionRow,
-                  projects.length > 0 && styles.actionDivider,
-                  pressed && styles.pickPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Add a new project"
-              >
-                <Plus size={20} color={colors.mutedForeground} />
-                <Text style={[styles.optionText, styles.optionTextMuted]}>New project</Text>
-              </Pressable>
-            </View>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
           </>
         ) : panel === "time" ? (
           <>
@@ -777,7 +410,7 @@ export function TaskSheet({
               <>
                 <Pressable
                   onPress={() => setTimePickerOpen(true)}
-                  style={({ pressed }) => [styles.pick, styles.timeChip, pressed && styles.pickPressed]}
+                  style={({ pressed }) => [styles.timeChip, pressed && styles.pressed]}
                   accessibilityRole="button"
                   accessibilityLabel={`Time: ${formatClockTime(timeValue)}. Change time`}
                 >
@@ -788,20 +421,20 @@ export function TaskSheet({
                 ) : null}
               </>
             )}
-            {draft.completeBy ? null : (
+            {schedule.completeBy ? null : (
               <Text style={styles.reminderWhen}>It has no day yet, so it goes on today, or tomorrow once that time has passed.</Text>
             )}
-            <Button size="lg" onPress={setTime}>
+            <Button size="lg" loading={saving} onPress={setTime}>
               Set time
             </Button>
-            {draft.dueTime ? (
-              <Button variant="ghost" onPress={clearTime}>
+            {schedule.dueTime ? (
+              <Button variant="ghost" onPress={clearTime} disabled={saving}>
                 No time
               </Button>
             ) : null}
           </>
         ) : panel === "reminder" ? (
-          draft.completeBy ? (
+          schedule.completeBy ? (
             <>
               {/* How long before: the usual choices, or any amount. */}
               <View style={styles.chips}>
@@ -887,11 +520,11 @@ export function TaskSheet({
                     ? `Reminds you ${dayWords(nextReminder)} at ${formatClockTime(nextReminder)}.`
                     : "That time has already passed, so it will not go off."}
               </Text>
-              <Button size="lg" disabled={chosenBefore === null} onPress={() => void setReminder()}>
+              <Button size="lg" loading={saving} disabled={chosenBefore === null} onPress={() => void setReminder()}>
                 Set reminder
               </Button>
-              {draft.remindBefore != null ? (
-                <Button variant="ghost" onPress={clearReminder}>
+              {schedule.remindBefore != null ? (
+                <Button variant="ghost" onPress={clearReminder} disabled={saving}>
                   No reminder
                 </Button>
               ) : null}
@@ -906,13 +539,12 @@ export function TaskSheet({
           )
         ) : panel === "confirmDelete" ? (
           <>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
             <Button
               variant="destructive"
               size="lg"
               loading={deleting}
               onPress={() => {
-                if (!onDelete || deleting) return;
+                if (deleting) return;
                 setDeleting(true);
                 setError("");
                 onDelete()
@@ -923,32 +555,8 @@ export function TaskSheet({
             >
               Delete
             </Button>
-            <Button variant="ghost" onPress={() => setPanel("actions")} disabled={deleting}>
+            <Button variant="ghost" onPress={onClose} disabled={deleting}>
               Cancel
-            </Button>
-          </>
-        ) : panel === "project" ? (
-          <>
-            <Input
-              value={newProject}
-              onChangeText={setNewProject}
-              placeholder="For example, Health"
-              autoFocus
-              maxLength={100}
-              returnKeyType="done"
-              onSubmitEditing={() => void addProject()}
-            />
-            <Button
-              size="lg"
-              loading={creatingProject}
-              disabled={!newProject.trim()}
-              onPress={() => void addProject()}
-            >
-              Add project
-            </Button>
-            <Button variant="ghost" onPress={() => setPanel("chooseProject")}>
-              <ChevronLeft size={18} color={colors.foreground} />
-              <Text style={styles.backText}>Back</Text>
             </Button>
           </>
         ) : (
@@ -957,12 +565,13 @@ export function TaskSheet({
               {dueDayOptions().map((option) => {
                 const active =
                   option.value === null
-                    ? draft.completeBy === null
-                    : isSameDay(option.value, draft.completeBy);
+                    ? schedule.completeBy === null
+                    : isSameDay(option.value, schedule.completeBy);
                 return (
                   <Pressable
                     key={option.label}
                     onPress={() => chooseDate(option.value)}
+                    disabled={saving}
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -987,7 +596,7 @@ export function TaskSheet({
             {Platform.OS === "ios" || datePickerOpen ? (
               <View style={styles.picker}>
                 <DateTimePicker
-                  value={draft.completeBy ?? new Date()}
+                  value={schedule.completeBy ?? new Date()}
                   mode="date"
                   display={Platform.OS === "ios" ? "inline" : "default"}
                   accentColor={colors.primary}
@@ -998,14 +607,16 @@ export function TaskSheet({
             ) : null}
           </>
         )}
-        </Animated.View>
-      </Sheet>
-    </>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+      </Animated.View>
+    </Sheet>
   );
 }
 
 function makeStyles(colors: Colors, scale: number) {
   return StyleSheet.create({
+    face: { gap: spacing[4] },
+    pressed: { opacity: 0.7 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] },
     chip: {
       borderRadius: radius.full,
@@ -1023,40 +634,13 @@ function makeStyles(colors: Colors, scale: number) {
     },
     chipTextActive: { color: colors.accentForeground, fontFamily: fonts.baseSemi },
     chipWithIcon: { flexDirection: "row", alignItems: "center", gap: spacing[1] },
-    // The task's text, editable where the sheet's title would be.
-    titleInput: {
-      fontFamily: fonts.display,
-      fontSize: textSize.title * scale,
-      lineHeight: 28 * scale,
-      color: colors.foreground,
-      padding: 0,
-      paddingTop: 0,
-      paddingBottom: 0,
-      margin: 0,
-    },
-    // The chosen project and day, each opening its page of choices.
-    pick: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing[1],
-      maxWidth: "100%",
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingLeft: spacing[3],
-      paddingRight: spacing[2],
-      paddingVertical: spacing[2],
-      backgroundColor: colors.surface,
-    },
-    pickPressed: { opacity: 0.7 },
-    pickText: { flexShrink: 1, fontFamily: fonts.baseSemi, fontSize: textSize.small * scale, color: colors.foreground },
-    pickTextEmpty: { color: colors.mutedForeground, fontFamily: fonts.base },
     optionRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing[3],
       minHeight: 52,
     },
+    divider: { borderTopWidth: 1, borderTopColor: colors.border },
     optionText: { flex: 1, fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
     optionTextActive: { fontFamily: fonts.baseSemi },
     optionTextMuted: { color: colors.mutedForeground },
@@ -1087,59 +671,17 @@ function makeStyles(colors: Colors, scale: number) {
     },
     customBefore: { fontFamily: fonts.base, fontSize: textSize.small * scale, color: colors.mutedForeground },
     timePicker: { alignItems: "center" },
-    timeChip: { alignSelf: "flex-start", paddingRight: spacing[3] },
+    timeChip: {
+      alignSelf: "flex-start",
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingLeft: spacing[3],
+      paddingRight: spacing[3],
+      paddingVertical: spacing[2],
+      backgroundColor: colors.surface,
+    },
     timeChipText: { fontFamily: fonts.display, fontSize: textSize.title * scale, color: colors.foreground },
-    face: { gap: spacing[4] },
-    deleteText: { color: colors.error },
-    // Plain text under the title: no box, the task's own words above it.
-    description: {
-      minHeight: 0,
-      borderWidth: 0,
-      borderRadius: 0,
-      backgroundColor: "transparent",
-      paddingHorizontal: 0,
-      paddingTop: 0,
-      paddingBottom: 0,
-      fontSize: textSize.body * scale,
-      lineHeight: 23 * scale,
-    },
-    flexShrink: { flexShrink: 1 },
-    focusButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 14,
-      borderRadius: 19,
-      backgroundColor: colors.primary,
-      paddingTop: 18,
-      paddingBottom: 18,
-      paddingLeft: 16,
-      paddingRight: 20,
-    },
-    focusPressed: { transform: [{ scale: 0.98 }] },
-    focusTitle: {
-      fontFamily: fonts.baseBold,
-      fontSize: textSize.large * scale,
-      lineHeight: 23 * scale,
-      color: colors.primaryForeground,
-    },
-    focusHint: {
-      fontFamily: fonts.base,
-      fontSize: textSize.small * scale,
-      lineHeight: 19 * scale,
-      marginTop: 2,
-      color: colors.primaryForeground,
-      opacity: 0.85,
-    },
-    actionRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing[3],
-      paddingVertical: spacing[4],
-    },
-    actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
-    actionText: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.foreground },
-    actionCount: { fontFamily: fonts.base, fontSize: textSize.body * scale, color: colors.mutedForeground },
-    flexFill: { flex: 1 },
     backText: {
       fontFamily: fonts.baseSemi,
       fontSize: textSize.body * scale,

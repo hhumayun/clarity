@@ -7,7 +7,6 @@ import { useAppTheme } from "../providers/AppThemeProvider";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useToast } from "../providers/ToastProvider";
 import { onlineManager } from "@tanstack/react-query";
-import { useAfterExit } from "../hooks/useAfterExit";
 import { useTasks } from "../hooks/useTasks";
 import { formatDue } from "../lib/taskDates";
 import { areaTag } from "../lib/lifeCenter";
@@ -18,7 +17,7 @@ import { Skeleton } from "./Skeleton";
 import { TaskCard } from "./TaskCard";
 import { QuickAddTask, type QuickAddDraft } from "./QuickAddTask";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "./TaskAddedOverlay";
-import { TaskSheet, type TaskDraft } from "./TaskSheet";
+import { TaskQuickMenu } from "./TaskQuickMenu";
 import { LinkTaskSheet } from "./LinkTaskSheet";
 
 function quietAiFailure(error: unknown): boolean {
@@ -60,7 +59,7 @@ export function NoteTasks({
   const router = useRouter();
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
-  const { query, extract, addSuggested, create, update, link, remove, createProject } = useTasks(
+  const { query, extract, addSuggested, create, update, link, createProject } = useTasks(
     noteId ?? undefined,
     enabled && Boolean(noteId),
   );
@@ -73,41 +72,24 @@ export function NoteTasks({
   ensureSavedRef.current = ensureSaved;
   const extractRef = useRef(extract.mutate);
   extractRef.current = extract.mutate;
-  const [taskDialog, setTaskDialog] = useState<{ open: boolean; task: TaskRecord | null }>({
-    open: false,
-    task: null,
-  });
+  // A task's press-and-hold menu; a tap opens the task itself.
+  const [menuTask, setMenuTask] = useState<TaskRecord | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestedTask[] | null>(null);
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [adding, setAdding] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  // The task sheet's Notes and Link a note open once the sheet has gone.
-  const afterSheet = useAfterExit();
   const [linkOpen, setLinkOpen] = useState(false);
   // After an add: the confirmation, then which card to flash.
   const [added, setAdded] = useState<TaskRecord | null>(null);
-  const [finished, setFinished] = useState<TaskRecord | null>(null);
-  const finishedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
       if (revealTimer.current) clearTimeout(revealTimer.current);
-      if (finishedTimer.current) clearTimeout(finishedTimer.current);
     },
     [],
   );
-
-  const showFinished = (task: TaskRecord) => {
-    setAdded(null);
-    setFinished(task);
-    if (finishedTimer.current) clearTimeout(finishedTimer.current);
-    finishedTimer.current = setTimeout(() => {
-      finishedTimer.current = null;
-      setFinished(null);
-    }, TASK_ADDED_MS);
-  };
 
   const runExtract = async () => {
     if (!noteId) return;
@@ -205,22 +187,6 @@ export function NoteTasks({
       { id: task.id, status },
       { onError: () => toast.show("That change could not be saved. Please try again.") },
     );
-  };
-
-  const saveTask = async (draft: TaskDraft) => {
-    if (!draft.projectId) throw new Error("Choose a project for this task.");
-    if (!taskDialog.task) return;
-    await update.mutateAsync({
-      id: taskDialog.task.id,
-      text: draft.text,
-      ...(draft.description !== undefined ? { description: draft.description } : {}),
-      projectId: draft.projectId,
-      completeBy: draft.completeBy,
-      dueTime: draft.dueTime,
-      remindBefore: draft.remindBefore,
-      remindRepeat: draft.remindRepeat,
-      status: draft.status,
-    });
   };
 
   const handleAdded = (task: TaskRecord) => {
@@ -388,7 +354,8 @@ export function NoteTasks({
               showNoteLink={false}
               flashKey={flash?.id === task.id ? flash.key : undefined}
               onStatusChange={(next) => changeStatus(task, next)}
-              onOpen={() => setTaskDialog({ open: true, task })}
+              onOpen={() => router.push(`/task/${task.id}`)}
+              onLongPress={() => setMenuTask(task)}
             />
             </Animated.View>
           ))}
@@ -414,7 +381,8 @@ export function NoteTasks({
                   task={task}
                   showNoteLink={false}
                   onStatusChange={(next) => changeStatus(task, next)}
-                  onOpen={() => setTaskDialog({ open: true, task })}
+                  onOpen={() => router.push(`/task/${task.id}`)}
+                  onLongPress={() => setMenuTask(task)}
                 />
               </Animated.View>
             ))}
@@ -440,79 +408,13 @@ export function NoteTasks({
         onSubmit={addTask}
       />
 
-      <TaskSheet
-        open={taskDialog.open}
-        onClose={() => setTaskDialog((state) => ({ ...state, open: false }))}
-        task={taskDialog.task}
-        projects={projects}
-        defaultProjectId={commonProjectId(tasks)}
-        onSave={saveTask}
-        onDelete={
-          taskDialog.task
-            ? async () => {
-                await remove.mutateAsync({ id: taskDialog.task!.id });
-              }
-            : undefined
-        }
-        onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
-        startPanel="actions"
-        onMarkedDone={showFinished}
-        onStartFocus={
-          taskDialog.task
-            ? () => {
-                const id = taskDialog.task!.id;
-                setTaskDialog((state) => ({ ...state, open: false }));
-                router.push(`/focus/${id}`);
-              }
-            : undefined
-        }
-        onNotes={
-          taskDialog.task
-            ? () => {
-                const id = taskDialog.task!.id;
-                setTaskDialog((state) => ({ ...state, open: false }));
-                afterSheet.later(() => router.push(`/task/${id}`));
-              }
-            : undefined
-        }
-        onLinkNote={
-          taskDialog.task
-            ? () => {
-                const id = taskDialog.task!.id;
-                setTaskDialog((state) => ({ ...state, open: false }));
-                afterSheet.later(() => router.push(`/task/${id}?link=1`));
-              }
-            : undefined
-        }
-        onUnlink={
-          taskDialog.task && noteId
-            ? () => {
-                const id = taskDialog.task!.id;
-                setTaskDialog((state) => ({ ...state, open: false }));
-                link.mutate(
-                  { taskId: id, noteId, linked: false },
-                  {
-                    onSuccess: () => toast.show("Removed from this note. It is still in Life Center."),
-                    onError: () => toast.show("That task could not be removed. Please try again."),
-                  },
-                );
-              }
-            : undefined
-        }
-        onExited={afterSheet.run}
-      />
+      <TaskQuickMenu task={menuTask} onClose={() => setMenuTask(null)} noteId={noteId} />
 
       {/* Sits near the top of the section, where the add button is, rather
           than centred in a section that may run well past the screen. */}
       <TaskAddedOverlay
         visible={added !== null}
         projectName={added?.projectName ?? ""}
-        style={styles.addedOverlay}
-      />
-      <TaskAddedOverlay
-        visible={finished !== null}
-        kind="done"
-        taskText={finished?.text ?? ""}
         style={styles.addedOverlay}
       />
     </View>

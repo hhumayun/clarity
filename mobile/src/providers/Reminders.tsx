@@ -81,7 +81,7 @@ export function Reminders() {
         return;
       }
       // A tap on the reminder itself opens its task.
-      nav.navigate({ pathname: "/life-center", params: { task: data.taskId } });
+      nav.push({ pathname: "/task/[id]", params: { id: data.taskId } });
     };
 
     // Opened by tapping a reminder while the app was closed: answered once

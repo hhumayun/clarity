@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { ArrowRight, Check, ChevronDown, Plus, SlidersHorizontal, Timer } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -20,7 +20,6 @@ import { Collapse } from "../../../src/ui/Collapse";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusSummary } from "../../../src/hooks/useFocus";
 import { useNotes } from "../../../src/hooks/useNotes";
-import { useAfterExit } from "../../../src/hooks/useAfterExit";
 import { useTasks } from "../../../src/hooks/useTasks";
 import { linkedNoteIds } from "../../../src/lib/taskLinks";
 import {
@@ -54,7 +53,7 @@ import { Skeleton } from "../../../src/ui/Skeleton";
 import { TASK_ADDED_MS, TaskAddedOverlay } from "../../../src/ui/TaskAddedOverlay";
 import { SyncBar } from "../../../src/ui/SyncBar";
 import { TaskCard } from "../../../src/ui/TaskCard";
-import { TaskSheet, type TaskDraft } from "../../../src/ui/TaskSheet";
+import { TaskQuickMenu } from "../../../src/ui/TaskQuickMenu";
 
 type View_ = "today" | "all";
 
@@ -75,8 +74,7 @@ export default function LifeCenterScreen() {
   const toast = useToast();
   const { colors, scale, dark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
-  const { query, create, update, remove, clearDone, createProject, renameProject, deleteProject } =
-    useTasks();
+  const { query, create, update, clearDone, createProject, renameProject, deleteProject } = useTasks();
   const notes = useNotes({});
   const movedFrom = useMovedFrom();
   const focusSummary = useFocusSummary();
@@ -140,17 +138,13 @@ export default function LifeCenterScreen() {
   const [areaFilter, setAreaFilter] = useState<string>(ALL);
   const [areaMenuOpen, setAreaMenuOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
-  // The task sheet's Notes and Link a note open once the sheet has gone.
-  const afterSheet = useAfterExit();
-  const [editing, setEditing] = useState<TaskRecord | null>(null);
+  // A task's press-and-hold menu; a tap opens the task itself.
+  const [menuTask, setMenuTask] = useState<TaskRecord | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // After an add: the confirmation, then which card to scroll to and flash.
   const [added, setAdded] = useState<TaskRecord | null>(null);
-  // A task just marked done from its panel, confirmed with the same card.
-  const [finished, setFinished] = useState<TaskRecord | null>(null);
-  const finishedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flash, setFlash] = useState<{ id: string; key: number } | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -160,34 +154,15 @@ export default function LifeCenterScreen() {
   useEffect(
     () => () => {
       if (revealTimer.current) clearTimeout(revealTimer.current);
-      if (finishedTimer.current) clearTimeout(finishedTimer.current);
     },
     [],
   );
 
-  const showFinished = (task: TaskRecord) => {
-    setAdded(null);
-    setFinished(task);
-    if (finishedTimer.current) clearTimeout(finishedTimer.current);
-    finishedTimer.current = setTimeout(() => {
-      finishedTimer.current = null;
-      setFinished(null);
-    }, TASK_ADDED_MS);
-  };
 
   const now = new Date();
   const projects = useMemo(() => sortProjects(query.data?.projects ?? []), [query.data?.projects]);
   const allTasks = useMemo(() => query.data?.tasks ?? [], [query.data?.tasks]);
 
-  // Opened from a reminder: that task's sheet, once the tasks are here.
-  const { task: remindedId } = useLocalSearchParams<{ task?: string }>();
-  useEffect(() => {
-    if (!remindedId || !query.data) return;
-    const task = query.data.tasks.find((item) => item.id === remindedId);
-    router.setParams({ task: undefined });
-    if (task) setEditing(task);
-    else toast.show("That task is no longer here.");
-  }, [remindedId, query.data, router, toast]);
   const loading = query.isFetching && !query.data;
   const activeArea: ProjectRecord | null =
     areaFilter === ALL ? null : projects.find((project) => project.id === areaFilter) ?? null;
@@ -220,22 +195,6 @@ export default function LifeCenterScreen() {
       { id: task.id, status },
       { onError: () => toast.show("That change could not be saved. Please try again.") },
     );
-  };
-
-  const saveTask = async (draft: TaskDraft) => {
-    if (!draft.projectId) throw new Error("Choose an area for this task.");
-    if (!editing) return;
-    await update.mutateAsync({
-      id: editing.id,
-      text: draft.text,
-      ...(draft.description !== undefined ? { description: draft.description } : {}),
-      projectId: draft.projectId,
-      completeBy: draft.completeBy,
-      dueTime: draft.dueTime,
-      remindBefore: draft.remindBefore,
-      remindRepeat: draft.remindRepeat,
-      status: draft.status,
-    });
   };
 
   // Bring the new card into view and pulse it. Measured against the scroll
@@ -300,7 +259,8 @@ export default function LifeCenterScreen() {
           focusSummary={variant === "focus" ? focusByTask.get(task.id) : undefined}
           flashKey={flash?.id === task.id ? flash.key : undefined}
           onStatusChange={(next) => changeStatus(task, next)}
-          onOpen={() => setEditing(task)}
+          onOpen={() => router.push(`/task/${task.id}`)}
+          onLongPress={() => setMenuTask(task)}
           onStartFocus={variant === "focus" ? () => router.push(`/focus/${task.id}`) : undefined}
         />
       </View>
@@ -577,7 +537,11 @@ export default function LifeCenterScreen() {
                 <Text style={styles.sectionLabel}>COMING UP</Text>
                 {focus.comingUp.map((task) => (
                   <Animated.View key={task.id} entering={todayMotion.enter} exiting={todayMotion.exit} layout={todayMotion.layout}>
-                  <Pressable style={styles.comingRow} onPress={() => setEditing(task)}>
+                  <Pressable
+                    style={styles.comingRow}
+                    onPress={() => router.push(`/task/${task.id}`)}
+                    onLongPress={() => setMenuTask(task)}
+                  >
                     <Text style={styles.comingText} numberOfLines={1}>
                       {task.text}
                     </Text>
@@ -632,51 +596,7 @@ export default function LifeCenterScreen() {
         onSubmit={addTask}
       />
 
-      <TaskSheet
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        task={editing}
-        projects={projects}
-        onSave={saveTask}
-        onDelete={
-          editing
-            ? async () => {
-                await remove.mutateAsync({ id: editing.id });
-              }
-            : undefined
-        }
-        onCreateProject={async (name) => (await createProject.mutateAsync({ name })).project}
-        startPanel="actions"
-        onMarkedDone={showFinished}
-        onStartFocus={
-          editing
-            ? () => {
-                const id = editing.id;
-                setEditing(null);
-                router.push(`/focus/${id}`);
-              }
-            : undefined
-        }
-        onNotes={
-          editing
-            ? () => {
-                const id = editing.id;
-                setEditing(null);
-                afterSheet.later(() => router.push(`/task/${id}`));
-              }
-            : undefined
-        }
-        onLinkNote={
-          editing
-            ? () => {
-                const id = editing.id;
-                setEditing(null);
-                afterSheet.later(() => router.push(`/task/${id}?link=1`));
-              }
-            : undefined
-        }
-        onExited={afterSheet.run}
-      />
+      <TaskQuickMenu task={menuTask} onClose={() => setMenuTask(null)} />
 
       <ProjectSheet
         open={projectsOpen}
@@ -715,7 +635,6 @@ export default function LifeCenterScreen() {
       />
 
       <TaskAddedOverlay visible={added !== null} projectName={added?.projectName ?? ""} />
-      <TaskAddedOverlay visible={finished !== null} kind="done" taskText={finished?.text ?? ""} />
     </SafeAreaView>
   );
 }

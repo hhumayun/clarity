@@ -24,9 +24,9 @@ export default function AppLayout() {
           name="focus/[taskId]"
           options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", gestureEnabled: false }}
         />
-        {/* A task's notes and summary: a dialog that slides up over whatever
-            opened it (an iOS page sheet), dragged down to close. */}
-        <Stack.Screen name="task/[id]" options={{ presentation: "modal" }} />
+        {/* A task, with everything about it: a screen of its own, like a
+            note, swiped back to close. */}
+        <Stack.Screen name="task/[id]" />
         <Stack.Screen
           name="catch-up"
           options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }}

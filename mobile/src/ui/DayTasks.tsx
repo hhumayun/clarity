@@ -11,7 +11,9 @@ type Props = {
   /** The tasks due on the day, done ones included. */
   tasks: TaskRecord[];
   onStatusChange: (task: TaskRecord, status: TaskStatus) => void;
-  /** Tapping a task opens its menu. */
+  /** Tapping a task opens it. */
+  onOpen: (task: TaskRecord) => void;
+  /** Pressing and holding a task opens its quick menu. */
   onOpenMenu: (task: TaskRecord) => void;
   /** Add a task due on this day. */
   onAdd: () => void;
@@ -24,7 +26,7 @@ type Props = {
  * then the done ones settled into their fields under DONE. Swipe a row right
  * to mark it done.
  */
-export function DayTasks({ tasks, onStatusChange, onOpenMenu, onAdd, emptyText = "Nothing was scheduled." }: Props) {
+export function DayTasks({ tasks, onStatusChange, onOpen, onOpenMenu, onAdd, emptyText = "Nothing was scheduled." }: Props) {
   const { colors, scale } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, scale), [colors, scale]);
 
@@ -39,7 +41,8 @@ export function DayTasks({ tasks, onStatusChange, onOpenMenu, onAdd, emptyText =
       showDue={false}
       showNoteLink={false}
       onStatusChange={(status) => onStatusChange(task, status)}
-      onOpen={() => onOpenMenu(task)}
+      onOpen={() => onOpen(task)}
+      onLongPress={() => onOpenMenu(task)}
     />
   );
 
