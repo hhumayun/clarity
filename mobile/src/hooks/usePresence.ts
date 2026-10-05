@@ -26,14 +26,19 @@ export function usePresence(
      * dismissing is refused, and leaves the screen deaf to touch.
      */
     onExited?: () => void;
+    /**
+     * Whether it plays its entrance when it is open from the start (the
+     * default). False: it is simply there, and only later openings animate.
+     */
+    appear?: boolean;
   } = {},
 ) {
-  const { enterMs = MOTION.slow, exitMs = MOTION.base } = opts;
+  const { enterMs = MOTION.slow, exitMs = MOTION.base, appear = true } = opts;
   const [mounted, setMounted] = useState(open);
   const onExitedRef = useRef(opts.onExited);
   onExitedRef.current = opts.onExited;
   const wasMounted = useRef(open);
-  const progress = useSharedValue(0);
+  const progress = useSharedValue(open && !appear ? 1 : 0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {

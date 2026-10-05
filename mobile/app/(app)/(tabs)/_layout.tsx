@@ -1,4 +1,6 @@
 import { Tabs } from "expo-router";
+import { Profiler } from "react";
+import { perfRecord } from "../../../src/lib/perf";
 import { Feather, LayoutDashboard } from "lucide-react-native";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
@@ -7,6 +9,8 @@ import { fonts, textSize } from "../../../src/theme";
 export default function TabsLayout() {
   const { colors, scale } = useAppTheme();
   return (
+    // Timed: these stay mounted under an open note, and redraw as it saves.
+    <Profiler id="tabs" onRender={recordTabsRender}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -45,5 +49,11 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </Profiler>
   );
+}
+
+/** How long each redraw of the tab screens took, for the timing log. */
+function recordTabsRender(_id: string, _phase: string, actualDuration: number) {
+  perfRecord("Notes & Life Center render", actualDuration);
 }

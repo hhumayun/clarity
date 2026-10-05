@@ -14,7 +14,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -22,7 +22,8 @@ import { AppThemeProvider, useAppTheme } from "../src/providers/AppThemeProvider
 import { AuthProvider, useAuth } from "../src/providers/AuthProvider";
 import { ToastProvider } from "../src/providers/ToastProvider";
 import { startNetworkWatch } from "../src/sync/network";
-import { CACHE_VERSION, keepOnPhone, OFFLINE_MAX_AGE_MS, queryPersister } from "../src/sync/persist";
+import { moveDocsOutOfLists } from "../src/hooks/useNotes";
+import { CACHE_VERSION, keepOnPhone, OFFLINE_MAX_AGE_MS, queryPersister, saveOfflineCopyNow } from "../src/sync/persist";
 import { SyncProvider } from "../src/sync/SyncProvider";
 import { fonts, textSize } from "../src/theme";
 
@@ -55,6 +56,15 @@ export default function RootLayout() {
     if (loaded) void SplashScreen.hideAsync();
   }, [loaded]);
 
+  // The offline copy is written at most every 30 seconds while it changes;
+  // going to the background, it is written at once.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "background") void saveOfflineCopyNow(queryClient);
+    });
+    return () => subscription.remove();
+  }, [queryClient]);
+
   if (!loaded) return null;
 
   if (!publishableKey) {
@@ -83,6 +93,8 @@ export default function RootLayout() {
           buster: CACHE_VERSION,
           dehydrateOptions: { shouldDehydrateQuery: keepOnPhone },
         }}
+        // Lists kept from before carried each note's rich text: it moves out.
+        onSuccess={() => void moveDocsOutOfLists(queryClient)}
       >
         <SafeAreaProvider>
           {/* Keyboard-aware scrolling and footers that ride on the keyboard

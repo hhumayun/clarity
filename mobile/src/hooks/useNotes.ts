@@ -13,9 +13,11 @@ import {
   getNotesList,
   getNotesPage,
   postNotesReindex,
+  withoutDoc,
   type ListNotesInput,
   type NotesPage,
 } from "../api/notes";
+import { noteDocs } from "../lib/noteDocs";
 import { pageUnlessSyncing, unlessSyncing } from "../sync/cache";
 import { outbox } from "../sync/store";
 import type { NoteRecord, TaskRecord } from "../types";
@@ -167,7 +169,9 @@ function belongsIn(params: ListNotesInput, note: NoteRecord): boolean {
  * updated in place, never added to: whether a note matches a search is the
  * server's call, and the refetch on return settles it.
  */
-export function upsertNoteInLists(queryClient: QueryClient, note: NoteRecord) {
+export function upsertNoteInLists(queryClient: QueryClient, saved: NoteRecord) {
+  // The lists keep the words, not the rich text (see withoutDoc).
+  const note = withoutDoc(saved);
   const lists = queryClient.getQueriesData<{ notes: NoteRecord[] }>({
     queryKey: [...NOTES_QUERY_KEY, "list"],
   });
@@ -289,6 +293,42 @@ export const useDeleteNote = () => {
     },
   });
 };
+
+/**
+ * Lists kept on the phone from before carried each note's rich text. It moves
+ * to the phone's own store for it (noteDocs), so those notes still open
+ * exactly as written offline, and the lists drop it. Runs once the kept data
+ * is loaded at start; afterwards there is nothing left to move.
+ */
+export async function moveDocsOutOfLists(queryClient: QueryClient): Promise<void> {
+  const docs = new Map<string, { doc: unknown; content: string }>();
+  const strip = (notes: NoteRecord[]) => {
+    if (!notes.some((note) => note.doc !== undefined)) return null;
+    return notes.map((note) => {
+      if (note.doc) docs.set(note.id, { doc: note.doc, content: note.content });
+      return withoutDoc(note);
+    });
+  };
+  const cache = queryClient.getQueryCache();
+  for (const query of cache.findAll({ queryKey: [...NOTES_QUERY_KEY, "list"] })) {
+    const data = query.state.data as { notes: NoteRecord[] } | undefined;
+    const notes = data && strip(data.notes);
+    if (notes) queryClient.setQueryData(query.queryKey, { ...data, notes }, { updatedAt: query.state.dataUpdatedAt });
+  }
+  for (const query of cache.findAll({ queryKey: [...NOTES_QUERY_KEY, "pages"] })) {
+    const data = query.state.data as InfiniteData<NotesPage> | undefined;
+    if (!data) continue;
+    let changed = false;
+    const pages = data.pages.map((page) => {
+      const notes = strip(page.notes);
+      if (!notes) return page;
+      changed = true;
+      return { ...page, notes };
+    });
+    if (changed) queryClient.setQueryData(query.queryKey, { ...data, pages }, { updatedAt: query.state.dataUpdatedAt });
+  }
+  if (docs.size) await noteDocs.saveMissing(docs);
+}
 
 /** Take a note out of every cached list. */
 export function removeNoteFromLists(queryClient: QueryClient, id: string) {

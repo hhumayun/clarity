@@ -6,6 +6,136 @@ evidence is the point, not the status.
 
 ---
 
+## Backspace does nothing after an empty line under a quote is removed
+
+**Reported:** 2026-10-04 · **Status:** fixed 2026-10-04, not yet confirmed on
+the phone
+
+### Symptom
+
+In a note with a quote followed by a checklist:
+1. Enter twice at the end of the quote's last line makes an empty line under
+   the quote.
+2. Backspace removes it, and the cursor goes back to the end of the quote's
+   last line.
+3. From then on Backspace deleted nothing, until the cursor was moved. Enter
+   had stuck the same way after a quote earlier.
+
+### Evidence
+
+- **The editor's trace:** each Backspace arrived (`keydown`) with no deletion
+  after it (no `beforeinput`). Every time, the press before had been handled
+  by the same keymap.
+- **Reproduced in desktop Chrome:** after that Backspace, the cursor
+  (`view.state.selection`) was an instance of a different `TextSelection`
+  class from ProseMirror's own. Setting the same cursor again with Tiptap's
+  `setTextSelection` made Backspace work.
+
+### Causes
+
+1. **Tiptap's quote package carries its own copy of ProseMirror.**
+   - `@tiptap/extension-blockquote` 3.27.1 (the version the app is held at)
+     was published with prosemirror-model, prosemirror-state and
+     prosemirror-transform bundled into its `dist/index.js`. The other Tiptap
+     packages import them.
+   - Its Backspace rule (a later line in a quote steps out of it; a line right
+     under a quote joins its last line) sets the cursor with that private
+     `TextSelection`.
+   - ProseMirror's guard against the browser deleting across lines
+     (`stopNativeHorizontalDelete` in prosemirror-view) checks
+     `instanceof TextSelection`, gets false, and cancels the key. On the
+     iPhone, ProseMirror's handling of Enter stalled on it too.
+2. **The iPhone sends Shift with Backspace when its keyboard is set to
+   capitalise**, as at the start of every new line.
+   - The editor's line-start rules for Backspace (lists, checklists, ticked
+     rows) skipped any Backspace with a modifier. At the start of a new line,
+     Tiptap's generic `Shift-Backspace` (ProseMirror's `joinBackward`) ran
+     instead.
+   - Deduced from the trace: a Backspace at an empty line's start reached none
+     of those rules and logged no outcome, which only the modifier check
+     allowed. The trace now logs `shift=` to confirm it.
+   - Likely also behind the strikethrough carry-over: a new checklist row
+     joined into the ticked row above it.
+
+### Fix
+
+In `mobile/src/editor/NoteEditor.tsx`:
+- **`Quote`:** Tiptap's quote, with its Backspace replaced by
+  `backspaceAtQuote`. It does the same things with ProseMirror's own
+  `TextSelection`.
+- **Shift+Backspace:** gets the same rules as Backspace. The keymaps see a
+  plain Backspace.
+- **One press, one action:** the guard against iOS acting on a press the
+  editor already handled now resets on every new key press, not only on a
+  timer.
+- **Tests:** in `tests/note-editor`, for both quote cases and Shift+Backspace.
+
+### To check
+
+- **On the phone:** the quote case, and whether the strikethrough carry-over
+  is gone. The trace's `shift=` confirms cause 2.
+- **After upgrading Tiptap:** search
+  `node_modules/@tiptap/extension-blockquote/dist/index.js` for "prosemirror"
+  to see whether it still carries its own copy. The override can stay either
+  way.
+
+---
+
+## Notes don't open offline in the dev build
+
+**Reported:** 2026-10-04 · **Status:** open, to review; nothing started
+
+### Symptom
+
+Offline, notes don't load in Clarity Dev (the EAS development build). From
+the code, an opened note stays on its grey placeholder lines and its text
+never appears.
+
+### Cause
+
+- **The note's data is on the phone.** The lists are saved to the phone
+  (`mobile/src/sync/persist.ts`), and the note screen opens a note from that
+  copy (`findCachedNote` in `mobile/app/(app)/note/[id].tsx`).
+- **The editor page isn't, in a dev build.** The note body is a web page (an
+  Expo DOM component, `mobile/src/editor/NoteEditor.tsx`). In a development
+  build Expo fetches it from the dev server each time a note opens:
+  `getBaseURL()` in `expo/src/dom/base.ts` returns `<dev server>/_expo/@dom`.
+  Offline the phone can't reach the dev server, the page never loads,
+  `onReady` never fires, and the placeholder (shown until `editorReady`)
+  stays.
+- **Release builds put the page inside the app.** With `NODE_ENV` production,
+  `getBaseURL()` returns `www.bundle`, and `expo export:embed` (run by the
+  Xcode build) writes DOM components there (`exportEmbedAsync.js` in
+  `@expo/cli`). So it should open offline in a release build. Not yet checked
+  on a device.
+- **Related limits:**
+  - The dev build loads all its JavaScript from the dev server, so it can't
+    start offline at all. An app already open keeps running.
+  - In any build, a note that has never been in a list on the phone (one on
+    an older page not yet scrolled to, say) can't open offline. The app says
+    "This note isn't on this phone yet".
+
+### Options
+
+1. **Fallback (recommended):** if the editor hasn't reported ready after a few
+   seconds, or the web view reports a load error, show the note's text as
+   plain text instead of the placeholder, and try the editor again when back
+   online. This makes offline testing in the dev build mostly work, and guards
+   the real app if the web view ever fails.
+   - **Where:** the editor area of `note/[id].tsx` (`BootedNoteEditor`, and the
+     placeholder shown while `!loaded || !editorReady`). Load errors come from
+     react-native-webview's `onError` and `onHttpError`, passed in through the
+     `dom` props.
+   - **Open question:** read-only, or plain editing? A save without `doc`
+     clears the note's rich copy on the server (`notes/update_POST.ts`), so
+     anything only the rich copy holds (a heading's indent, say) would be
+     lost.
+2. **Release-mode check:** an EAS "preview" build (internal distribution), to
+   confirm the editor opens offline before the rich editor ships. It uses one
+   of the 15 iOS builds a month, so start it only with a go-ahead.
+
+---
+
 ## Note editor: the note jumps while typing at the end of a line
 
 **Reported:** 2026-10-02 · **Status:** fixed 2026-10-02.

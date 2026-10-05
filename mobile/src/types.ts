@@ -15,7 +15,10 @@ export type EntityType = "activity" | "event" | "person" | "place" | "topic";
 export type NoteRecord = {
   id: string;
   title: string;
+  /** The words, as Markdown: what search, the AI and previews read. */
   content: string;
+  /** The rich text as the editor keeps it (Tiptap JSON). Missing or null for notes without it. */
+  doc?: unknown;
   archived: boolean;
   /** null for a note written in the editor; "focus" for a thought parked during focus time. */
   source: "focus" | null;

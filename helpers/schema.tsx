@@ -7,6 +7,12 @@ import type { ColumnType } from "kysely";
 
 export type EntityType = "activity" | "event" | "person" | "place" | "topic";
 
+export type Json = ColumnType<JsonValue, string, string>;
+export type JsonArray = JsonValue[];
+export type JsonObject = { [x: string]: JsonValue | undefined };
+export type JsonPrimitive = boolean | number | string | null;
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
@@ -64,6 +70,8 @@ export interface TaskSummaries {
 export interface Notes {
   archived: Generated<boolean>;
   content: Generated<string>;
+  /** The rich text as the editor keeps it (Tiptap JSON); null before rich text or after a plain edit. */
+  doc: Json | null;
   createdAt: Generated<Timestamp>;
   entitiesHash: string | null;
   id: Generated<string>;

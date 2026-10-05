@@ -18,7 +18,7 @@ import { AppNavigation } from "../components/AppNavigation";
 import { useNotes, useUpdateNote, useDeleteNote, useReindexNotes } from "../helpers/useNotes";
 import { useClaritySettings } from "../helpers/useClaritySettings";
 import { formatNoteDate } from "../helpers/formatNoteDate";
-import type { NoteRecord } from "../helpers/NoteRecord";
+import type { NoteListRecord } from "../helpers/NoteRecord";
 import styles from "./_index.module.css";
 
 const BACKFILL_FLAG = "clarity:backfilled";
@@ -31,7 +31,7 @@ export default function NotesListPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<NoteRecord | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<NoteListRecord | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 250);

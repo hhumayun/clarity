@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 import superjson from "superjson";
 import { db } from "../../helpers/db";
 import { linkNoteTask } from "../../helpers/taskRecords";
@@ -26,6 +27,7 @@ export async function handle(request: Request) {
           userId: user.id,
           title: input.title,
           content: input.content,
+          doc: input.doc ? sql<string>`${JSON.stringify(input.doc)}::jsonb` : null,
           source: input.source ?? null,
           taskId: input.taskId ?? null,
           createdAt: at,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useHeldWhileOpen, usePresence } from "../hooks/usePresence";
@@ -14,23 +14,40 @@ import { MOTION } from "./motion";
  * through; and a leaving row's fading copy stayed put while the row beneath
  * jumped up into it.
  */
-export function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
-  const { mounted, progress } = usePresence(open, { enterMs: MOTION.base, exitMs: MOTION.base });
+export function Collapse({
+  open,
+  appear = true,
+  children,
+}: {
+  open: boolean;
+  /**
+   * Whether it unfolds when it is open from the start (the default). False:
+   * it is there from the first frame, at its full height, and only later
+   * openings unfold.
+   */
+  appear?: boolean;
+  children: React.ReactNode;
+}) {
+  const { mounted, progress } = usePresence(open, { enterMs: MOTION.base, exitMs: MOTION.base, appear });
   const shown = useHeldWhileOpen(open, children);
   const contentHeight = useSharedValue(0);
-  const style = useAnimatedStyle(() => ({
-    height: contentHeight.value * progress.value,
-    opacity: progress.value,
-  }));
+  // Open from the start without unfolding: laid out as it is until it has
+  // been measured, so it is not missing for a frame.
+  const [measured, setMeasured] = useState(appear);
+  const style = useAnimatedStyle(
+    () => (measured ? { height: contentHeight.value * progress.value, opacity: progress.value } : {}),
+    [measured],
+  );
   if (!mounted) return null;
   return (
     <Animated.View style={[styles.clip, style]}>
       {/* Absolute, so the content keeps its natural height to be measured
           while the wrapper around it is still small. */}
       <View
-        style={styles.content}
+        style={measured ? styles.content : null}
         onLayout={(event) => {
           contentHeight.value = event.nativeEvent.layout.height;
+          if (!measured) setMeasured(true);
         }}
       >
         {shown}

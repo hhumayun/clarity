@@ -4,6 +4,7 @@ import type { NoteRecord } from "../../helpers/NoteRecord";
 import { apiFetch } from "../../helpers/apiFetch";
 import { NoteSourceArrayValues } from "../../helpers/schema";
 import { MAX_NOTE_PROJECTS } from "../../helpers/noteProjects";
+import { noteDocSchema } from "../../helpers/noteDoc";
 
 export const schema = z.object({
   /** Made on the phone, so a retried create returns the same note. */
@@ -12,6 +13,8 @@ export const schema = z.object({
   createdAt: z.date().optional(),
   title: z.string().max(300).default(""),
   content: z.string().max(100_000).default(""),
+  /** The rich text as the editor keeps it; `content` is its Markdown. */
+  doc: noteDocSchema.optional(),
   /** Omitted for notes written in the editor; "focus" for a parked thought. */
   source: z.enum(NoteSourceArrayValues).optional(),
   /** For a thought parked during focus time: the task being worked on. */
