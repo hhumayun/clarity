@@ -57,7 +57,7 @@ All 47 of Rosebud's screens and its two-minute onboarding video were studied on 
 | A card with checks on the right | Tasks on a card, Rosebud's check under the thumb |
 | Add goal / Manage under the list | **Add task / Catch up** (or All tasks) |
 | Completed goals, filled checks | A folded **Done** under the tasks; it gives a small bump when a task lands in it |
-| History of entry cards | **Notes**: a card per note under centred day headings |
+| History of entry cards | **Notes**: a card per note under day headings, which line up with the words in the cards |
 | The composer's chip, question and buttons | **The note page**: area chip, small-capital date, the question in the accent, then Done and **Next question** |
 | Entry reflection | **How it's going** on a task: three dots, then the summary writes itself in word by word |
 | Goal suggestions, "+ Add goal" turning into a check | **Find tasks**: a card per task found in a note, with **Not now / + Add**; Add turns into a check |
@@ -146,7 +146,7 @@ One family, **Nunito Sans**: a warm, rounded geometric sans close to Rosebud's a
 ## Components
 
 - **Card / CardGroup / CardRow.** A pressable card squashes to 0.97 and springs back; rows inside a card wash with the well colour instead of squashing.
-- **SectionTitle.** Centred grey words; with a link it gets a small chevron ("Coming up ›").
+- **SectionTitle.** Grey words, centred, or on the left in line with the cards' words (Notes' day headings); with a link it gets a small chevron ("Coming up ›").
 - **Button.** Primary, secondary, outline, soft, plain, danger. States are idle, busy (a turning arc) and done (a check that pops). Labels roll when they change.
 - **ButtonPair.** Rosebud's two equal halves under a card.
 - **CircleCheck.** Open, it's a ring with a faint check, which reads as "tap to finish". Ticked, the accent fills it from the middle, a white check draws itself, the circle pops and a soft halo leaves it.
@@ -210,7 +210,7 @@ These are drawn for Clarity in Rosebud's manner: flat colour inside a dark outli
 ![Screens, dark](docs/screens/screens_dark.jpg)
 
 - **Today:** one compact head ("Today", the date, the week) fixed at the top; the two ways in (today only, on a quieter surface); Tasks on the brightest card with Add task and Catch up; Done folded; Notes as cards; Coming up.
-- **Notes:** a card per note under centred day headings, with the area filter behind one icon.
+- **Notes:** a card per note under day headings that sit on the left, in line with the words in the cards; the area filter is behind one icon.
 - **Life Center:** area chips under the bar; a single card when something slipped ("A few things slipped", then Catch up); Today, This week, Later and Someday as task cards; Done with Clear.
 - **Search:** a white field under the bar and area chips; results as note cards and a task card, with your words picked out in the accent.
 - **Note:** a white page with the area chip, the date line, the title and the words. Checklists can be ticked. "Go deeper" offers a question that can join the note. The tools sit above the keyboard; under them are Tasks and Done.

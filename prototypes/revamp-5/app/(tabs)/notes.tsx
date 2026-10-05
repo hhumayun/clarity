@@ -24,7 +24,8 @@ const exit = FadeOut.duration(duration.quick);
 
 /**
  * Every note, newest first, the way Rosebud keeps its history: a quiet
- * centred heading for each day and each note on its own card. The area
+ * heading for each day, lined up with the words in the cards, and each
+ * note on its own card. The area
  * filter is one icon that unfolds a row of chips under the bar and folds
  * it away again. Nothing here counts anything.
  */
@@ -80,7 +81,7 @@ export default function Notes() {
         <Animated.View layout={settle}>
           {groups.map((group, g) => (
             <Animated.View key={group} layout={settle} entering={enter} exiting={exit}>
-              <SectionTitle title={group} first={g === 0} />
+              <SectionTitle title={group} first={g === 0} align="left" />
               <View style={styles.cards}>
                 {shown
                   .filter((note) => noteGroup(note.day) === group)
