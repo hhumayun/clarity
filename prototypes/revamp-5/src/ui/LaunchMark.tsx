@@ -12,7 +12,7 @@ import { face } from "../theme/tokens";
  * A new key replays it.
  */
 export function LaunchMark({ scale = 1 }: { scale?: number }) {
-  const { colors, accent } = useTheme();
+  const { colors } = useTheme();
   const grow = () => {
     "worklet";
     return {
@@ -37,10 +37,7 @@ export function LaunchMark({ scale = 1 }: { scale?: number }) {
   return (
     <Animated.View style={styles.mark}>
       <Animated.View entering={grow}>
-        <Svg width={size} height={size} viewBox="0 0 56 56">
-          <Path d="M10 46 C10 24 24 10 46 10 C46 32 32 46 10 46 Z" fill={accent.solid} />
-          <Path d="M14 42 C22 34 30 26 38 18" stroke={accent.on} strokeWidth={2.6} strokeLinecap="round" fill="none" opacity={0.85} />
-        </Svg>
+        <LeafMark size={size} />
       </Animated.View>
       <Animated.Text entering={name} style={{ fontFamily: face.heavy, color: colors.ink, fontSize: 34 * scale, lineHeight: 40 * scale, letterSpacing: -0.8 * scale }}>
         clarity
@@ -52,3 +49,14 @@ export function LaunchMark({ scale = 1 }: { scale?: number }) {
 const styles = StyleSheet.create({
   mark: { alignItems: "center", gap: 10 },
 });
+
+/** The leaf on its own, in your colour: the launch mark's, for places that want the mark without the name. */
+export function LeafMark({ size = 56 }: { size?: number }) {
+  const { accent } = useTheme();
+  return (
+    <Svg width={size} height={size} viewBox="0 0 56 56">
+      <Path d="M10 46 C10 24 24 10 46 10 C46 32 32 46 10 46 Z" fill={accent.solid} />
+      <Path d="M14 42 C22 34 30 26 38 18" stroke={accent.on} strokeWidth={2.6} strokeLinecap="round" fill="none" opacity={0.85} />
+    </Svg>
+  );
+}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Text, type TextProps } from "react-native";
-import { useStore } from "../store/store";
+import { useDevice } from "../state/device";
 import { useTheme } from "../theme/ThemeProvider";
 import { face, type, type TypeName, type Weight } from "../theme/tokens";
 
@@ -11,7 +11,7 @@ export const LARGE_TEXT = 20 / 17;
 
 /** A ramp style, grown with "Larger text". Text fields use it too, so what you type matches what you read. */
 export function useType(variant: TypeName) {
-  const large = useStore((state) => state.prefs.largeText);
+  const large = useDevice((state) => state.prefs.largeText);
   const base = type[variant];
   return large ? { ...base, fontSize: Math.round(base.fontSize * LARGE_TEXT), lineHeight: Math.round(base.lineHeight * LARGE_TEXT) } : base;
 }

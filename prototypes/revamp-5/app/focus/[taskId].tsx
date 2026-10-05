@@ -24,6 +24,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useFocusHistory, useTask } from "../../src/store/hooks";
 import type { FocusLength, Outcome } from "../../src/store/model";
 import { clockLabel } from "../../src/store/selectors";
+import { useDevice } from "../../src/state/device";
 import { useStore } from "../../src/store/store";
 import { calm, duration, easeInOut, easeOut, spring } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
@@ -82,8 +83,8 @@ export default function Focus() {
   // What sits on the level: light words on the deep colour.
   const onLevel = { ink: accent.onDeep, soft: "rgba(242,239,233,0.74)" };
   const history = useFocusHistory(taskId);
-  const prefs = useStore((state) => state.prefs);
-  const setPref = useStore((state) => state.setPref);
+  const prefs = useDevice((state) => state.prefs);
+  const setPref = useDevice((state) => state.setPref);
   const recordFocus = useStore((state) => state.recordFocus);
   const parkThought = useStore((state) => state.parkThought);
   const speed = prefs.fastTimers ? 30 : 1;

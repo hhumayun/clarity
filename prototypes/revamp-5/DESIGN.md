@@ -1,9 +1,9 @@
 # Clarity revamp 5: "Sage"
 
-A redesign of Clarity guided by **Rosebud** (the AI journal), taken as a design language rather than a feature list. It's a separate Expo Go prototype with sample data and no backend, built on revamp 4's code (features, store and motion) and redrawn.
+A redesign of Clarity guided by **Rosebud** (the AI journal), taken as a design language rather than a feature list. It's a separate Expo Go app, built on revamp 4's code (features, store and motion) and redrawn. Since 2026-10-05 it has real accounts (see Accounts below). The notes and tasks are still samples until real data is wired in, following `docs/backend-plan.md`.
 
 - **Open it on your phone:** in Expo Go, scan `docs/expo-go-qr.png` or enter `exp://cassette-excuse-legs-sake.trycloudflare.com`. The address changes whenever the tunnel restarts.
-- **Where it lives:** `/root/projects/clarity-revamp-5`. It isn't in git and nothing has been ported into the app.
+- **Where it lives:** `/root/projects/clarity-revamp-5` is the running copy. It's committed on the clarity repo's `revamp-5` branch, under `prototypes/revamp-5`. Nothing has been ported into the main app.
 - **The one-page version** of this document, with live specimens, is `docs/design.html`. Rebuild it with `node docs/build-presentation.mjs`.
 
 ![Today, light and dark](docs/screens/today.jpg)
@@ -18,6 +18,37 @@ Four notes from the user, and what changed:
 4. **"Explore warmer tones for light mode."** There's a new **Paper** setting with four light pages: Stone (the first, cooler grey), **Linen** (the new default, a warm cream), Oat (a deeper beige) and Clay (rosy). Each has its own warm white for cards and inks tinted to match, and every text colour still reads at 4.5:1 or better. Switch between them in Settings to compare on the phone.
 
 ![Today on each paper](docs/screens/papers.jpg)
+
+## Accounts (2026-10-05)
+
+Phases 0 and 1 of `docs/backend-plan.md`. The main app's sign-in, offline and data code now sits in `src/core/`, copied unchanged from commit 44abd69 (`src/core/SOURCE.md` lists each file). Around it are Sage's own screens.
+
+![Accounts](docs/screens/accounts.jpg)
+
+- **Welcome:** adapted from Rosebud's welcome page. The hour's picture sits over the name, with one line of promise. At the foot:
+  - Continue with Google, as a white card with Google's G;
+  - Continue with email, in your colour;
+  - Look around first, which opens the sample notes with no account.
+- **One field for everyone:**
+  - The email step asks Clerk whether the address has an account. A known one goes on to its password, or to an emailed code if the account was made with Google. A new one goes on to making an account. Nobody has to choose between "sign in" and "sign up".
+  - Each step is its own pushed page, so Back goes one step back.
+- **The code:** six boxes, with the next one ringed in your colour. iOS offers the code from Mail. The sixth digit sends it; a wrong code shakes the row once and clears it, and a right one folds the boxes into a check that pops.
+- **Ways round a password:** "Forgot password?" emails a code and leads to a new password, with other phones signed out. "Email me a code instead" signs in without the password, where the account allows it. The main app has neither.
+- **First run:** three pages (write freely, gentle help, yours alone), then your colour and paper, using Rosebud's tiles. The leaf, the progress pill and the button take the chosen colour at once. Skip or "Start writing" ends it for good on this phone, and Back goes a page back.
+- **Settings → Account:**
+  - your email;
+  - Export my notes (a file to share);
+  - Learn from my writing, with Forget what it has learned;
+  - Sign out, which warns if changes haven't reached the server (the main app drops them silently);
+  - Delete account, asked twice in place.
+  - Looking around without an account, a card says so and leads to signing in.
+- **Doors, not redirects:** three guarded groups (signed out, first run, the app) swap as the session changes, so Back can never return through one.
+  - The navigator mounts only once the session is known, so a link the app was opened with isn't lost.
+  - The launch veil covers the wait and only ever shows at launch.
+- **Kept on the phone:** your colour, paper, appearance, focus defaults, demo mode and whether first run has been seen now live in `src/state/device.ts`, saved with AsyncStorage. Before, they reset on every reload.
+- **Errors in sentences:** Clerk's codes become plain words ("That code didn't match. Check the email and try again."), said under the field they belong to.
+
+Signing up on the **web build** shows Cloudflare's "Verify you are human" check, which Clerk requires there. It never appears in the phone app.
 
 ## The brief
 
@@ -235,6 +266,8 @@ These are drawn for Clarity in Rosebud's manner: flat colour inside a dark outli
 | Catch up | Full screen with its own close | Close |
 | Focus | Full screen, fades in; only stopping ends a session | Hold to stop |
 | Date, time, area, reminder, link | Native sheets sized to what's in them | Drag down |
+| Welcome and the sign-in steps | Their own door; each step pushed | Back goes a step; once signed in, the door is gone |
+| First run | Its own door, faded in | Back goes a page; Skip or Start writing ends it |
 
 ## How it was checked
 
@@ -254,6 +287,15 @@ These are drawn for Clarity in Rosebud's manner: flat colour inside a dark outli
   - a right swipe finishing a task;
   - the long-press menu;
   - a scan of Today, Notes, Life Center, Search, a note and a task for counts like "3 tasks" or "(4)", which found none.
+- **Accounts, in the web build:**
+  - the welcome, every sign-in step and first run, in light and dark;
+  - "Look around first" opening the sample notes, and Settings saying so;
+  - an unknown address leading to "Make your account";
+  - a wrong code shaking and clearing;
+  - a link straight to Settings surviving a reload;
+  - the iPhone bundle compiling.
+
+  Signing up stops at Cloudflare's check, as it should, so the full sign-up and sign-in round trip waits for the phone.
 - **Not yet seen on a phone:**
   - the entering animations the web build skips (the launch leaf, the "Saved" capsule's arrival);
   - the strike drawn line by line, which needs iOS text measurement;

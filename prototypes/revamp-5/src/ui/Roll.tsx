@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
-import { useStore } from "../store/store";
+import { useDevice } from "../state/device";
 import { duration, easeOut } from "../theme/motion";
 import { type, type TypeName } from "../theme/tokens";
 import { LARGE_TEXT } from "./Txt";
@@ -28,7 +28,7 @@ export function Roll({
   accessibilityLabel?: string;
 }) {
   const reduced = useReducedMotion();
-  const large = useStore((state) => state.prefs.largeText);
+  const large = useDevice((state) => state.prefs.largeText);
   const text = String(value);
   const [shown, setShown] = useState({ current: text, previous: null as string | null, up: true });
   const progress = useSharedValue(1);

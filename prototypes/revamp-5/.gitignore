@@ -1,5 +1,7 @@
-node_modules/
-.expo/
-.metro-cache/
 dist/
+.env
+.env*.local
+.expo/
 *.log
+.metro-cache/
+node_modules/

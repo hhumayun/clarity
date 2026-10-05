@@ -6,6 +6,7 @@ import { TimeOfDay } from "../art/TimeOfDay";
 import { greetings, questions } from "../data/prompts";
 import { today } from "../lib/dates";
 import { noteTime, openOn } from "../store/selectors";
+import { useDevice } from "../state/device";
 import { useStore } from "../store/store";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, radius, space } from "../theme/tokens";
@@ -31,7 +32,7 @@ export function TodayCards() {
   const tasks = useStore((state) => state.tasks);
   const notes = useStore((state) => state.notes);
   const pages = useStore((state) => state.pages);
-  const focusLength = useStore((state) => state.prefs.focusLength);
+  const focusLength = useDevice((state) => state.prefs.focusLength);
   const focusToday = useStore((state) => state.focusToday);
   const t = today();
   const pageId = pages[t];

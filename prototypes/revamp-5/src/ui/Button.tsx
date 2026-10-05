@@ -44,6 +44,7 @@ export function Button({
   style,
   accessibilityLabel,
   flex,
+  mark,
 }: {
   label: string;
   icon?: IconName;
@@ -56,6 +57,8 @@ export function Button({
   accessibilityLabel?: string;
   /** Share a row with another button. */
   flex?: boolean;
+  /** A brand mark at the left edge, the words still centred (Google's G). */
+  mark?: React.ReactNode;
 }) {
   const { colors, accent } = useTheme();
   const reduced = useReducedMotion();
@@ -95,6 +98,7 @@ export function Button({
         style,
       ]}
     >
+      {mark ? <View style={styles.mark}>{mark}</View> : null}
       <Morph label={label} icon={icon} color={palette.fg} state={state} variant={textVariant} iconSize={size === "sm" ? 15 : 18} />
     </AnimatedPressable>
   );
@@ -197,4 +201,5 @@ const styles = StyleSheet.create({
   morph: { alignItems: "center", justifyContent: "center" },
   center: { alignItems: "center", justifyContent: "center" },
   content: { flexDirection: "row", alignItems: "center", gap: 8 },
+  mark: { position: "absolute", left: 20, top: 0, bottom: 0, justifyContent: "center" },
 });

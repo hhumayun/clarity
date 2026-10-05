@@ -1,0 +1,279 @@
+import { formatClockTime, isSameDay } from "./dates";
+
+/**
+ * The Notes screen's rules: what a note is called, which day it belongs
+ * under, and how a search like "receipts last week" is read. No React Native
+ * imports, so the rules can be checked on their own.
+ *
+ * Notes sit under the day they were WRITTEN (createdAt), not last edited:
+ * the journal view exists for people who find notes by remembering when
+ * they wrote them.
+ */
+
+type NoteLike = { title: string; content: string; createdAt: Date };
+
+const DAY_MS = 86_400_000;
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const TITLE_MAX = 60;
+// Where escaped Markdown marks wait while the rest is read (Private Use Area).
+const ESCAPED = 0xe000;
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/** Whole days from `date` back to `now`: 0 today, 1 yesterday. */
+export function daysAgo(date: Date, now: Date = new Date()): number {
+  return Math.round((startOfDay(now).getTime() - startOfDay(date).getTime()) / DAY_MS);
+}
+
+/**
+ * A note's text as plain words, for titles and previews. Notes are written
+ * in Markdown (the rich editor): heading marks, bullets, checkboxes, quote
+ * marks, emphasis and link addresses go, the words stay. Numbered lists
+ * keep their numbers. Only marks that come in pairs or start a line are
+ * taken, so a note written as plain text before reads the same.
+ */
+export function plainText(markdown: string): string {
+  // Escaped marks (\\*) are set aside first, so they are never read as
+  // formatting, and come back as the plain marks at the end.
+  const kept = markdown.replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, (_m, mark: string) =>
+    String.fromCharCode(ESCAPED + mark.charCodeAt(0)),
+  );
+  return kept
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^\s{0,3}#{1,6}\s+/, "")
+        .replace(/^\s*>\s?/, "")
+        .replace(/^(\s*)(?:[-*+]|\d+[.)])\s+\[[ xX]\]\s+/, "$1")
+        .replace(/^(\s*)[-*+]\s+/, "$1"),
+    )
+    .join("\n")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\((?:[^)(]|\([^)]*\))*\)/g, "$1")
+    .replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, "$2")
+    .replace(/~~(?=\S)([\s\S]*?\S)~~/g, "$1")
+    .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, "$1$2")
+    .replace(/(^|\W)_(?=\S)([^_\n]*?\S)_(?!\w)/g, "$1$2")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/[\ue000-\ue0ff]/g, (mark) => String.fromCharCode(mark.charCodeAt(0) - ESCAPED));
+}
+
+/**
+ * The title to show. An untitled note is named from its first line, and the
+ * preview then starts after that line so it is not said twice.
+ */
+export function displayTitle(note: { title: string; content: string }): {
+  title: string;
+  preview: string;
+  derived: boolean;
+} {
+  const collapse = (text: string) => text.replace(/\s+/g, " ").trim();
+  const content = plainText(note.content);
+  const title = note.title.trim();
+  if (title) return { title, preview: collapse(content), derived: false };
+
+  const lines = content.split("\n");
+  const firstIndex = lines.findIndex((line) => line.trim().length > 0);
+  if (firstIndex === -1) return { title: "Untitled note", preview: "", derived: true };
+
+  let first = collapse(lines[firstIndex]);
+  let rest = collapse(lines.slice(firstIndex + 1).join(" "));
+  if (first.length > TITLE_MAX) {
+    // Cut at a word boundary, and carry the remainder into the preview.
+    const cut = first.lastIndexOf(" ", TITLE_MAX);
+    const at = cut > TITLE_MAX / 2 ? cut : TITLE_MAX;
+    rest = collapse(`${first.slice(at)} ${rest}`);
+    first = `${first.slice(0, at).trim()}…`;
+  }
+  return { title: first, preview: rest, derived: true };
+}
+
+export type NoteGroup<T> = { key: string; label: string; notes: T[] };
+
+/** Today, Yesterday, Earlier this week (2–6 days ago), then one group per month. */
+export function groupNotesByDay<T extends NoteLike>(notes: T[], now: Date = new Date()): NoteGroup<T>[] {
+  const sorted = [...notes].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const groups: NoteGroup<T>[] = [];
+  const byKey = new Map<string, NoteGroup<T>>();
+  for (const note of sorted) {
+    const ago = daysAgo(note.createdAt, now);
+    let key: string;
+    let label: string;
+    if (ago <= 0) {
+      key = "today";
+      label = "Today";
+    } else if (ago === 1) {
+      key = "yesterday";
+      label = "Yesterday";
+    } else if (ago <= 6) {
+      key = "week";
+      label = "Earlier this week";
+    } else {
+      const y = note.createdAt.getFullYear();
+      const m = note.createdAt.getMonth();
+      key = `${y}-${m}`;
+      label = y === now.getFullYear() ? MONTHS[m] : `${MONTHS[m]} ${y}`;
+    }
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, label, notes: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.notes.push(note);
+  }
+  return groups;
+}
+
+/** "7:08 pm" today or yesterday, "Mon, 7:08 pm" this week, "Sep 3" before that. */
+export function noteTimeLabel(createdAt: Date, now: Date = new Date()): string {
+  const ago = daysAgo(createdAt, now);
+  if (ago <= 1) return formatClockTime(createdAt);
+  if (ago <= 6) return `${WEEKDAYS[createdAt.getDay()].slice(0, 3)}, ${formatClockTime(createdAt)}`;
+  const month = MONTHS[createdAt.getMonth()].slice(0, 3);
+  return createdAt.getFullYear() === now.getFullYear()
+    ? `${month} ${createdAt.getDate()}`
+    : `${month} ${createdAt.getDate()}, ${createdAt.getFullYear()}`;
+}
+
+export type DateRange = { start: Date; end: Date; label: string };
+
+// Rolling windows, not calendar weeks: whether a week starts on Sunday or
+// Monday varies by place, and "last week" from a Monday should still reach
+// last Thursday.
+const DATE_PHRASES: Array<{ re: RegExp; range: (today: Date) => [number, number]; label: string }> = [
+  { re: /\btoday\b/i, range: () => [0, 1], label: "today" },
+  { re: /\byesterday\b/i, range: () => [-1, 0], label: "yesterday" },
+  { re: /\bthis week\b/i, range: () => [-6, 1], label: "this week" },
+  { re: /\blast week\b/i, range: () => [-13, -6], label: "last week" },
+  { re: /\bthis month\b/i, range: () => [-29, 1], label: "this month" },
+  { re: /\blast month\b/i, range: () => [-59, -29], label: "last month" },
+];
+
+/**
+ * Split a search into words for the server and a date range for the client:
+ * "receipts last week" → text "receipts", range = seven to thirteen days ago.
+ * The server search is plain text, so the dates are applied here.
+ */
+export function parseNoteSearch(query: string, now: Date = new Date()): { text: string; range: DateRange | null } {
+  let text = query;
+  let range: DateRange | null = null;
+  for (const phrase of DATE_PHRASES) {
+    if (!phrase.re.test(text)) continue;
+    text = text.replace(phrase.re, " ");
+    if (!range) {
+      const today = startOfDay(now);
+      const [from, to] = phrase.range(today);
+      range = {
+        start: new Date(today.getFullYear(), today.getMonth(), today.getDate() + from),
+        end: new Date(today.getFullYear(), today.getMonth(), today.getDate() + to),
+        label: phrase.label,
+      };
+    }
+  }
+  // Tidy the joins a removed phrase leaves behind ("receipts from last week").
+  text = text.replace(/\b(from|in|during|on)\s*$/i, "").replace(/\s+/g, " ").trim();
+  return { text, range };
+}
+
+export function inRange(date: Date, range: DateRange | null): boolean {
+  if (!range) return true;
+  const t = date.getTime();
+  return t >= range.start.getTime() && t < range.end.getTime();
+}
+
+export type StripDay = { key: string; date: Date; letter: string; day: number };
+
+/** The Monday of the week a day is in: weeks start on Monday, as the month does. */
+export function mondayOf(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - ((date.getDay() + 6) % 7));
+}
+
+/** The day `days` on from `date` (or back, if negative), at its start. */
+export function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+/** The week a day is in, Monday first: one row of its month. */
+export function calendarWeek(date: Date): StripDay[] {
+  const monday = mondayOf(date);
+  return Array.from({ length: 7 }, (_, i) => stripDay(addDays(monday, i)));
+}
+
+// A day as a count of days on a calendar with no clock changes, so days can
+// be counted by subtracting.
+const dayNumber = (date: Date) => Math.round(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS);
+
+/** Whole weeks from the week `from` is in to the week `to` is in: 1 is the week after. */
+export function weeksBetween(from: Date, to: Date): number {
+  return Math.round((dayNumber(mondayOf(to)) - dayNumber(mondayOf(from))) / 7);
+}
+
+/** Whole months from the month `from` is in to the month `to` is in. */
+export function monthsBetween(from: Date, to: Date): number {
+  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+}
+
+/** Which of its month's six rows a day sits in, 0 to 5. */
+export function rowInMonth(date: Date): number {
+  return Math.floor((dayNumber(date) - dayNumber(monthGrid(date)[0].date)) / 7);
+}
+
+/** A day's key in strips and grids: the same for any time on that day. */
+export function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function stripDay(date: Date): StripDay {
+  return { key: dayKey(date), date, letter: WEEKDAYS[date.getDay()].charAt(0), day: date.getDate() };
+}
+
+/**
+ * The six weeks a month is shown in, Monday first: its own days, with the
+ * end of the month before and the start of the one after filling the first
+ * and last weeks. Always 42 days, so the grid never changes height.
+ */
+export function monthGrid(month: Date): StripDay[] {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const lead = (first.getDay() + 6) % 7;
+  return Array.from({ length: 42 }, (_, i) =>
+    stripDay(new Date(first.getFullYear(), first.getMonth(), 1 - lead + i)),
+  );
+}
+
+/** "October 2026". */
+export function monthTitle(month: Date): string {
+  return `${MONTHS[month.getMonth()]} ${month.getFullYear()}`;
+}
+
+/** A day's notes, newest first. */
+export function notesOnDay<T extends NoteLike>(notes: T[], day: Date): T[] {
+  return notes
+    .filter((note) => isSameDay(note.createdAt, day))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+/** "Today", "Yesterday", "Tomorrow", or the weekday's name. */
+export function dayHeading(day: Date, now: Date = new Date()): string {
+  const ago = daysAgo(day, now);
+  if (ago === 0) return "Today";
+  if (ago === 1) return "Yesterday";
+  if (ago === -1) return "Tomorrow";
+  return WEEKDAYS[day.getDay()];
+}
+
+/** The half-open range [start, end) covering a strip, for asking the server. */
+export function stripRange(strip: StripDay[]): { from: Date; to: Date } {
+  const first = strip[0].date;
+  const last = strip[strip.length - 1].date;
+  return {
+    from: new Date(first.getFullYear(), first.getMonth(), first.getDate()),
+    to: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1),
+  };
+}

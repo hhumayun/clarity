@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useColorScheme } from "react-native";
-import { useStore } from "../store/store";
+import { useDevice, type Mode } from "../state/device";
 import { accents, dark, papers, phaseOf, type Accent, type AccentName, type Palette, type Phase } from "./tokens";
-
-type Mode = "auto" | "light" | "dark";
 
 type Theme = {
   colors: Palette;
@@ -23,10 +21,11 @@ const ThemeContext = createContext<Theme | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const system = useColorScheme();
-  const [mode, setMode] = useState<Mode>("auto");
+  const mode = useDevice((state) => state.mode);
+  const setMode = useDevice((state) => state.setMode);
   const [phaseOverride, setPhaseOverride] = useState<Phase | null>(null);
-  const accentName = useStore((state) => state.prefs.accent);
-  const paperName = useStore((state) => state.prefs.paper);
+  const accentName = useDevice((state) => state.prefs.accent);
+  const paperName = useDevice((state) => state.prefs.paper);
   // The hour, checked every minute so the greeting moves on by itself.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -48,7 +47,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       phaseOverride,
       setPhaseOverride,
     }),
-    [isDark, phase, mode, phaseOverride, accentName, paperName],
+    [isDark, phase, mode, setMode, phaseOverride, accentName, paperName],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

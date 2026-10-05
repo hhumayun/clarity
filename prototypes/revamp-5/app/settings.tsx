@@ -1,40 +1,47 @@
+import { useUser } from "@clerk/clerk-expo";
+import { cacheDirectory, writeAsStringAsync } from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import * as Sharing from "expo-sharing";
+import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeIn, LinearTransition, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getAccountExport, postAccountDelete } from "../src/core/api/account";
+import { useClearPersonalization, usePreferences, useUpdatePreferences } from "../src/core/hooks/usePreferences";
+import { useAuth } from "../src/core/providers/AuthProvider";
+import { usePendingCount } from "../src/core/sync/SyncProvider";
+import { useDevice } from "../src/state/device";
 import type { FocusLength } from "../src/store/model";
 import { useStore } from "../src/store/store";
-import { duration, easeOut, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
-import { accentOrder, accents, edge, pad, paperOrder, papers, radius, space, type AccentName, type PaperName, type Phase } from "../src/theme/tokens";
+import { edge, pad, space, type Phase } from "../src/theme/tokens";
 import { useAcknowledge } from "../src/ui/Acknowledgement";
-import { Button, ButtonPair } from "../src/ui/Button";
+import { AskInPlace } from "../src/ui/AskInPlace";
+import { Button, Spinner } from "../src/ui/Button";
 import { CardGroup, CardRow } from "../src/ui/Card";
-import { done as doneHaptic, tick } from "../src/ui/haptics";
+import { AccentSwatches, PaperTiles } from "../src/ui/ColourPicker";
+import { done as doneHaptic } from "../src/ui/haptics";
 import { Icon, type IconName } from "../src/ui/Icon";
 import { Segmented } from "../src/ui/Segmented";
 import { Toggle } from "../src/ui/Toggle";
 import { Txt } from "../src/ui/Txt";
 
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
-
 /**
  * Settings, as Rosebud keeps them: a sheet with Done at the top right and
- * small grey captions over white groups. First, your colour: six tiles,
- * Rosebud's "pick a colour, any colour"; the whole app takes it at once.
- * Then reading comfort, the focus defaults, and a few controls only this
- * prototype has. Reset asks in place.
+ * small grey captions over white groups. Your account first: who you are,
+ * your notes to take away, what the app may learn, and the two doors out,
+ * each asking in place. Looking around without an account, a card says so
+ * and leads to signing in. Then your colour, the page, reading comfort, the
+ * focus defaults, and the controls only this prototype has.
  */
 export default function Settings() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode, phaseOverride, setPhaseOverride } = useTheme();
   const acknowledge = useAcknowledge();
-  const prefs = useStore((state) => state.prefs);
-  const setPref = useStore((state) => state.setPref);
+  const { authState } = useAuth();
+  const prefs = useDevice((state) => state.prefs);
+  const setPref = useDevice((state) => state.setPref);
   const reset = useStore((state) => state.reset);
-  const [asking, setAsking] = useState(false);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
@@ -53,40 +60,17 @@ export default function Settings() {
         </Pressable>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + space[12] }}>
-        <Caption first>Your colour</Caption>
-        <View style={styles.swatches} accessibilityRole="radiogroup" accessibilityLabel="Your colour">
-          {accentOrder.map((name) => (
-            <Swatch
-              key={name}
-              name={name}
-              selected={prefs.accent === name}
-              onPress={() => {
-                if (prefs.accent === name) return;
-                tick();
-                setPref("accent", name);
-              }}
-            />
-          ))}
-        </View>
+        <Caption first>Account</Caption>
+        {authState.type === "authenticated" ? <Account email={authState.user.email} /> : <LookingAround />}
+
+        <Caption>Your colour</Caption>
+        <AccentSwatches value={prefs.accent} onChange={(name) => setPref("accent", name)} />
         <Txt variant="footnote" tone="ink3" center style={styles.note}>
           Pick a colour, any colour. Buttons, checks and focus time take it.
         </Txt>
 
         <Caption>Paper</Caption>
-        <View style={styles.papers} accessibilityRole="radiogroup" accessibilityLabel="Paper, for light mode">
-          {paperOrder.map((name) => (
-            <PaperTile
-              key={name}
-              name={name}
-              selected={prefs.paper === name}
-              onPress={() => {
-                if (prefs.paper === name) return;
-                tick();
-                setPref("paper", name);
-              }}
-            />
-          ))}
-        </View>
+        <PaperTiles value={prefs.paper} onChange={(name) => setPref("paper", name)} />
         <Txt variant="footnote" tone="ink3" center style={styles.note}>
           How warm the page is in light mode, from cool stone to rosy clay.
         </Txt>
@@ -151,41 +135,152 @@ export default function Settings() {
             <Icon name="forward" size={14} color={colors.ink3} weight="semibold" />
           </CardRow>
         </CardGroup>
-        <Animated.View layout={settle} style={styles.reset}>
-          {asking ? (
-            <Animated.View entering={FadeIn.duration(duration.base)} style={styles.ask}>
-              <Txt variant="subhead" tone="ink2" center>
-                Bring back the sample notes and tasks? Your changes here are cleared.
-              </Txt>
-              <ButtonPair>
-                <Button label="Keep" variant="secondary" size="md" flex onPress={() => (tick(), setAsking(false))} />
-                <Button
-                  label="Reset"
-                  icon="undo"
-                  variant="danger"
-                  size="md"
-                  flex
-                  onPress={() => {
-                    doneHaptic();
-                    reset();
-                    setAsking(false);
-                    acknowledge("Sample data is back", "undo");
-                  }}
-                />
-              </ButtonPair>
-            </Animated.View>
-          ) : (
-            <Animated.View entering={FadeIn.duration(duration.base)}>
-              <Button label="Reset sample data" icon="undo" variant="secondary" size="md" onPress={() => (tick(), setAsking(true))} />
-            </Animated.View>
-          )}
-        </Animated.View>
+        <View style={styles.actions}>
+          <AskInPlace
+            label="Reset sample data"
+            icon="undo"
+            steps={[{ question: "Bring back the sample notes and tasks? Your changes to them are cleared.", confirm: "Reset", icon: "undo" }]}
+            danger
+            onConfirm={() => {
+              doneHaptic();
+              reset();
+              acknowledge("Sample data is back", "undo");
+            }}
+          />
+        </View>
 
         <Txt variant="footnote" tone="ink3" center style={styles.about}>
-          Clarity is a calm place to write, plan and focus. This is a design prototype (revamp 5, “Sage”), with sample data and no account.
+          Clarity is a calm place to write, plan and focus. This is revamp 5, “Sage”. Accounts are real; the notes and tasks are samples until your own arrive in a later step.
         </Txt>
       </ScrollView>
     </View>
+  );
+}
+
+/** Signed in: who you are, your notes to take away, what the app may learn, and the doors out. */
+function Account({ email }: { email: string }) {
+  const { colors } = useTheme();
+  const { user } = useUser();
+  const { logout } = useAuth();
+  const acknowledge = useAcknowledge();
+  const setOnboarded = useDevice((state) => state.setOnboarded);
+  const pending = usePendingCount();
+  const preferences = usePreferences();
+  const updatePreferences = useUpdatePreferences();
+  const forget = useClearPersonalization();
+  const [exporting, setExporting] = useState(false);
+  const shown = email || user?.primaryEmailAddress?.emailAddress || "Your account";
+
+  const exportNotes = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const text = JSON.stringify(await getAccountExport(), null, 2);
+      const name = "clarity-notes-export.json";
+      if (process.env.EXPO_OS === "web") {
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+        link.download = name;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } else {
+        const path = `${cacheDirectory}${name}`;
+        await writeAsStringAsync(path, text);
+        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(path, { mimeType: "application/json", UTI: "public.json", dialogTitle: "Export my notes" });
+        else acknowledge("Sharing isn't available here", "close");
+      }
+    } catch {
+      acknowledge("Couldn't export just now", "close");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <>
+      <CardGroup>
+        <View style={styles.row}>
+          <Icon name="person" size={20} color={colors.ink2} weight="medium" />
+          <Txt variant="row" numberOfLines={1} style={styles.words}>
+            {shown}
+          </Txt>
+        </View>
+        <CardRow onPress={() => void exportNotes()} accessibilityRole="button" accessibilityLabel="Export my notes" style={styles.row}>
+          <Icon name="share" size={20} color={colors.ink2} weight="medium" />
+          <Txt variant="row" style={styles.words}>
+            Export my notes
+          </Txt>
+          {exporting ? <Spinner color={colors.ink3} size={18} /> : null}
+        </CardRow>
+        <ToggleRow
+          icon="sparkles"
+          label="Learn from my writing"
+          detail="Better word help, from phrases you've liked."
+          value={preferences.data?.usePersonalization ?? true}
+          onChange={(value) => updatePreferences.mutate({ usePersonalization: value })}
+        />
+      </CardGroup>
+      <View style={styles.actions}>
+        <AskInPlace
+          label="Forget what it has learned"
+          icon="undo"
+          steps={[{ question: "Forget the phrases the app has learned? Your notes stay as they are.", confirm: "Forget" }]}
+          onConfirm={async () => {
+            await forget.mutateAsync();
+            acknowledge("Forgotten", "undo");
+          }}
+        />
+        <AskInPlace
+          label="Sign out"
+          icon="signOut"
+          cancel="Stay"
+          steps={[
+            {
+              question: pending > 0 ? "Some changes haven't reached the server yet. Signing out now loses them." : `Sign out of ${shown}? Your notes stay in your account.`,
+              confirm: "Sign out",
+              icon: "signOut",
+            },
+          ]}
+          danger={pending > 0}
+          onConfirm={() => logout()}
+        />
+        <AskInPlace
+          label="Delete account"
+          icon="trash"
+          variant="plain"
+          danger
+          steps={[
+            { question: "Delete your account and everything in it? This can't be undone.", confirm: "Delete" },
+            { question: "Are you sure? Your notes can't be brought back.", confirm: "Delete for good", icon: "trash" },
+          ]}
+          onConfirm={async () => {
+            try {
+              await postAccountDelete();
+            } catch {
+              throw new Error("Couldn't delete the account. Check your connection and try again.");
+            }
+            setOnboarded(false);
+            await logout();
+          }}
+        />
+      </View>
+    </>
+  );
+}
+
+/** Looking around without an account: said plainly, with the way in. */
+function LookingAround() {
+  const setDemo = useDevice((state) => state.setDemo);
+  return (
+    <CardGroup>
+      <View style={styles.card}>
+        <Txt variant="headline">You're looking around</Txt>
+        <Txt variant="subhead" tone="ink2">
+          These notes and tasks are samples. Sign in, or make an account, to keep your own.
+        </Txt>
+        <Button label="Sign in or make an account" size="md" onPress={() => setDemo(false)} />
+      </View>
+    </CardGroup>
   );
 }
 
@@ -194,69 +289,6 @@ function Caption({ children, first }: { children: string; first?: boolean }) {
     <Txt variant="footnote" tone="ink3" weight="semibold" style={[styles.caption, first && styles.captionFirst]}>
       {children}
     </Txt>
-  );
-}
-
-/**
- * One colour in Rosebud's grid: a white tile with a disc of the colour and
- * its name. The chosen tile takes an ink edge, and its disc pops and draws
- * a check.
- */
-function Swatch({ name, selected, onPress }: { name: AccentName; selected: boolean; onPress: () => void }) {
-  const { colors, dark } = useTheme();
-  const reduced = useReducedMotion();
-  const tone = accents[name][dark ? "dark" : "light"];
-  const pop = useSharedValue(1);
-  const ring = useSharedValue(0);
-  const first = React.useRef(true);
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    if (selected && !reduced) {
-      pop.value = withSequence(withTiming(0.82, { duration: duration.press, easing: easeOut }), withSpring(1, spring.pop));
-      ring.value = 0;
-      ring.value = withTiming(1, { duration: 560, easing: easeOut });
-    }
-  }, [selected, pop, ring, reduced]);
-  const disc = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
-  const halo = useAnimatedStyle(() => ({ opacity: ring.value > 0 && ring.value < 1 ? 0.5 * (1 - ring.value) : 0, transform: [{ scale: 1 + ring.value * 0.9 }] }));
-  return (
-    <Pressable onPress={onPress} accessibilityRole="radio" aria-selected={selected} accessibilityLabel={accents[name].label} style={({ pressed }) => [styles.swatch, { backgroundColor: colors.card, borderColor: selected ? colors.ink : colors.card, transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
-      <View>
-        <Animated.View style={[styles.halo, { borderColor: tone.solid }, halo]} />
-        <Animated.View style={[styles.disc, { backgroundColor: tone.solid }, disc]}>
-          {selected ? (
-            <Animated.View entering={FadeIn.duration(duration.base)}>
-              <Icon name="check" size={20} color={tone.on} weight="bold" />
-            </Animated.View>
-          ) : null}
-        </Animated.View>
-      </View>
-      <Txt variant="footnote" weight={selected ? "bold" : "semibold"} tone={selected ? "ink" : "ink2"}>
-        {accents[name].label}
-      </Txt>
-    </Pressable>
-  );
-}
-
-/** One light page to choose: its colour with a small card on it, and its name. The chosen one takes an ink edge. */
-function PaperTile({ name, selected, onPress }: { name: PaperName; selected: boolean; onPress: () => void }) {
-  const { colors } = useTheme();
-  const tone = papers[name].palette;
-  return (
-    <Pressable onPress={onPress} accessibilityRole="radio" aria-selected={selected} accessibilityLabel={papers[name].label} style={({ pressed }) => [styles.paper, { borderColor: selected ? colors.ink : "transparent", transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
-      <View style={[styles.sample, { backgroundColor: tone.page }]}>
-        <View style={[styles.sampleCard, { backgroundColor: tone.card, boxShadow: tone.cardShadow }]}>
-          <View style={[styles.sampleLine, { backgroundColor: tone.ink, width: "70%" }]} />
-          <View style={[styles.sampleLine, { backgroundColor: tone.ink3, width: "45%" }]} />
-        </View>
-      </View>
-      <Txt variant="footnote" weight={selected ? "bold" : "semibold"} tone={selected ? "ink" : "ink2"}>
-        {papers[name].label}
-      </Txt>
-    </Pressable>
   );
 }
 
@@ -286,21 +318,12 @@ const styles = StyleSheet.create({
   barTitle: { flex: 1, textAlign: "center" },
   caption: { paddingHorizontal: edge + 4, paddingTop: space[7], paddingBottom: space[2] },
   captionFirst: { paddingTop: space[4] },
-  swatches: { flexDirection: "row", flexWrap: "wrap", gap: space[3], paddingHorizontal: edge },
-  swatch: { width: "30.9%", flexGrow: 1, alignItems: "center", gap: space[2], paddingVertical: space[4], borderRadius: radius.card, borderCurve: "continuous", borderWidth: 1.5 },
-  disc: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  halo: { position: "absolute", width: 44, height: 44, borderRadius: 22, borderWidth: 2 },
   note: { paddingHorizontal: edge * 2, paddingTop: space[3] },
-  papers: { flexDirection: "row", gap: space[2], paddingHorizontal: edge },
-  paper: { flex: 1, alignItems: "center", gap: space[2], padding: 6, paddingBottom: space[2], borderRadius: radius.card, borderCurve: "continuous", borderWidth: 1.5 },
-  sample: { alignSelf: "stretch", height: 64, borderRadius: radius.sm, borderCurve: "continuous", padding: 8, justifyContent: "center" },
-  sampleCard: { borderRadius: 7, padding: 7, gap: 5 },
-  sampleLine: { height: 4, borderRadius: 2 },
   inset: { marginHorizontal: edge },
   group: { marginTop: space[3] },
   row: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: space[3], paddingHorizontal: pad, paddingVertical: 10 },
   words: { flex: 1, gap: 2 },
-  reset: { marginHorizontal: edge, marginTop: space[3] },
-  ask: { gap: space[3] },
+  card: { padding: pad, gap: space[3] },
+  actions: { marginHorizontal: edge, marginTop: space[3], gap: space[3] },
   about: { paddingHorizontal: edge * 2, paddingTop: space[10] },
 });

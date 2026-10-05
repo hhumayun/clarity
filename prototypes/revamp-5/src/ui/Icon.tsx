@@ -68,6 +68,11 @@ import CirclePlus from "lucide-react-native/icons/circle-plus";
 import ChevronsUpDown from "lucide-react-native/icons/chevrons-up-down";
 import ArrowLeft from "lucide-react-native/icons/arrow-left";
 import BookText from "lucide-react-native/icons/book-text";
+import CircleUserRound from "lucide-react-native/icons/circle-user-round";
+import EyeOff from "lucide-react-native/icons/eye-off";
+import Lock from "lucide-react-native/icons/lock";
+import LogOut from "lucide-react-native/icons/log-out";
+import Mail from "lucide-react-native/icons/mail";
 import CircleDot from "lucide-react-native/icons/circle-dot";
 import React from "react";
 
@@ -142,6 +147,11 @@ const icons = {
   arrowLeft: ["arrow.left", ArrowLeft],
   dot: ["circle.fill", CircleDot],
   noteText: ["note.text", NotebookText],
+  person: ["person.crop.circle", CircleUserRound],
+  signOut: ["rectangle.portrait.and.arrow.right", LogOut],
+  lock: ["lock", Lock],
+  mail: ["envelope", Mail],
+  eyeOff: ["eye.slash", EyeOff],
 } as const;
 
 /** SF Symbols with a filled form, for a chosen tab or a set state. Elsewhere the line just thickens. */

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { addDays, dateOf, dayOf, today, type Day } from "../lib/dates";
 import { parseTask } from "../lib/parseTask";
-import { emptyHistory, type Area, type FocusHistory, type Note, type Outcome, type Prefs, type Repeat, type Suggestion, type Task } from "./model";
+import { emptyHistory, type Area, type FocusHistory, type Note, type Outcome, type Repeat, type Suggestion, type Task } from "./model";
 import { seed } from "./seed";
 
 type NewTask = { title: string; area: string; day: Day | null; time: number | null; noteId?: string | null };
@@ -17,7 +17,6 @@ type State = {
   suggestions: Record<string, Suggestion[]>;
   /** Notes already searched, so a second look can say "nothing new". */
   searched: Record<string, boolean>;
-  prefs: Prefs;
   /** The day Today is showing. */
   viewDay: Day;
   /** A task just added, so its row can glow where it lands. */
@@ -65,7 +64,6 @@ type State = {
   /** "Not now" on one found task. */
   skipSuggestion: (noteId: string, key: string) => void;
 
-  setPref: <K extends keyof Prefs>(key: K, value: Prefs[K]) => void;
   /** Back to the sample data, as when the app opened. */
   reset: () => void;
 };
@@ -133,7 +131,6 @@ export const useStore = create<State>()((set, get) => ({
   focusToday: initial.focusToday,
   suggestions: {},
   searched: {},
-  prefs: { accent: "sage", paper: "linen", focusLength: 15, breakAfter: true, fastTimers: false, largeText: false },
   viewDay: today(),
   lastAdded: null,
   deleted: [],
@@ -358,7 +355,6 @@ export const useStore = create<State>()((set, get) => ({
   skipSuggestion: (noteId, key) =>
     set((state) => ({ suggestions: { ...state.suggestions, [noteId]: (state.suggestions[noteId] ?? []).filter((suggestion) => suggestion.key !== key) } })),
 
-  setPref: (key, value) => set((state) => ({ prefs: { ...state.prefs, [key]: value } })),
 
   reset: () => {
     const fresh = seed();

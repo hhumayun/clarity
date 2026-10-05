@@ -15,6 +15,16 @@
 
 The facts here were checked against the code on 2026-10-05.
 
+**Progress:**
+- **Phase 0 is done** (2026-10-05).
+  - The packages are installed at the main app's versions.
+  - `src/core/` holds 37 files copied unchanged from 44abd69 and type-checks as it is. `src/core/SOURCE.md` records each file's version.
+  - `.env` is git-ignored. Settings are saved on the phone, and demo mode is in.
+- **Phase 1 is built** (2026-10-05) and checked in the web build up to Clerk's web-only bot check.
+  - Still to do on the phone: create the test account, verify the code (424242), sign out and back in, Google, and an offline start.
+  - The test account's details are kept on the dev machine, outside the repo.
+- **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
+
 ---
 
 ## 1. What already exists, and what it means for revamp 5
