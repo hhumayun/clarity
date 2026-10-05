@@ -2,6 +2,7 @@ import { z } from "zod";
 import superjson from "superjson";
 import type { ProjectRecord, TaskRecord } from "../../helpers/TaskRecord";
 import { apiFetch } from "../../helpers/apiFetch";
+import type { SuggestedTask } from "./extract_POST.schema";
 
 export const schema = z.object({ noteId: z.string().uuid().optional() });
 export type InputType = z.infer<typeof schema>;
@@ -9,6 +10,8 @@ export type OutputType = {
   tasks: TaskRecord[];
   projects: ProjectRecord[];
   extraction: { hasExtracted: boolean; needsRefresh: boolean } | null;
+  /** With a note: its Find tasks suggestions not yet added or dismissed, so they're there without asking the AI again. */
+  pending?: SuggestedTask[];
 };
 
 export const getTasksList = async (

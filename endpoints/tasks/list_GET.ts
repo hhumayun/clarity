@@ -4,6 +4,7 @@ import { selectTaskRecords } from "../../helpers/taskRecords";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { taskContentHash } from "../../helpers/taskContentHash";
+import { pendingSuggestions, sameWords } from "../../helpers/taskSuggestions";
 import { schema, type OutputType } from "./list_GET.schema";
 
 export async function handle(request: Request) {
@@ -43,11 +44,15 @@ export async function handle(request: Request) {
       );
     }
 
-    const [tasks, projects] = await Promise.all([
+    const [tasks, projects, kept] = await Promise.all([
       taskQuery.orderBy("tasks.updatedAt", "desc").execute(),
       db.selectFrom("projects").select(["id", "name", "createdAt", "updatedAt"]).where("userId", "=", user.id).orderBy("updatedAt", "desc").execute(),
+      input.noteId ? pendingSuggestions(db, input.noteId, user.id) : Promise.resolve(null),
     ]);
-    return new Response(superjson.stringify({ tasks, projects, extraction } satisfies OutputType));
+    // A suggestion already among the note's tasks, by the same words, isn't offered.
+    const taken = new Set(tasks.map((task) => sameWords(task.text)));
+    const pending = kept?.filter((item) => !taken.has(sameWords(item.text)));
+    return new Response(superjson.stringify({ tasks, projects, extraction, ...(pending ? { pending } : {}) } satisfies OutputType));
   } catch (error) {
     return endpointError(error);
   }

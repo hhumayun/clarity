@@ -1,4 +1,6 @@
+import { sql } from "kysely";
 import superjson from "superjson";
+import { notInFuture } from "../../helpers/clientIds";
 import { db } from "../../helpers/db";
 import { selectTaskRecords } from "../../helpers/taskRecords";
 import { requireUser } from "../../helpers/requireUser";
@@ -22,8 +24,9 @@ export async function handle(request: Request) {
       remindBefore?: number | null;
       remindRepeat?: typeof input.remindRepeat;
       status?: typeof input.status;
+      movedFrom?: Date | null;
       updatedAt: Date;
-    } = { updatedAt: new Date() };
+    } = { updatedAt: notInFuture(input.changedAt) };
     if (input.text !== undefined) values.text = input.text.trim();
     if (input.description !== undefined) values.description = input.description.trim();
     if (input.projectId !== undefined) values.projectId = input.projectId;
@@ -34,7 +37,12 @@ export async function handle(request: Request) {
     if (input.remindBefore !== undefined) values.remindBefore = input.remindBefore;
     if (input.remindRepeat !== undefined) values.remindRepeat = input.remindRepeat;
     if (input.status !== undefined) values.status = input.status;
-    const updated = await db.updateTable("tasks").set(values).where("id", "=", input.id).where("userId", "=", user.id).where("deletedAt", "is", null).returning("id").executeTakeFirst();
+    if (input.movedFrom !== undefined) values.movedFrom = input.movedFrom;
+    // Done keeps the moment it first became done, so a change sent twice
+    // doesn't move it; anything else clears it.
+    const completedAt =
+      input.status === undefined ? {} : input.status === "done" ? { completedAt: sql<Date>`case when status = 'done' then completed_at else ${values.updatedAt} end` } : { completedAt: null };
+    const updated = await db.updateTable("tasks").set(values).set(completedAt).where("id", "=", input.id).where("userId", "=", user.id).where("deletedAt", "is", null).returning("id").executeTakeFirst();
     if (!updated) return new Response(superjson.stringify({ error: "That task could not be found." }), { status: 404 });
     const task = await selectTaskRecords(db, user.id).where("tasks.id", "=", input.id).executeTakeFirstOrThrow();
     return new Response(superjson.stringify({ task } satisfies OutputType));

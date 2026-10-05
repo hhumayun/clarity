@@ -23,6 +23,10 @@ The facts here were checked against the code on 2026-10-05.
 - **Phase 1 is built** (2026-10-05) and checked in the web build up to Clerk's web-only bot check.
   - Still to do on the phone: create the test account, verify the code (424242), sign out and back in, Google, and an offline start.
   - The test account's details are kept on the dev machine, outside the repo.
+- **Phase 1 checked on the phone** (2026-10-05): the test account was made, and signing out and back in works.
+- **Phase 2 code is written** (2026-10-05). The four changes in section 5 and `migrations/014_task_times_pages_suggestions.sql` are on the branch, and the server type-checks.
+  - Next, each with your OK: apply migration 014, test on a local server, then deploy.
+  - The web build can only test against a local server, because the live one doesn't accept requests from `localhost:8087`. The phone app isn't affected.
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---

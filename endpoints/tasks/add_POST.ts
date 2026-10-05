@@ -6,6 +6,7 @@ import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { normalizeProjectName } from "../../helpers/normalizeProjectName";
 import { taskFingerprint } from "../../helpers/taskFingerprint";
+import { clearPendingSuggestions } from "../../helpers/taskSuggestions";
 import { schema, type OutputType } from "./add_POST.schema";
 
 /**
@@ -65,6 +66,9 @@ export async function handle(request: Request) {
           await linkNoteTask(trx, { noteId: input.noteId, taskId: inserted.id, userId: user.id });
         }
       }
+
+      // Chosen suggestions are decided: they stop waiting in the note.
+      await clearPendingSuggestions(trx, input.noteId, user.id, input.tasks.map((item) => item.text));
 
       const tasks = ids.length
         ? await selectTaskRecords(trx, user.id)

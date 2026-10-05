@@ -18,6 +18,11 @@ export const schema = z.object({
   archived: z.boolean().optional(),
   /** Replaces the note's areas with exactly these. Omit to leave them alone. */
   projectIds: z.array(z.string().min(1)).max(MAX_NOTE_PROJECTS).optional(),
+  /**
+   * When the change was made on the phone. An edit made offline keeps that
+   * time instead of the time it reached the server; never later than now.
+   */
+  changedAt: z.date().optional(),
 });
 
 export type InputType = z.infer<typeof schema>;

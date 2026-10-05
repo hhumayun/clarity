@@ -17,6 +17,13 @@ export const schema = z.object({
   remindBefore: z.number().int().min(0).max(MAX_REMIND_BEFORE).nullable().optional(),
   remindRepeat: z.enum(REMINDER_REPEAT_VALUES).nullable().optional(),
   status: z.enum(TASK_STATUS_VALUES).optional(),
+  /** The day it was planned for before a move (Catch up, the menu, the date sheet) pushed it on; null clears it. */
+  movedFrom: z.date().nullable().optional(),
+  /**
+   * When the change was made on the phone. An edit made offline keeps that
+   * time instead of the time it reached the server; never later than now.
+   */
+  changedAt: z.date().optional(),
 });
 export type InputType = z.infer<typeof schema>;
 export type OutputType = { task: TaskRecord };

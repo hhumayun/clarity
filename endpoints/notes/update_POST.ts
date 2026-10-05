@@ -1,5 +1,6 @@
 import { sql } from "kysely";
 import superjson from "superjson";
+import { notInFuture } from "../../helpers/clientIds";
 import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
@@ -18,7 +19,7 @@ export async function handle(request: Request) {
       content?: string;
       archived?: boolean;
       updatedAt: Date;
-    } = { updatedAt: new Date() };
+    } = { updatedAt: notInFuture(input.changedAt) };
     if (input.title !== undefined) values.title = input.title;
     if (input.content !== undefined) values.content = input.content;
     if (input.archived !== undefined) values.archived = input.archived;

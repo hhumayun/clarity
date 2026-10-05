@@ -83,7 +83,7 @@ export interface Notes {
   userId: number;
 }
 
-export type NoteSource = "focus";
+export type NoteSource = "focus" | "page";
 
 export type FocusOutcome = "finished" | "progress" | "stuck";
 
@@ -128,8 +128,25 @@ export interface TaskExtractions {
   userId: number;
 }
 
+export type TaskSuggestionStatus = "dismissed" | "pending";
+
+/** Find tasks' suggestions, kept until the writer adds or dismisses them (migration 014). */
+export interface TaskSuggestions {
+  completeBy: Timestamp | null;
+  createdAt: Generated<Timestamp>;
+  fingerprint: string;
+  id: Generated<string>;
+  noteId: string;
+  projectName: Generated<string>;
+  status: Generated<TaskSuggestionStatus>;
+  text: string;
+  userId: number;
+}
+
 export interface Tasks {
   completeBy: Timestamp | null;
+  /** When it was done; null while it isn't (migration 014). */
+  completedAt: Timestamp | null;
   createdAt: Generated<Timestamp>;
   deletedAt: Timestamp | null;
   description: Generated<string>;
@@ -137,6 +154,8 @@ export interface Tasks {
   noteId: string | null;
   /** The task's time on its day, "HH:MM" on the writer's clock (migration 011). */
   dueTime: string | null;
+  /** The day it was planned for before a move pushed it on (migration 014). */
+  movedFrom: Timestamp | null;
   projectId: string;
   /** Minutes before the task's time (or 9:00 on its day) to remind (migration 011). */
   remindBefore: number | null;
@@ -174,6 +193,7 @@ export interface DB {
   projects: Projects;
   suggestionEvents: SuggestionEvents;
   taskExtractions: TaskExtractions;
+  taskSuggestions: TaskSuggestions;
   taskSummaries: TaskSummaries;
   tasks: Tasks;
   userPreferences: UserPreferences;
@@ -186,7 +206,8 @@ export const UserRoleArrayValues: [UserRole, ...UserRole[]] = ["admin","user"];
 export const EntityTypeArrayValues: [EntityType, ...EntityType[]] = ["activity","event","person","place","topic"];
 export const SuggestionSourceArrayValues: [SuggestionSource, ...SuggestionSource[]] = ["ai","history","offline","prompt"];
 export const SuggestionActionArrayValues: [SuggestionAction, ...SuggestionAction[]] = ["accepted","dismissed","edited","shown"];
-export const NoteSourceArrayValues: [NoteSource, ...NoteSource[]] = ["focus"];
+export const NoteSourceArrayValues: [NoteSource, ...NoteSource[]] = ["focus","page"];
+export const TaskSuggestionStatusArrayValues: [TaskSuggestionStatus, ...TaskSuggestionStatus[]] = ["dismissed","pending"];
 export const FocusOutcomeArrayValues: [FocusOutcome, ...FocusOutcome[]] = ["finished","progress","stuck"];
 export const TaskStatusArrayValues: [TaskStatus, ...TaskStatus[]] = ["done","in_progress","todo"];
 // Table/column names whose snake_case spelling kysely's default CamelCasePlugin

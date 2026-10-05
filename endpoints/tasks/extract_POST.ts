@@ -7,12 +7,15 @@ import { dueDayAsDate, validDate } from "../../helpers/parseExtractedTasks";
 import { normalizeProjectName } from "../../helpers/normalizeProjectName";
 import { taskContentHash } from "../../helpers/taskContentHash";
 import { taskFingerprint } from "../../helpers/taskFingerprint";
+import { dismissedFingerprints, pendingSuggestions, replacePendingSuggestions, sameWords } from "../../helpers/taskSuggestions";
 import { schema, type OutputType } from "./extract_POST.schema";
 
 /**
  * Look for tasks in a note and return them as suggestions. Nothing is
  * written to the tasks table here — the writer picks which suggestions to
- * add, and tasks/add_POST does the saving.
+ * add, and tasks/add_POST does the saving. The suggestions themselves are
+ * kept until the writer decides (helpers/taskSuggestions), so an unchanged
+ * note offers them again instead of nothing.
  */
 export async function handle(request: Request) {
   try {
@@ -31,6 +34,14 @@ export async function handle(request: Request) {
     ]);
     if (!note) return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
 
+    // Only offer what is genuinely new: not already extracted from this note
+    // (fingerprint) and not already added by hand with the same words.
+    const knownFingerprints = new Set(
+      existingTasks.map((t) => t.sourceFingerprint).filter(Boolean),
+    );
+    const knownTexts = new Set(existingTasks.map((t) => sameWords(t.text)));
+    const isNew = (text: string) => !knownFingerprints.has(taskFingerprint(input.noteId, text)) && !knownTexts.has(sameWords(text));
+
     const contentHash = taskContentHash(note.title, note.content);
     const lastExtraction = await db
       .selectFrom("taskExtractions")
@@ -38,7 +49,11 @@ export async function handle(request: Request) {
       .where("noteId", "=", input.noteId)
       .executeTakeFirst();
     if (lastExtraction?.contentHash === contentHash) {
-      return new Response(superjson.stringify({ suggested: [], unchanged: true } satisfies OutputType));
+      // Nothing new to find, but what was found last time and not yet
+      // decided comes back. Told as new (`unchanged: false`), so a client
+      // that shows a "Nothing new" notice for unchanged notes doesn't.
+      const pending = (await pendingSuggestions(db, input.noteId, user.id)).filter((item) => isNew(item.text));
+      return new Response(superjson.stringify({ suggested: pending, unchanged: pending.length === 0 } satisfies OutputType));
     }
 
     const proposed = await extractTasks({
@@ -48,20 +63,10 @@ export async function handle(request: Request) {
       currentDate: validDate(input.currentDate) ?? new Date().toISOString().slice(0, 10),
     });
 
-    // Only offer what is genuinely new: not already extracted from this note
-    // (fingerprint) and not already added by hand with the same words.
-    const knownFingerprints = new Set(
-      existingTasks.map((t) => t.sourceFingerprint).filter(Boolean),
-    );
-    const knownTexts = new Set(
-      existingTasks.map((t) => t.text.trim().replace(/\s+/g, " ").toLowerCase()),
-    );
+    // Nor anything the writer has already turned down for this note.
+    const dismissed = await dismissedFingerprints(db, input.noteId, user.id);
     const suggested = proposed
-      .filter((item) => {
-        const fingerprint = taskFingerprint(input.noteId, item.text);
-        if (knownFingerprints.has(fingerprint)) return false;
-        return !knownTexts.has(item.text.trim().replace(/\s+/g, " ").toLowerCase());
-      })
+      .filter((item) => isNew(item.text) && !dismissed.has(taskFingerprint(input.noteId, item.text)))
       .map((item) => ({
         text: item.text,
         projectName: item.projectName,
@@ -72,11 +77,14 @@ export async function handle(request: Request) {
       }));
 
     const now = new Date();
-    await db.insertInto("taskExtractions").values({
-      noteId: input.noteId, userId: user.id, contentHash, extractedAt: now,
-    }).onConflict((conflict) => conflict.column("noteId").doUpdateSet({
-      userId: user.id, contentHash, extractedAt: now,
-    })).execute();
+    await db.transaction().execute(async (trx) => {
+      await replacePendingSuggestions(trx, input.noteId, user.id, suggested);
+      await trx.insertInto("taskExtractions").values({
+        noteId: input.noteId, userId: user.id, contentHash, extractedAt: now,
+      }).onConflict((conflict) => conflict.column("noteId").doUpdateSet({
+        userId: user.id, contentHash, extractedAt: now,
+      })).execute();
+    });
 
     return new Response(superjson.stringify({ suggested, unchanged: false } satisfies OutputType));
   } catch (error) {
