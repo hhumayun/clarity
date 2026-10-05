@@ -4,7 +4,6 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Notebook } from "../../src/art/Pictures";
-import { useAreaColor } from "../../src/store/hooks";
 import { noteGroup } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
 import { duration, easeOut } from "../../src/theme/motion";
@@ -33,7 +32,6 @@ export default function Notes() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const areaColor = useAreaColor();
   const notes = useStore((state) => state.notes);
   const areaList = useStore((state) => state.areas);
   const { onScroll, scrollY } = useScrollY();
@@ -64,7 +62,7 @@ export default function Notes() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
               <Chip label="All" selected={area === null} onPress={() => setArea(null)} />
               {areaList.map(({ name }) => (
-                <Chip key={name} label={name} dot={areaColor(name)} selected={area === name} onPress={() => setArea(area === name ? null : name)} />
+                <Chip key={name} label={name} selected={area === name} onPress={() => setArea(area === name ? null : name)} />
               ))}
             </ScrollView>
           </Animated.View>

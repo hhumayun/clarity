@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Magnifier } from "../../src/art/Pictures";
-import { useAreaColor } from "../../src/store/hooks";
 import { byPlan } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
 import { duration, easeOut } from "../../src/theme/motion";
@@ -34,7 +33,6 @@ export default function Search() {
   const { colors, accent } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const areaColor = useAreaColor();
   const notes = useStore((state) => state.notes);
   const tasks = useStore((state) => state.tasks);
   const areas = useStore((state) => state.areas);
@@ -101,7 +99,6 @@ export default function Search() {
             <Chip
               key={name}
               label={name}
-              dot={areaColor(name)}
               selected={area === name}
               onPress={() => {
                 tick();

@@ -1,6 +1,5 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useAreaColor } from "../store/hooks";
 import type { Note } from "../store/model";
 import { noteTime } from "../store/selectors";
 import { useTheme } from "../theme/ThemeProvider";
@@ -10,14 +9,14 @@ import { Icon } from "./Icon";
 import { Txt } from "./Txt";
 
 /**
- * A note as Rosebud shows an entry: its own card, a small line on top
+ * A note as Rosebud shows an entry: its own card, a small grey line on top
  * (where it belongs and when it was written), the title in bold, then a
  * few lines of what it says. A thought parked during focus says so with a
- * small timer. Nothing measures it. `match` emphasises a search's words.
+ * small timer. No colour, and nothing measures it. `match` emphasises a
+ * search's words.
  */
 export function NoteCard({ note, onPress, showArea = true, match, lines = 3 }: { note: Note; onPress?: () => void; showArea?: boolean; match?: string; lines?: number }) {
   const { colors } = useTheme();
-  const areaColor = useAreaColor();
   const parked = note.source === "focus";
   return (
     <Card
@@ -29,7 +28,7 @@ export function NoteCard({ note, onPress, showArea = true, match, lines = 3 }: {
       <View style={styles.top}>
         {showArea && note.area ? (
           <View style={styles.piece}>
-            <View style={[styles.dot, { backgroundColor: areaColor(note.area) }]} />
+            <Icon name="tag" size={12} color={colors.ink3} weight="semibold" />
             <Txt variant="footnote" tone="ink3" numberOfLines={1}>
               {note.area}
             </Txt>
@@ -96,6 +95,5 @@ const styles = StyleSheet.create({
   card: { paddingHorizontal: pad, paddingTop: 14, paddingBottom: 16, gap: 4 },
   top: { flexDirection: "row", alignItems: "center", gap: space[3], marginBottom: 2 },
   piece: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 },
-  dot: { width: 7, height: 7, borderRadius: 3.5 },
   flex: { flex: 1 },
 });

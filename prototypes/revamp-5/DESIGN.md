@@ -8,6 +8,17 @@ A redesign of Clarity guided by **Rosebud** (the AI journal), taken as a design 
 
 ![Today, light and dark](docs/screens/today.jpg)
 
+## After the first look on a phone (2026-10-05)
+
+Four notes from the user, and what changed:
+
+1. **"The top (above Today) feels off."** The month title, the week and a separate "Today Monday 5 October" line said the same thing three times, with loose spacing and large numbers; in dark mode the chosen day's disc nearly vanished. Now the top is one compact head: "**Today** ⌄" with "Monday 5 October" small under it (tap it for the calendar), then a quieter week with smaller numbers and a thin ink ring around the chosen day. The separate heading line is gone, and the content starts about 60 points higher.
+2. **"In light mode tasks don't feel emphasised enough."** Task titles are now SemiBold. Task cards are the brightest surface, with a warm, slightly deeper lift. Today's two cards step back: they're shorter, sit on a quieter tint, and have no lift, so the tasks lead the page.
+3. **"The area colours overwhelm the design."** Areas have no colour anywhere now. An area is a grey word in a task's line, a small tag on a note, and a plain chip in the filters. The only colours left are your accent and terracotta for late things.
+4. **"Explore warmer tones for light mode."** There's a new **Paper** setting with four light pages: Stone (the first, cooler grey), **Linen** (the new default, a warm cream), Oat (a deeper beige) and Clay (rosy). Each has its own warm white for cards and inks tinted to match, and every text colour still reads at 4.5:1 or better. Switch between them in Settings to compare on the phone.
+
+![Today on each paper](docs/screens/papers.jpg)
+
 ## The brief
 
 The user asked for:
@@ -41,7 +52,7 @@ All 47 of Rosebud's screens and its two-minute onboarding video were studied on 
 | Rosebud | Clarity, revamp 5 |
 |---|---|
 | Grey page, white cards | Warm grey page `#F2F0EB`; tasks, notes and settings on white cards |
-| Month over a week strip; "Today July 23" | "October ⌄" over the week; "**Today** Monday 5 October". The month opens the calendar. |
+| Month over a week strip; "Today July 23" | One compact head: "**Today** ⌄" over "Monday 5 October", then the week. The name opens the calendar. |
 | Morning Intention and Evening Reflection cards | **Today's two ways in:** writing to the day's question and focusing on what's next, each with its own small moving picture |
 | A card with checks on the right | Tasks on a card, Rosebud's check under the thumb |
 | Add goal / Manage under the list | **Add task / Catch up** (or All tasks) |
@@ -63,27 +74,37 @@ All 47 of Rosebud's screens and its two-minute onboarding video were studied on 
 
 ## Principles
 
-1. **Content on cards, chrome on the page.** If you wrote it, it sits on a white card. Headings, the week and the controls stay on the page.
+1. **Content on cards, chrome on the page.** If you wrote it, it sits on a white card. Headings, the week and the controls stay on the page. The day's tasks are the brightest card on Today.
 2. **Quiet centred names, no counts.** Sections label what follows and never count it, and nothing measures your notes, tasks or words. Progress is a line that fills; Catch up shows one card peeking from behind, never a number.
-3. **One accent, yours.** Sage unless you pick another. It goes on the primary action, a ticked check, the +, toggles and focus time.
+3. **One accent, yours, and no other colour.** Sage unless you pick another. It goes on the primary action, a ticked check, the +, toggles and focus time. Areas are words, not colours.
 4. **Buttons answer in place.** A label rolls to the next one; a spinner or a check grows where the words were; a confirmation splits a button in two. No alert asks "are you sure?" about small things.
 5. **An icon before a word.** The bar, the task meta line, the note tools and the time-of-day setting are icons. Words stay where an icon could be misread.
 6. **Pictures for moments.** Six small hand-drawn scenes appear where a moment deserves one (the day's question, focus, a clear list, an empty search), and each has one quiet motion.
 
 ## Colour
 
-Warm greys and white, warm ink, and one accent. Every text colour reads at 4.5:1 or better on page, card and well in both themes (checked with `/tmp/clarity-revamp-5/contrast.py`).
+A warm page, warm white cards, warm ink, and one accent. Every text colour reads at 4.5:1 or better on page, card and well in both themes (checked with `/tmp/clarity-revamp-5/contrast.py`).
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| page | `#F2F0EB` | `#121110` | The canvas |
-| card | `#FFFFFF` | `#1E1C1A` | Tasks, notes, settings |
-| sunken | `#F4F2EE` | `#292724` | A pressed row, a well inside a card |
-| ink | `#1F1D1A` | `#F2EFE9` | Words that matter (14.8:1 on page) |
-| ink2 | `#57524B` | `#BCB6AC` | Second lines (6.8:1) |
-| ink3 | `#6F6A62` | `#959087` | Meta, section names (4.7:1 on page) |
-| line | `#E1DDD5` | `#3A3733` | Outlines, the bar's top edge |
-| warm | `#B4532A` | `#F0956C` | Late and slipped |
+**Paper** (light mode, chosen in Settings):
+
+| Paper | page | card | quiet (Today's cards) | ink / ink2 / ink3 |
+|---|---|---|---|---|
+| Stone | `#F2F0EB` | `#FFFFFF` | `#F8F6F2` | `#1F1D1A` / `#57524B` / `#6F6A62` |
+| **Linen** (default) | `#F3ECE2` | `#FFFCF7` | `#FAF5EE` | `#2A231C` / `#5C5146` / `#74685B` |
+| Oat | `#EEE4D5` | `#FFFAF2` | `#F7F0E5` | `#2B2219` / `#5D5043` / `#716352` |
+| Clay | `#F1E5DC` | `#FFFAF6` | `#F9F1EB` | `#2C211C` / `#62524A` / `#706258` |
+
+Dark mode has one page:
+
+| Token | Dark | Use |
+|---|---|---|
+| page | `#121110` | The canvas |
+| card | `#1E1C1A` | Tasks, notes, settings |
+| quiet | `#191816` | Today's two cards |
+| sunken | `#292724` | A pressed row, a well inside a card |
+| ink / ink2 / ink3 | `#F2EFE9` / `#BCB6AC` / `#959087` | Words, second lines, meta |
+| line | `#3A3733` | Outlines, the bar's top edge |
+| warm | `#F0956C` | Late and slipped (light: `#B4532A`) |
 
 **Your colour.** Each accent has a solid (buttons, checks, +), a soft tint (selected and waiting states), its text form, and a deep shade for focus time:
 
@@ -96,7 +117,7 @@ Warm greys and white, warm ink, and one accent. Every text colour reads at 4.5:1
 | Amber | `#965811` | `#EAB56C` | `#45290B` |
 | Plum | `#77479F` | `#CAA8EB` | `#301C47` |
 
-**Life areas** remain small dots beside a name (the user's rule against area-colour fills).
+**Life areas have no colour.** They were small dots at first; on the phone even those overwhelmed the page, so an area is now a grey word.
 
 ## Type
 
@@ -107,7 +128,7 @@ One family, **Nunito Sans**: a warm, rounded geometric sans close to Rosebud's a
 | title1 | 26 / 32 | Bold | Note and focus titles |
 | title2 | 21 / 27 | Bold | Sheet titles, the task field |
 | headline | 17 / 22 | Bold | Top bar names, buttons, card titles |
-| row | 17 / 23 | Regular | Task titles |
+| row | 17 / 23 | SemiBold for an open task, Regular once done | Task titles |
 | body | 17 / 27 | Regular | Writing |
 | prompt | 18 / 25 | SemiBold | A question, in the accent |
 | section | 15 / 20 | SemiBold | Centred section names, grey |
@@ -133,7 +154,7 @@ One family, **Nunito Sans**: a warm, rounded geometric sans close to Rosebud's a
 - **NoteCard.** A small line (area, time), the bold title and two or three lines of the note.
 - **TopBar.** A small centred name with icons at either side. It stays put; a hairline draws once content scrolls under it.
 - **TabBar.** A flat bar with four places and the round + raised a little in the middle. The chosen tab is ink and filled, and gives a small pop.
-- **WeekStrip.** Weekday letters over the dates, today's letter in the accent, the chosen day on a white disc.
+- **WeekStrip.** Small weekday letters over the dates, today's in the accent, the chosen day in a thin ink ring that stretches as it moves.
 - **Capsule.** "Saved", "Moved to Tomorrow": an ink capsule with the accent's check opens at the top and gathers itself away.
 
 ## Motion
@@ -160,7 +181,7 @@ Revamp 2's and revamp 4's motion, which the user liked, kept and re-tuned for ca
 |---|---|
 | The + dial | The + turns into ×, the page dims, and Note and Task spring out of the + in a little arc |
 | Ticking a task | The check fills from the middle and pops, a halo leaves it, a line draws through the words; after a beat the row leaves, the rows below close the gap, and Done gives a small bump |
-| Changing day | The week's disc stretches to the new day; the page slides in from that side; swiping the strip slides in the next week |
+| Changing day | The week's ring stretches to the new day; the page slides in from that side; swiping the strip slides in the next week |
 | Today's page written | The card sinks into the page (white turns to page grey with an outline), the picture dims, and a check pops in |
 | Writing to questions | "Next question" brings a new question down under your answer; "another question" rolls the words |
 | Done on a note | The button turns into a check, the page closes, and "Saved" opens at the top of Today |
@@ -188,7 +209,7 @@ These are drawn for Clarity in Rosebud's manner: flat colour inside a dark outli
 ![Screens, light](docs/screens/screens_light.jpg)
 ![Screens, dark](docs/screens/screens_dark.jpg)
 
-- **Today:** month and week fixed at the top; the day's name; the two ways in (today only); Tasks on a card with Add task and Catch up; Done folded; Notes as cards; Coming up.
+- **Today:** one compact head ("Today", the date, the week) fixed at the top; the two ways in (today only, on a quieter surface); Tasks on the brightest card with Add task and Catch up; Done folded; Notes as cards; Coming up.
 - **Notes:** a card per note under centred day headings, with the area filter behind one icon.
 - **Life Center:** area chips under the bar; a single card when something slipped ("A few things slipped", then Catch up); Today, This week, Later and Someday as task cards; Done with Clear.
 - **Search:** a white field under the bar and area chips; results as note cards and a task card, with your words picked out in the accent.

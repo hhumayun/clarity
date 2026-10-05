@@ -6,7 +6,6 @@ import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming } from "
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { dayChoices, dayLabel, type Day } from "../lib/dates";
-import { useAreaColor } from "../store/hooks";
 import { whenLabel } from "../store/selectors";
 import { useStore } from "../store/store";
 import { duration, easeOut } from "../theme/motion";
@@ -57,7 +56,6 @@ function TaskMenu({ taskId, rect, noteId, onClosed }: Open & { onClosed: () => v
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
-  const areaColor = useAreaColor();
   const acknowledge = useAcknowledge();
   const task = useStore((state) => state.tasks.find((item) => item.id === taskId));
   const moveTask = useStore((state) => state.moveTask);
@@ -131,7 +129,6 @@ function TaskMenu({ taskId, rect, noteId, onClosed }: Open & { onClosed: () => v
             {task.title}
           </Txt>
           <View style={styles.area}>
-            <View style={[styles.dot, { backgroundColor: areaColor(task.area) }]} />
             <Txt variant="footnote" tone="ink3">
               {task.area}
             </Txt>
@@ -199,7 +196,6 @@ const styles = StyleSheet.create({
   lifted: { position: "absolute", flexDirection: "row", alignItems: "center", gap: space[3], paddingVertical: 13, paddingHorizontal: edge, borderRadius: radius.card, borderCurve: "continuous" },
   words: { flex: 1, gap: 3 },
   area: { flexDirection: "row", alignItems: "center", gap: 5 },
-  dot: { width: 7, height: 7, borderRadius: 3.5 },
   menu: { position: "absolute", width: MENU_WIDTH, borderRadius: radius.card, borderCurve: "continuous", paddingVertical: 4, overflow: "hidden" },
   row: { height: ROW, flexDirection: "row", alignItems: "center", gap: GAP },
   rowLabel: { flex: 1 },

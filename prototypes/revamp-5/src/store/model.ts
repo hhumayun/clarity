@@ -1,5 +1,5 @@
 import type { Day } from "../lib/dates";
-import type { AccentName } from "../theme/tokens";
+import type { AccentName, PaperName } from "../theme/tokens";
 
 /**
  * The prototype's model, after Clarity's own (src/types.ts in the app), kept
@@ -7,7 +7,7 @@ import type { AccentName } from "../theme/tokens";
  */
 export type Area = {
   name: string;
-  /** Index into the area colours in tokens.ts. */
+  /** Kept from the app's data; this design doesn't colour areas. */
   hue: number;
 };
 
@@ -82,6 +82,8 @@ export type FocusLength = 10 | 15 | 25;
 export type Prefs = {
   /** The person's colour, picked in Settings. */
   accent: AccentName;
+  /** The light page's warmth, picked in Settings. */
+  paper: PaperName;
   focusLength: FocusLength;
   breakAfter: boolean;
   /** Demo only: a minute of focus passes in two seconds. */

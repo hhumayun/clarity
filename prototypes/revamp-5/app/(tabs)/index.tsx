@@ -5,7 +5,6 @@ import Animated, { FadeIn, FadeInLeft, FadeInRight, useAnimatedRef } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Tea } from "../../src/art/Pictures";
 import { addDays, dateOf, dayLabel, daysBetween, today, weekStart } from "../../src/lib/dates";
-import { useAreaColor } from "../../src/store/hooks";
 import { comingUp, doneOn, notesOn, openOn, slipped } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
 import { duration, easeOut } from "../../src/theme/motion";
@@ -27,18 +26,18 @@ import { Txt } from "../../src/ui/Txt";
 import { WeekStrip, type StripDay } from "../../src/ui/WeekStrip";
 
 /**
- * Today, in Rosebud's order: the month and the week stay at the top; under
- * them the day's name, its two ways in (write, focus), then the day's
- * tasks on a card with their two actions underneath, then what was
- * written. Tap another day, or swipe the week, and the page becomes that
- * day, sliding in from the side it came from. Nothing on it counts.
+ * Today, in Rosebud's order: the day's name and its date, with the week
+ * under them, stay at the top as one compact head; then the day's two ways
+ * in (write, focus), then its tasks on a card with their two actions
+ * underneath, then what was written. Tap another day, or swipe the week,
+ * and the page becomes that day, sliding in from the side it came from.
+ * Nothing on it counts.
  */
 export default function Today() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
-  const areaColor = useAreaColor();
   const tasks = useStore((state) => state.tasks);
   const notes = useStore((state) => state.notes);
   const viewDay = useStore((state) => state.viewDay);
@@ -83,10 +82,10 @@ export default function Today() {
   const late = isToday ? slipped(tasks) : [];
   const next = isToday ? comingUp(tasks) : [];
   const offset = daysBetween(t, viewDay);
-  const month = dateOf(viewDay).toLocaleDateString("en-GB", { month: "long" });
   const label = dayLabel(viewDay);
   const long = dateOf(viewDay).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-  const rest = long.startsWith(label) ? long.slice(label.length).trim() : long;
+  // "Today" over "Monday 5 October"; "Wednesday" over "7 October".
+  const subtitle = long.startsWith(label) ? long.slice(label.length).trim() : long;
 
   const empty = (
     <View style={styles.empty}>
@@ -100,10 +99,11 @@ export default function Today() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
       <TopBar
-        title={month}
-        changeKey={month}
+        title={label}
+        subtitle={subtitle}
+        changeKey={viewDay}
         onTitle={() => router.push("/sheet/date?mode=day")}
-        titleLabel={`${month}. Choose a day`}
+        titleLabel={`${label}, ${subtitle}. Choose a day`}
         scrollY={scrollY}
         left={
           !isToday ? (
@@ -142,14 +142,11 @@ export default function Today() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
         <Animated.View key={viewDay} entering={(forward ? FadeInRight : FadeInLeft).duration(duration.enter).easing(easeOut)}>
-          <View style={styles.heading} accessible accessibilityRole="header" accessibilityLabel={`${label}, ${rest}`}>
-            <Txt variant="headline">{label}</Txt>
-            <Txt variant="headline" tone="ink3" weight="semibold">
-              {rest}
-            </Txt>
-          </View>
-
-          {isToday ? <TodayCards /> : null}
+          {isToday ? (
+            <View style={styles.cards}>
+              <TodayCards />
+            </View>
+          ) : null}
 
           <SectionTitle title="Tasks" first={!isToday} />
           <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} />
@@ -180,7 +177,6 @@ export default function Today() {
               <CardGroup>
                 {next.map((task) => (
                   <CardRow key={task.id} onPress={() => router.push(`/task/${task.id}`)} accessibilityRole="button" accessibilityLabel={`${task.title}, ${task.day ? dayLabel(task.day) : ""}`} style={styles.coming}>
-                    <View style={[styles.dot, { backgroundColor: areaColor(task.area) }]} />
                     <Txt variant="row" numberOfLines={1} style={styles.flex}>
                       {task.title}
                     </Txt>
@@ -203,10 +199,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   back: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 12, borderRadius: radius.pill, borderCurve: "continuous", marginLeft: 10 },
   strip: { paddingHorizontal: edge - 4, paddingBottom: space[2] },
-  heading: { flexDirection: "row", justifyContent: "center", alignItems: "baseline", gap: 6, paddingTop: space[5], paddingBottom: space[4] },
+  cards: { paddingTop: space[3] },
   empty: { alignItems: "center", gap: space[3] },
   actions: { marginHorizontal: edge, marginTop: space[3] },
   notes: { gap: space[3] },
   coming: { flexDirection: "row", alignItems: "center", gap: space[3], paddingVertical: 15 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
 });

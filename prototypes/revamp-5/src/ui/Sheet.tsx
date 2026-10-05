@@ -116,13 +116,12 @@ export function SheetList({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * One row of a sheet: a line icon (or an area's dot), one word, and at the
- * end a value, the accent's check for what's chosen, or a chevron.
- * Destructive rows go red and keep their word.
+ * One row of a sheet: a line icon, one word, and at the end a value, the
+ * accent's check for what's chosen, or a chevron. Destructive rows go red
+ * and keep their word.
  */
 export function SheetRow({
   icon,
-  dot,
   label,
   detail,
   value,
@@ -135,7 +134,6 @@ export function SheetRow({
   hint,
 }: {
   icon?: IconName;
-  dot?: string;
   label: string;
   detail?: React.ReactNode;
   value?: string;
@@ -154,10 +152,6 @@ export function SheetRow({
       {icon ? (
         <View style={styles.slot}>
           <Icon name={icon} size={20} color={danger ? colors.danger : colors.ink2} weight="medium" />
-        </View>
-      ) : dot ? (
-        <View style={styles.slot}>
-          <View style={[styles.dot, { backgroundColor: dot }]} />
         </View>
       ) : null}
       <View style={styles.words}>
@@ -239,7 +233,6 @@ const styles = StyleSheet.create({
   row: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: space[3], paddingVertical: 10 },
   plain: { paddingHorizontal: pad },
   slot: { width: 24, alignItems: "center", justifyContent: "center" },
-  dot: { width: 10, height: 10, borderRadius: 5 },
   words: { flex: 1, gap: 2 },
   value: { maxWidth: 140 },
   chosen: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },

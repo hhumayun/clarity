@@ -3,11 +3,12 @@
  *
  * Guided by Rosebud's design language, adapted to Clarity:
  *
- * - A warm grey page, and white cards for what you wrote. Chrome (headings,
- *   controls, the week) sits on the page; content sits on cards.
+ * - A warm page (a choice of four papers), and warm white cards for what
+ *   you wrote. Chrome (headings, controls, the week) sits on the page;
+ *   content sits on cards.
  * - Section names are small, grey and centred. They label; they never count.
  * - One accent, chosen by the person: sage unless they pick another. Colour
- *   is for actions and for "done", never a surface. Life areas are a small dot.
+ *   is for actions and for "done", never a surface. Life areas have no colour.
  * - One warm, rounded sans for everything (Nunito Sans). Emphasis is weight.
  * - Every text colour reads at 4.5:1 or better on page, card and well, in
  *   both themes.
@@ -16,6 +17,7 @@
 export type Palette = {
   page: string; // the canvas
   card: string; // what you wrote sits on this
+  quiet: string; // a card that steps back (Today's two ways in), so the tasks lead
   sunken: string; // wells inside a card: a pressed row, a field, a track
   raised: string; // menus and capsules that float over cards
   ink: string; // text that matters
@@ -34,9 +36,10 @@ export type Palette = {
   art: { line: string; sun: string; sunDeep: string; sky: string; cloud: string; leaf: string; leafDeep: string; soil: string; paper: string; moon: string; sand: string };
 };
 
-export const light: Palette = {
+const lightBase: Palette = {
   page: "#F2F0EB",
   card: "#FFFFFF",
+  quiet: "#F8F6F2",
   sunken: "#F4F2EE",
   raised: "#FFFFFF",
   ink: "#1F1D1A",
@@ -50,7 +53,7 @@ export const light: Palette = {
   scrim: "rgba(31, 29, 26, 0.28)",
   glass: "rgba(242, 240, 235, 0.9)",
   shadow: "0px 12px 32px rgba(48, 40, 28, 0.16), 0px 2px 8px rgba(48, 40, 28, 0.08)",
-  cardShadow: "0px 1px 2px rgba(48, 40, 28, 0.04)",
+  cardShadow: "0px 1px 2px rgba(64, 44, 24, 0.06), 0px 4px 14px rgba(64, 44, 24, 0.05)",
   art: {
     line: "#2B2722",
     sun: "#F6C453",
@@ -66,9 +69,45 @@ export const light: Palette = {
   },
 };
 
+/**
+ * The light page, which the person can warm up in Settings ("Paper"). Each
+ * is a page, a warm white for cards, and inks tinted to match; every text
+ * colour still reads at 4.5:1 or better on page, card and well. Dark mode
+ * has one page.
+ */
+export type PaperName = "stone" | "linen" | "oat" | "clay";
+const paper = (page: string, card: string, quiet: string, sunken: string, ink: string, ink2: string, ink3: string, hairline: string, line: string, shadowTint: string): Palette => ({
+  ...lightBase,
+  page,
+  card,
+  quiet,
+  sunken,
+  raised: card,
+  ink,
+  ink2,
+  ink3,
+  hairline,
+  line,
+  scrim: `rgba(${shadowTint}, 0.28)`,
+  glass: `${page}E6`,
+  shadow: `0px 12px 32px rgba(${shadowTint}, 0.16), 0px 2px 8px rgba(${shadowTint}, 0.08)`,
+  cardShadow: `0px 1px 2px rgba(${shadowTint}, 0.07), 0px 4px 14px rgba(${shadowTint}, 0.06)`,
+  art: { ...lightBase.art, paper: card },
+});
+export const papers: Record<PaperName, { label: string; palette: Palette }> = {
+  stone: { label: "Stone", palette: lightBase },
+  linen: { label: "Linen", palette: paper("#F3ECE2", "#FFFCF7", "#FAF5EE", "#F7F1E8", "#2A231C", "#5C5146", "#74685B", "#EFE7DC", "#E4D9CA", "72, 50, 28") },
+  oat: { label: "Oat", palette: paper("#EEE4D5", "#FFFAF2", "#F7F0E5", "#F6EEE2", "#2B2219", "#5D5043", "#716352", "#ECE2D2", "#DED0BC", "78, 54, 26") },
+  clay: { label: "Clay", palette: paper("#F1E5DC", "#FFFAF6", "#F9F1EB", "#F8EEE7", "#2C211C", "#62524A", "#706258", "#EFE3D9", "#E3D1C5", "84, 48, 32") },
+};
+export const paperOrder: PaperName[] = ["stone", "linen", "oat", "clay"];
+/** The default light page. */
+export const light: Palette = papers.linen.palette;
+
 export const dark: Palette = {
   page: "#121110",
   card: "#1E1C1A",
+  quiet: "#191816",
   sunken: "#292724",
   raised: "#2A2825",
   ink: "#F2EFE9",
@@ -142,16 +181,10 @@ export const accents: Record<AccentName, { label: string; light: Accent; dark: A
 export const accentOrder: AccentName[] = ["sage", "ink", "sky", "rose", "amber", "plum"];
 
 /**
- * Life areas: eight colours, one per area, used only as small marks (the
- * dot beside an area's name). Deep enough for 3:1 on the light page and
- * card; the bright set is for dark surfaces.
+ * Life areas carry no colour here: an area is a grey word (and, on a note,
+ * a small tag), so the page keeps one accent. The user found area colours
+ * overwhelming, even as dots.
  */
-export const areaBright = ["#8AA8FF", "#7EDB9C", "#FFA766", "#C2A8FF", "#FF9EC0", "#FFDD55", "#7DD8F2", "#D7C3AA"] as const;
-export const areaMarks = {
-  light: ["#3D63F5", "#188F49", "#D4560E", "#7C52F0", "#D93D74", "#A07A00", "#137FA3", "#9A7A55"],
-  dark: areaBright,
-} as const;
-export const areaNames = ["Cobalt", "Green", "Tangerine", "Violet", "Pink", "Lemon", "Cyan", "Clay"] as const;
 
 /** The hour sets the greeting, the day's question and its picture. */
 export type Phase = "dawn" | "day" | "dusk" | "night";

@@ -21,7 +21,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
-import { useAreaColor, useFocusHistory, useTask } from "../../src/store/hooks";
+import { useFocusHistory, useTask } from "../../src/store/hooks";
 import type { FocusLength, Outcome } from "../../src/store/model";
 import { clockLabel } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
@@ -77,9 +77,7 @@ export default function Focus() {
   const { width: W, height: H } = useWindowDimensions();
   const { colors, dark, accent } = useTheme();
   const reduced = useReducedMotion();
-  const areaColor = useAreaColor();
   const task = useTask(taskId);
-  const mark = areaColor(task?.area);
   const bodyType = useType("body");
   // What sits on the level: light words on the deep colour.
   const onLevel = { ink: accent.onDeep, soft: "rgba(242,239,233,0.74)" };
@@ -241,12 +239,9 @@ export default function Focus() {
               <Txt variant="title1" center>
                 {task.title}
               </Txt>
-              <View style={styles.area}>
-                <View style={[styles.dot, { backgroundColor: mark }]} />
-                <Txt variant="footnote" tone="ink3">
-                  {task.area}
-                </Txt>
-              </View>
+              <Txt variant="footnote" tone="ink3" weight="semibold">
+                {task.area}
+              </Txt>
             </View>
 
             <View style={styles.lengths} accessibilityRole="radiogroup">

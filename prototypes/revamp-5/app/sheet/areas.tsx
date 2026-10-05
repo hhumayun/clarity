@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
-import { useAreaColor } from "../../src/store/hooks";
 import { useStore } from "../../src/store/store";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, space } from "../../src/theme/tokens";
@@ -16,7 +15,6 @@ import { useType } from "../../src/ui/Txt";
 export default function AreasSheet() {
   const router = useRouter();
   const { colors, accent } = useTheme();
-  const areaColor = useAreaColor();
   const acknowledge = useAcknowledge();
   const areas = useStore((state) => state.areas);
   const tasks = useStore((state) => state.tasks);
@@ -70,11 +68,10 @@ export default function AreasSheet() {
       <SheetList>
         {areas.map((area) =>
           renaming === area.name ? (
-            <EditRow key={area.name} dot={areaColor(area.name)} name={area.name} onSave={(draft) => renameArea(area.name, draft) && setRenaming(null)} onCancel={() => setRenaming(null)} />
+            <EditRow key={area.name} name={area.name} onSave={(draft) => renameArea(area.name, draft) && setRenaming(null)} onCancel={() => setRenaming(null)} />
           ) : (
             <SheetRow
               key={area.name}
-              dot={areaColor(area.name)}
               label={area.name}
               trailing={
                 <View style={styles.actions}>
@@ -103,14 +100,13 @@ export default function AreasSheet() {
   );
 }
 
-function EditRow({ dot, name, onSave, onCancel }: { dot: string; name: string; onSave: (draft: string) => void; onCancel: () => void }) {
+function EditRow({ name, onSave, onCancel }: { name: string; onSave: (draft: string) => void; onCancel: () => void }) {
   const { colors, accent } = useTheme();
   const sized = useType("row");
   const [draft, setDraft] = useState(name);
   return (
     <View style={styles.edit}>
       <View style={styles.slot}>
-        <View style={[styles.dot, { backgroundColor: dot }]} />
       </View>
       <TextInput
         autoFocus
@@ -138,6 +134,5 @@ const styles = StyleSheet.create({
   addButton: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
   edit: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: edge },
   slot: { width: 22, alignItems: "center", justifyContent: "center" },
-  dot: { width: 10, height: 10, borderRadius: 5 },
   editInput: { flex: 1, paddingVertical: 0, outlineWidth: 0 },
 });

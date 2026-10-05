@@ -19,7 +19,8 @@ import { Txt } from "./Txt";
  * Today's two ways in, side by side, in the shape of Rosebud's pair of
  * cards but holding Clarity's own two activities: writing to the day's
  * question, and focusing on what's next. Each has its small living
- * picture. Once today's page is written its card settles into the page,
+ * picture. They sit on a quieter surface than the tasks, with no lift, so
+ * the day's tasks below stay the strongest thing on the page. Once today's page is written its card settles into the page,
  * like a finished thing: the card sinks into the page, the picture dims,
  * the words go grey, and a check pops in. Focus stays open for another session; a small check in
  * its corner says there's been one today.
@@ -57,7 +58,7 @@ export function TodayCards() {
         }}
         accessibilityRole="button"
         accessibilityLabel={next ? `Focus on ${next.title}, ${focusLength} minutes` : "Nothing to focus on. Add a task"}
-        style={styles.card}
+        style={[styles.card, { backgroundColor: colors.quiet, boxShadow: "none" }]}
       >
         {focusToday > 0 ? (
           <View style={styles.corner} accessibilityLabel="You've focused today">
@@ -65,9 +66,9 @@ export function TodayCards() {
           </View>
         ) : null}
         <View style={styles.picture}>
-          <Hourglass size={66} />
+          <Hourglass size={54} />
         </View>
-        <Txt variant="headline" center>
+        <Txt variant="headline" center style={styles.title}>
           Focus
         </Txt>
         {next ? (
@@ -109,12 +110,12 @@ function WriteCard({ title, question, written, onPress }: { title: string; quest
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={written ? `${title}. Today's page, written at ${written}` : `${title}. ${question}`}
-      style={[styles.card, shown && { backgroundColor: colors.page, borderWidth: 1.5, borderColor: colors.line, boxShadow: "none" }]}
+      style={[styles.card, { backgroundColor: colors.quiet, boxShadow: "none" }, shown && { backgroundColor: colors.page, borderWidth: 1.5, borderColor: colors.line }]}
     >
       <View style={[styles.picture, shown && styles.resting]}>
-        <TimeOfDay phase={phase} size={92} />
+        <TimeOfDay phase={phase} size={76} />
       </View>
-      <Txt variant="headline" tone={shown ? "ink2" : "ink"} center>
+      <Txt variant="headline" tone={shown ? "ink2" : "ink"} center style={styles.title}>
         {title}
       </Txt>
       {shown ? (
@@ -145,10 +146,11 @@ function PopCheck({ size }: { size: number }) {
 
 const styles = StyleSheet.create({
   pair: { flexDirection: "row", gap: space[3], marginHorizontal: edge },
-  card: { flex: 1, minHeight: 188, borderRadius: radius.card + 2, alignItems: "center", paddingHorizontal: space[3], paddingTop: space[4], paddingBottom: space[4], gap: 4 },
-  picture: { height: 72, justifyContent: "center", marginBottom: space[1] },
+  card: { flex: 1, minHeight: 150, borderRadius: radius.card + 2, alignItems: "center", paddingHorizontal: space[3], paddingTop: space[3], paddingBottom: space[4], gap: 2 },
+  picture: { height: 58, justifyContent: "center", marginBottom: 2 },
+  title: { fontSize: 16, lineHeight: 21 },
   resting: { opacity: 0.6 },
-  sub: { paddingHorizontal: 2 },
+  sub: { paddingHorizontal: 2, fontSize: 14, lineHeight: 19 },
   meta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   corner: { position: "absolute", top: 10, right: 10 },
   done: { alignItems: "center", gap: 6, marginTop: 6 },

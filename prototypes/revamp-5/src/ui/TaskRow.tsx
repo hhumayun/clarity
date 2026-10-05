@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View, type NativeSyntheticEvent, type TextLayoutEventData } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
-import { useAreaColor, useFocusHistory } from "../store/hooks";
+import { useFocusHistory } from "../store/hooks";
 import type { Task } from "../store/model";
 import { clockLabel, dueMeta, shortDate, whenLabel } from "../store/selectors";
 import { useStore } from "../store/store";
@@ -28,7 +28,7 @@ export type TaskVariant = "today" | "list" | "day" | "note";
  * swipe right) and the check fills, a line is drawn through the words one
  * line at a time, and the row rests a beat before it leaves for Done.
  * Swipe left to focus on it. Tap the words to open it; long-press for the
- * quick menu. Its area is a small dot, nothing more.
+ * quick menu. Its area is a grey word, nothing more.
  */
 export function TaskRow({
   task,
@@ -48,7 +48,6 @@ export function TaskRow({
   const { colors } = useTheme();
   const router = useRouter();
   const reduced = useReducedMotion();
-  const areaColor = useAreaColor();
   const history = useFocusHistory(task.id);
   const notes = useStore((state) => state.notes);
   const setDone = useStore((state) => state.setDone);
@@ -123,7 +122,7 @@ export function TaskRow({
       </View>,
     );
   if (!task.done) {
-    if (showArea) add("area", null, task.area, "ink3", <View style={[styles.areaDot, { backgroundColor: areaColor(task.area) }]} />);
+    if (showArea) add("area", null, task.area, "ink3");
     if (variant === "today" || variant === "day") {
       if (task.movedFrom && variant === "today") add("moved", "toLine", shortDate(task.movedFrom));
       if (task.time !== null) add("time", "clock", clockLabel(task.time));
@@ -210,6 +209,7 @@ function Struck({ text, on, animate }: { text: string; on: boolean; animate: boo
       <Txt
         variant="row"
         tone={on ? "ink3" : "ink"}
+        weight={on ? undefined : "semibold"}
         onTextLayout={native ? onTextLayout : undefined}
         style={on && !native ? [styles.struck, { textDecorationColor: colors.ink3 }] : undefined}
       >
@@ -247,7 +247,6 @@ const styles = StyleSheet.create({
   meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 12, rowGap: 2 },
   piece: { flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1 },
   pieceText: { flexShrink: 1, maxWidth: 190 },
-  areaDot: { width: 7, height: 7, borderRadius: 3.5 },
   leftOff: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 4 },
   check: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
 });

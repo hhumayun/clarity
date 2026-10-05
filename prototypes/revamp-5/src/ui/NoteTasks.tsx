@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useShallow } from "zustand/react/shallow";
-import { useAreaColor } from "../store/hooks";
 import type { Suggestion } from "../store/model";
 import { whenLabel } from "../store/selectors";
 import { useStore } from "../store/store";
@@ -130,7 +129,6 @@ function LinkGlyph() {
 /** One found task as a card with two halves underneath, after Rosebud's goal suggestions. */
 function FoundCard({ noteId, item }: { noteId: string; item: Suggestion }) {
   const { colors, accent } = useTheme();
-  const areaColor = useAreaColor();
   const addSuggestion = useStore((state) => state.addSuggestion);
   const skipSuggestion = useStore((state) => state.skipSuggestion);
   return (
@@ -138,7 +136,6 @@ function FoundCard({ noteId, item }: { noteId: string; item: Suggestion }) {
       <View style={styles.cardBody}>
         <Txt variant="cardTitle">{item.title}</Txt>
         <View style={styles.meta}>
-          <View style={[styles.dot, { backgroundColor: areaColor(item.area) }]} />
           <Txt variant="footnote" tone="ink3">
             {item.area}
           </Txt>
@@ -216,7 +213,6 @@ const styles = StyleSheet.create({
   card: { marginHorizontal: edge, borderRadius: radius.card, borderCurve: "continuous", overflow: "hidden" },
   cardBody: { padding: pad, gap: 4 },
   meta: { flexDirection: "row", alignItems: "center", gap: 6 },
-  dot: { width: 7, height: 7, borderRadius: 3.5 },
   halves: { flexDirection: "row", borderTopWidth: 1, height: 50 },
   half: { flex: 1, alignItems: "center", justifyContent: "center" },
   divider: { width: 1 },

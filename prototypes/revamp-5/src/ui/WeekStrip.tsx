@@ -15,14 +15,14 @@ import { Txt } from "./Txt";
 /** "has": something was written that day; "done": it had tasks and every one was finished. */
 export type StripDay = { day: Day; mark: "none" | "has" | "done" };
 
-const DISC = 40;
+const DISC = 34;
 
 /**
- * The week in one line, after Rosebud's: weekday letters over the dates,
- * today's letter in the accent. The chosen day rests on a white disc that
- * stretches into a capsule as it travels to another day and gathers back
- * into a disc when it lands. A day you wrote on carries a small dot; a day
- * whose tasks were all finished carries a small check instead.
+ * The week in one quiet line, after Rosebud's: small weekday letters over
+ * the dates, today's in the accent. The chosen day sits in a thin ink ring
+ * that stretches into a capsule as it travels to another day and gathers
+ * back into a ring when it lands. A day you wrote on carries a small dot;
+ * a day whose tasks were all finished carries a small check instead.
  * No numbers about the days. Swipe the strip sideways for the week before
  * or after.
  */
@@ -72,7 +72,7 @@ export function WeekStrip({ days, selected, onSelect, onWeek }: { days: StripDay
   return (
     <GestureDetector gesture={pan}>
       <Animated.View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={[styles.strip, slide]}>
-        {column > 0 && index >= 0 ? <Animated.View style={[styles.disc, { backgroundColor: colors.card, boxShadow: colors.cardShadow }, disc]} /> : null}
+        {column > 0 && index >= 0 ? <Animated.View style={[styles.disc, { borderColor: colors.ink }, disc]} /> : null}
         {days.map((day) => {
           const date = dateOf(day.day);
           const chosen = day.day === selected;
@@ -89,17 +89,17 @@ export function WeekStrip({ days, selected, onSelect, onWeek }: { days: StripDay
               aria-selected={chosen}
               style={styles.day}
             >
-              <Txt variant="caption" style={{ color: isToday ? accent.text : colors.ink3 }} weight={isToday ? "heavy" : "semibold"}>
+              <Txt variant="caption" style={[styles.letter, { color: isToday ? accent.onSoft : colors.ink3 }]} weight={isToday ? "heavy" : "semibold"}>
                 {date.toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 2)}
               </Txt>
               <View style={styles.dateSlot}>
-                <Txt variant="callout" weight={chosen || isToday ? "bold" : "semibold"} style={[styles.number, { color: chosen ? colors.ink : isToday ? colors.ink : colors.ink2 }]}>
+                <Txt variant="subhead" weight={chosen || isToday ? "heavy" : "semibold"} style={[styles.number, { color: isToday && !chosen ? accent.onSoft : chosen ? colors.ink : colors.ink2 }]}>
                   {date.getDate()}
                 </Txt>
               </View>
               <View style={styles.markSlot}>
                 {day.mark === "done" ? (
-                  <Icon name="check" size={11} color={accent.text} weight="bold" />
+                  <Icon name="check" size={10} color={accent.onSoft} weight="bold" />
                 ) : isToday ? (
                   <NowDot color={accent.solid} />
                 ) : day.mark === "has" ? (
@@ -127,11 +127,12 @@ export function NowDot({ color }: { color: string }) {
 }
 
 const styles = StyleSheet.create({
-  strip: { flexDirection: "row", height: 72 },
-  disc: { position: "absolute", top: 18, height: DISC, left: 0, borderRadius: radius.pill, borderCurve: "continuous" },
-  day: { flex: 1, alignItems: "center", paddingTop: 0 },
+  strip: { flexDirection: "row", height: 60 },
+  disc: { position: "absolute", top: 16, height: DISC, left: 0, borderRadius: radius.pill, borderCurve: "continuous", borderWidth: 1.5 },
+  day: { flex: 1, alignItems: "center" },
+  letter: { fontSize: 11, lineHeight: 14 },
   dateSlot: { height: DISC, marginTop: 2, alignItems: "center", justifyContent: "center" },
   number: { fontVariant: ["tabular-nums"] },
-  markSlot: { height: 10, alignItems: "center", justifyContent: "center", marginTop: 1 },
-  dot: { width: 5, height: 5, borderRadius: 2.5 },
+  markSlot: { height: 8, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  dot: { width: 4, height: 4, borderRadius: 2 },
 });

@@ -11,7 +11,16 @@ const MIME = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
 const dataUri = (path) => `data:${MIME[extname(path)]};base64,${read(path).toString("base64")}`;
 
 // The tokens, as in src/theme/tokens.ts.
-const light = { page: "#F2F0EB", card: "#FFFFFF", sunken: "#F4F2EE", ink: "#1F1D1A", ink2: "#57524B", ink3: "#6F6A62", hairline: "#EEEBE5", line: "#E1DDD5", warm: "#B4532A", shadow: "0 12px 32px rgba(48,40,28,.16), 0 2px 8px rgba(48,40,28,.08)" };
+// Light mode's four papers; Linen is the default.
+const papers = {
+  stone: { label: "Stone", page: "#F2F0EB", card: "#FFFFFF", sunken: "#F4F2EE", ink: "#1F1D1A", ink2: "#57524B", ink3: "#6F6A62", hairline: "#EEEBE5", line: "#E1DDD5" },
+  linen: { label: "Linen", page: "#F3ECE2", card: "#FFFCF7", sunken: "#F7F1E8", ink: "#2A231C", ink2: "#5C5146", ink3: "#74685B", hairline: "#EFE7DC", line: "#E4D9CA" },
+  oat: { label: "Oat", page: "#EEE4D5", card: "#FFFAF2", sunken: "#F6EEE2", ink: "#2B2219", ink2: "#5D5043", ink3: "#716352", hairline: "#ECE2D2", line: "#DED0BC" },
+  clay: { label: "Clay", page: "#F1E5DC", card: "#FFFAF6", sunken: "#F8EEE7", ink: "#2C211C", ink2: "#62524A", ink3: "#706258", hairline: "#EFE3D9", line: "#E3D1C5" },
+};
+const paperVars = ({ label, ...tokens }) => vars(tokens);
+const light = { ...papers.linen, warm: "#B4532A", shadow: "0 12px 32px rgba(72,50,28,.16), 0 2px 8px rgba(72,50,28,.08)" };
+delete light.label;
 const dark = { page: "#121110", card: "#1E1C1A", sunken: "#292724", ink: "#F2EFE9", ink2: "#BCB6AC", ink3: "#959087", hairline: "#2B2926", line: "#3A3733", warm: "#F0956C", shadow: "0 12px 32px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.35)" };
 const accents = {
   sage: { label: "Sage", light: ["#47775B", "#FFFFFF", "#E3EDE6", "#2F5A41", "#1F3B2C"], dark: ["#8DC6A5", "#10160F", "#1F3328", "#B9E0C8", "#264A37"] },
@@ -21,11 +30,16 @@ const accents = {
   amber: { label: "Amber", light: ["#965811", "#FFFFFF", "#F5E9D8", "#76450D", "#45290B"], dark: ["#EAB56C", "#1E1405", "#3A2C17", "#F4D3A2", "#553612"] },
   plum: { label: "Plum", light: ["#77479F", "#FFFFFF", "#EDE4F5", "#5C3580", "#301C47"], dark: ["#CAA8EB", "#170F20", "#2D2238", "#E1CCF5", "#3E2A58"] },
 };
-const vars = (palette) => Object.entries(palette).map(([key, value]) => `--${key}:${value};`).join("");
+function vars(palette) {
+  return Object.entries(palette).map(([key, value]) => `--${key}:${value};`).join("");
+}
 const accentVars = (name, mode) => {
   const [solid, on, soft, onSoft, deep] = accents[name][mode];
   return `--accent:${solid};--on:${on};--soft:${soft};--onSoft:${onSoft};--deep:${deep};`;
 };
+const paperRules = Object.entries(papers)
+  .map(([name, paper]) => `html[data-paper="${name}"]:not([data-mode="dark"]){${paperVars(paper)}}`)
+  .join("\n");
 const accentRules = Object.keys(accents)
   .map((name) => `html[data-accent="${name}"]{${accentVars(name, "light")}}html[data-accent="${name}"][data-mode="dark"]{${accentVars(name, "dark")}}`)
   .join("\n");
@@ -66,6 +80,8 @@ const specimens = {
   <div class="swatches">
     ${["page", "card", "sunken", "ink", "ink2", "ink3", "line", "warm"].map((k) => `<div class="sw"><span style="background:var(--${k})"></span><b>${k}</b><code>${light[k]} · ${dark[k]}</code></div>`).join("")}
   </div>
+  <p class="cap">Paper, for light mode. Tap one: this page takes it.</p>
+  <div class="picker papers">${Object.entries(papers).map(([name, p]) => `<button class="tile" data-paper-pick="${name}"><span class="sheet" style="background:${p.page}"><i style="background:${p.card}"></i></span>${p.label}</button>`).join("")}</div>
   <p class="cap">Your colour. Tap one: the page takes it, as the app does.</p>
   <div class="picker">${Object.entries(accents).map(([name, a]) => `<button class="tile" data-pick="${name}"><span class="disc" style="background:${a.light[0]}"></span>${a.label}</button>`).join("")}</div>
 </div>`,
@@ -83,7 +99,7 @@ const specimens = {
   motion: `
 <div class="spec motion">
   <div class="demo">
-    <div class="card row"><div><b>Book the dentist</b><small>● Health</small></div><button class="check" aria-label="Tick">${check}<i class="halo"></i></button></div>
+    <div class="card row"><div><b>Book the dentist</b><small>Health</small></div><button class="check" aria-label="Tick">${check}<i class="halo"></i></button></div>
     <p class="cap">The check: fill from the middle, pop, halo, a line through the words. Tap it.</p>
   </div>
   <div class="demo">
@@ -92,7 +108,7 @@ const specimens = {
   </div>
   <div class="demo">
     <div class="week"><i class="disc"></i>${["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d, i) => `<button data-day="${i}"><small>${d}</small><b>${5 + i}</b></button>`).join("")}</div>
-    <p class="cap">The day's disc stretches toward the day you tap and gathers when it lands.</p>
+    <p class="cap">The day's ring stretches toward the day you tap and gathers when it lands.</p>
   </div>
   <div class="demo dialdemo">
     <div class="dial"><span class="opt l">✎ Note</span><span class="opt r">◎ Task</span><button class="fab" aria-label="Open the dial">+</button></div>
@@ -112,7 +128,7 @@ html = html.replace("<h2>Type</h2>", `<h2>Type</h2>${specimens.type}`);
 html = html.replace("<h2>Motion</h2>", `<h2>Motion</h2>${specimens.motion}`);
 
 const page = `<!doctype html>
-<html lang="en-GB" data-accent="sage" data-mode="light">
+<html lang="en-GB" data-accent="sage" data-paper="linen" data-mode="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -121,6 +137,7 @@ const page = `<!doctype html>
 ${fonts}
 :root{${vars(light)}${accentVars("sage", "light")}}
 html[data-mode="dark"]{${vars(dark)}}
+${paperRules}
 ${accentRules}
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);font:400 17px/1.6 "Nunito Sans",system-ui,sans-serif;transition:background .3s ${EASE},color .3s ${EASE}}
@@ -149,6 +166,9 @@ figcaption{text-align:center;color:var(--ink3);font-size:14px;margin-top:8px}
 .sw span{height:46px;border-radius:12px;border:1px solid var(--line)}
 .sw b{font-weight:700;color:var(--ink)} .sw code{background:none;padding:0}
 .picker{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:12px}
+.picker.papers{grid-template-columns:repeat(4,1fr);margin-bottom:8px}
+.sheet{display:flex;align-items:center;justify-content:center;width:100%;height:44px;border-radius:10px}
+.sheet i{width:70%;height:20px;border-radius:6px;box-shadow:0 2px 6px rgba(72,50,28,.12)}
 .tile{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:18px;border:1.5px solid transparent;background:var(--sunken);font:600 13px "Nunito Sans";color:var(--ink2);cursor:pointer}
 .tile.on{border-color:var(--ink);color:var(--ink);background:var(--card)}
 .tile .disc{width:36px;height:36px;border-radius:50%;transition:transform .42s ${S.pop.css}}
@@ -162,7 +182,7 @@ figcaption{text-align:center;color:var(--ink3);font-size:14px;margin-top:8px}
 .demo{background:var(--card);border-radius:18px;padding:16px}
 .card.row{display:flex;align-items:center;justify-content:space-between}
 .card.row small{display:block;color:var(--ink3);font-size:13px}
-.card.row b{font-weight:400;font-size:17px;color:var(--ink);background:linear-gradient(var(--ink3),var(--ink3)) left 58%/0 1.5px no-repeat;transition:background-size .26s ${EASE},color .2s}
+.card.row b{font-weight:600;font-size:17px;color:var(--ink);background:linear-gradient(var(--ink3),var(--ink3)) left 58%/0 1.5px no-repeat;transition:background-size .26s ${EASE},color .2s}
 .card.row.done b{background-size:100% 1.5px;color:var(--ink3)}
 .check{position:relative;width:44px;height:44px;border:0;background:none;cursor:pointer;display:grid;place-items:center}
 .check svg{width:28px;height:28px;border-radius:50%;box-shadow:inset 0 0 0 1.75px var(--ink2);transition:transform .42s ${S.pop.css},background .22s}
@@ -182,7 +202,7 @@ figcaption{text-align:center;color:var(--ink3);font-size:14px;margin-top:8px}
 .week button{position:relative;z-index:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:6px;font:600 16px "Nunito Sans";color:var(--ink2);cursor:pointer;padding:0}
 .week small{font:700 12px "Nunito Sans";color:var(--ink3)}
 .week button.on{color:var(--ink)}
-.week .disc{position:absolute;top:22px;height:36px;border-radius:18px;background:var(--sunken);left:0;width:36px}
+.week .disc{position:absolute;top:22px;height:36px;border-radius:18px;border:1.5px solid var(--ink);left:0;width:36px}
 .dialdemo{position:relative}
 .dial{position:relative;height:150px;display:flex;align-items:flex-end;justify-content:center}
 .fab{position:relative;z-index:2;width:56px;height:56px;border-radius:50%;border:0;background:var(--accent);color:var(--on);font:400 32px/1 "Nunito Sans";cursor:pointer;transition:transform .42s ${S.bloom.css};box-shadow:var(--shadow)}
@@ -209,6 +229,7 @@ ${html}
 <script>
 const doc = document.documentElement;
 document.getElementById("mode").onclick = (e) => { const d = doc.dataset.mode === "dark" ? "light" : "dark"; doc.dataset.mode = d; e.target.textContent = d === "dark" ? "Light" : "Dark"; };
+document.querySelectorAll("[data-paper-pick]").forEach((b) => { if (b.dataset.paperPick === "linen") b.classList.add("on"); b.onclick = () => { document.querySelectorAll("[data-paper-pick]").forEach((x) => x.classList.toggle("on", x === b)); doc.dataset.paper = b.dataset.paperPick; }; });
 document.querySelectorAll("[data-pick]").forEach((b) => { if (b.dataset.pick === "sage") b.classList.add("on"); b.onclick = () => { document.querySelectorAll("[data-pick]").forEach((x) => x.classList.toggle("on", x === b)); doc.dataset.accent = b.dataset.pick; }; });
 document.querySelectorAll(".card.row .check").forEach((b) => b.onclick = () => { const row = b.closest(".row"); row.classList.remove("done"); void row.offsetWidth; row.classList.toggle("done"); });
 document.querySelectorAll(".morph").forEach((b) => b.onclick = () => { b.classList.add("on"); setTimeout(() => b.classList.remove("on"), 1400); });

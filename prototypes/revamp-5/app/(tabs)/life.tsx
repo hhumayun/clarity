@@ -4,7 +4,6 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, LinearTransition, useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sprout } from "../../src/art/Pictures";
-import { useAreaColor } from "../../src/store/hooks";
 import { groupTasks } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
 import { duration, easeOut } from "../../src/theme/motion";
@@ -41,7 +40,6 @@ export default function LifeCenter() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const areaColor = useAreaColor();
   const acknowledge = useAcknowledge();
   const tasks = useStore((state) => state.tasks);
   const areas = useStore((state) => state.areas);
@@ -71,7 +69,7 @@ export default function LifeCenter() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Chip label="All" selected={area === null} onPress={() => setArea(null)} />
           {areas.map((item) => (
-            <Chip key={item.name} label={item.name} dot={areaColor(item.name)} selected={area === item.name} onPress={() => setArea(area === item.name ? null : item.name)} />
+            <Chip key={item.name} label={item.name} selected={area === item.name} onPress={() => setArea(area === item.name ? null : item.name)} />
           ))}
         </ScrollView>
       </TopBar>

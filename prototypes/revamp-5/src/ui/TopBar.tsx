@@ -17,6 +17,7 @@ import { Txt } from "./Txt";
  */
 export function TopBar({
   title,
+  subtitle,
   onTitle,
   titleLabel,
   left,
@@ -27,6 +28,8 @@ export function TopBar({
   style,
 }: {
   title: string;
+  /** A small grey line under the name (Today's full date). */
+  subtitle?: string;
   onTitle?: () => void;
   titleLabel?: string;
   left?: React.ReactNode;
@@ -41,16 +44,23 @@ export function TopBar({
   const insets = useSafeAreaInsets();
   const rule = useAnimatedStyle(() => ({ opacity: interpolate(scrollY?.value ?? 0, [0, 10], [0, 1], "clamp") }));
   const name = (pressed = false) => (
-    <Animated.View key={changeKey} entering={changeKey ? FadeIn.duration(duration.base).easing(easeOut) : undefined} style={[styles.name, { opacity: pressed ? 0.55 : 1 }]}>
-      <Txt variant="headline" numberOfLines={1} accessibilityRole="header">
-        {title}
-      </Txt>
-      {onTitle ? <Icon name="down" size={13} color={colors.ink2} weight="bold" /> : null}
+    <Animated.View key={changeKey} entering={changeKey ? FadeIn.duration(duration.base).easing(easeOut) : undefined} style={[styles.names, { opacity: pressed ? 0.55 : 1 }]}>
+      <View style={styles.name}>
+        <Txt variant="headline" numberOfLines={1} accessibilityRole="header">
+          {title}
+        </Txt>
+        {onTitle ? <Icon name="down" size={13} color={colors.ink2} weight="bold" /> : null}
+      </View>
+      {subtitle ? (
+        <Txt variant="footnote" tone="ink3" numberOfLines={1}>
+          {subtitle}
+        </Txt>
+      ) : null}
     </Animated.View>
   );
   return (
     <View style={[styles.wrap, { paddingTop: insets.top, backgroundColor: colors.page }, style]}>
-      <View style={styles.bar}>
+      <View style={[styles.bar, subtitle ? styles.tall : null]}>
         <View style={styles.side}>{left}</View>
         <View style={styles.middle}>
           {onTitle ? (
@@ -75,6 +85,8 @@ const styles = StyleSheet.create({
   side: { width: 96, flexDirection: "row", alignItems: "center" },
   right: { justifyContent: "flex-end" },
   middle: { flex: 1, alignItems: "center" },
+  tall: { height: 54 },
+  names: { alignItems: "center" },
   name: { flexDirection: "row", alignItems: "center", gap: 5 },
   rule: { position: "absolute", left: 0, right: 0, bottom: 0, height: StyleSheet.hairlineWidth },
 });

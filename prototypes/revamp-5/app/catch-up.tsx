@@ -5,7 +5,6 @@ import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, w
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import { dayChoices, dayLabel, lateLabel, today, type Day } from "../src/lib/dates";
-import { useAreaColor } from "../src/store/hooks";
 import { slipped } from "../src/store/selectors";
 import { useStore } from "../src/store/store";
 import { calm, duration, easeOut, spring } from "../src/theme/motion";
@@ -46,7 +45,6 @@ export default function CatchUp() {
   const insets = useSafeAreaInsets();
   const { colors, accent } = useTheme();
   const reduced = useReducedMotion();
-  const areaColor = useAreaColor();
   const tasks = useStore((state) => state.tasks);
   const moveTask = useStore((state) => state.moveTask);
   const setDone = useStore((state) => state.setDone);
@@ -143,12 +141,9 @@ export default function CatchUp() {
             <View>
               {index < queue.length - 1 ? <Animated.View style={[styles.peek, { backgroundColor: colors.card, boxShadow: colors.cardShadow }, peek]} /> : null}
               <Animated.View style={[styles.card, { backgroundColor: colors.card, boxShadow: colors.shadow }, card]}>
-                <View style={styles.area}>
-                  <View style={[styles.dot, { backgroundColor: areaColor(current.area) }]} />
-                  <Txt variant="footnote" tone="ink3">
-                    {current.area}
-                  </Txt>
-                </View>
+                <Txt variant="footnote" tone="ink3" weight="semibold">
+                  {current.area}
+                </Txt>
                 <Txt variant="title1" center style={styles.cardTitle}>
                   {current.title}
                 </Txt>
@@ -215,8 +210,6 @@ const styles = StyleSheet.create({
   body: { flexGrow: 1, paddingHorizontal: edge, paddingTop: space[6], paddingBottom: space[3], justifyContent: "center" },
   peek: { position: "absolute", left: 14, right: 14, bottom: -10, height: 60, borderRadius: radius.lg, borderCurve: "continuous" },
   card: { minHeight: 250, padding: space[6], borderRadius: radius.lg, borderCurve: "continuous", gap: space[4], alignItems: "center", justifyContent: "center" },
-  area: { flexDirection: "row", alignItems: "center", gap: 7 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
   cardTitle: { paddingHorizontal: space[2] },
   late: { flexDirection: "row", alignItems: "center", gap: 6, height: 28, paddingHorizontal: 12, borderRadius: radius.pill },
   noteSlot: { minHeight: 24, marginTop: space[5], alignItems: "center", justifyContent: "center" },

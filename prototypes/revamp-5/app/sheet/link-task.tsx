@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { useAreaColor, useNote } from "../../src/store/hooks";
+import { useNote } from "../../src/store/hooks";
 import { byPlan, whenLabel } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
@@ -13,7 +13,6 @@ import { Txt } from "../../src/ui/Txt";
 export default function LinkTaskSheet() {
   const { note: noteId } = useLocalSearchParams<{ note: string }>();
   const router = useRouter();
-  const areaColor = useAreaColor();
   const acknowledge = useAcknowledge();
   const note = useNote(noteId);
   const tasks = useStore((state) => state.tasks);
@@ -36,7 +35,6 @@ export default function LinkTaskSheet() {
           {shown.map((task) => (
             <SheetRow
               key={task.id}
-              dot={areaColor(task.area)}
               label={task.title}
               detail={`${task.area} · ${whenLabel(task)}${task.noteIds.length ? " · Also in other notes" : ""}`}
               onPress={() => {

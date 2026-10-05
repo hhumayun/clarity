@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { useAreaColor, useNote, useTask } from "../../src/store/hooks";
+import { useNote, useTask } from "../../src/store/hooks";
 import { useStore } from "../../src/store/store";
 import { tick } from "../../src/ui/haptics";
 import { SheetButtons, SheetFrame, SheetList, SheetRow, TextField } from "../../src/ui/Sheet";
@@ -9,7 +9,6 @@ import { SheetButtons, SheetFrame, SheetList, SheetRow, TextField } from "../../
 export default function AreaSheet() {
   const { task: taskId, note: noteId, draft } = useLocalSearchParams<{ task?: string; note?: string; draft?: string }>();
   const router = useRouter();
-  const areaColor = useAreaColor();
   const task = useTask(taskId);
   const note = useNote(noteId);
   const areas = useStore((state) => state.areas);
@@ -52,7 +51,7 @@ export default function AreaSheet() {
     <SheetFrame title="Area" description={task?.title} scroll>
       <SheetList>
         {areas.map((area) => (
-          <SheetRow key={area.name} dot={areaColor(area.name)} label={area.name} role="radio" selected={area.name === current} onPress={() => choose(area.name)} />
+          <SheetRow key={area.name} label={area.name} role="radio" selected={area.name === current} onPress={() => choose(area.name)} />
         ))}
         {(note || isDraft) && current ? <SheetRow key="none" icon="close" label="No area" onPress={() => choose(null)} /> : null}
         <SheetRow key="new" icon="plus" label="New area" onPress={() => setAdding(true)} />

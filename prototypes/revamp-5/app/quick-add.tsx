@@ -5,7 +5,6 @@ import Animated, { withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { dayChoices, today, type Day } from "../src/lib/dates";
 import { parseTask } from "../src/lib/parseTask";
-import { useAreaColor } from "../src/store/hooks";
 import { whenLabel } from "../src/store/selectors";
 import { useStore } from "../src/store/store";
 import { duration, easeOut, spring } from "../src/theme/motion";
@@ -35,7 +34,6 @@ export default function QuickAdd() {
   const { colors, accent } = useTheme();
   const body = useType("body");
   const small = useType("footnote");
-  const areaColor = useAreaColor();
   const acknowledge = useAcknowledge();
   const areas = useStore((state) => state.areas);
   const tasks = useStore((state) => state.tasks);
@@ -145,7 +143,6 @@ export default function QuickAdd() {
                   onCard
                   key={item.name}
                   label={item.name}
-                  dot={areaColor(item.name)}
                   selected={area === item.name}
                   onPress={() => (tick(), setArea(item.name), setPanel("none"))}
                 />
@@ -175,8 +172,7 @@ export default function QuickAdd() {
           <View style={styles.tools}>
             <Chip
               onCard
-              dot={area ? areaColor(area) : undefined}
-              icon={area ? undefined : "hash"}
+              icon="tag"
               label={area ?? undefined}
               accessibilityLabel={`Area: ${area ?? "none"}`}
               selected={panel === "areas"}

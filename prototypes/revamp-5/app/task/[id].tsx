@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { addDays, dayLabel, durationLabel, today } from "../../src/lib/dates";
-import { useAreaColor, useFocusHistory, useTask } from "../../src/store/hooks";
+import { useFocusHistory, useTask } from "../../src/store/hooks";
 import type { FocusHistory, Note, Task } from "../../src/store/model";
 import { clockLabel, noteGroup, reminderLabel, repeatLabels, shortDate, sinceLabel } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
@@ -41,7 +41,6 @@ export default function TaskScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, accent } = useTheme();
-  const areaColor = useAreaColor();
   const acknowledge = useAcknowledge();
   const task = useTask(id);
   const history = useFocusHistory(id);
@@ -86,8 +85,8 @@ export default function TaskScreen() {
     acknowledge("Task deleted", "trash");
   };
 
-  const rows: { key: string; icon?: IconName; dot?: string; label: string; value: string; empty?: boolean; href: string }[] = [
-    { key: "area", dot: areaColor(task.area), label: "Area", value: task.area, href: `/sheet/area?task=${task.id}` },
+  const rows: { key: string; icon: IconName; label: string; value: string; empty?: boolean; href: string }[] = [
+    { key: "area", icon: "tag", label: "Area", value: task.area, href: `/sheet/area?task=${task.id}` },
     { key: "date", icon: "calendar", label: "Day", value: task.day ? dayLabel(task.day) : "Someday", empty: !task.day, href: `/sheet/date?task=${task.id}` },
     { key: "time", icon: "clock", label: "Time", value: task.time !== null ? clockLabel(task.time) : "Any time", empty: task.time === null, href: `/sheet/time?task=${task.id}` },
     { key: "reminder", icon: "bell", label: "Reminder", value: reminder ?? "Off", empty: !reminder, href: `/sheet/reminder?task=${task.id}` },
@@ -147,7 +146,9 @@ export default function TaskScreen() {
         <CardGroup style={styles.group}>
           {rows.map((row) => (
             <CardRow key={row.key} onPress={() => router.push(row.href as never)} accessibilityRole="button" accessibilityLabel={`${row.label}: ${row.value}. Change`} style={styles.row}>
-              <View style={styles.slot}>{row.icon ? <Icon name={row.icon} size={19} color={colors.ink2} weight="medium" /> : <View style={[styles.dot, { backgroundColor: row.dot }]} />}</View>
+              <View style={styles.slot}>
+                <Icon name={row.icon} size={19} color={colors.ink2} weight="medium" />
+              </View>
               <Txt variant="row" tone="ink2" style={styles.flex}>
                 {row.label}
               </Txt>
@@ -332,7 +333,6 @@ const styles = StyleSheet.create({
   group: { marginTop: space[3] },
   row: { flexDirection: "row", alignItems: "center", gap: space[3], paddingVertical: 15 },
   slot: { width: 24, alignItems: "center", justifyContent: "center" },
-  dot: { width: 10, height: 10, borderRadius: 5 },
   value: { maxWidth: "50%" },
   focus: { marginTop: space[3], gap: space[3] },
   leftOff: { padding: pad, gap: 6 },

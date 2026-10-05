@@ -5,7 +5,7 @@ import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-re
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { deeper, deeperFallback, questions } from "../../src/data/prompts";
 import { longDay, today } from "../../src/lib/dates";
-import { useAreaColor, useNote } from "../../src/store/hooks";
+import { useNote } from "../../src/store/hooks";
 import type { Block } from "../../src/store/model";
 import { noteTime } from "../../src/store/selectors";
 import { useStore } from "../../src/store/store";
@@ -48,7 +48,6 @@ export default function NoteScreen() {
   const { colors, accent, phase } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const areaColor = useAreaColor();
   const acknowledge = useAcknowledge();
   const note = useNote(id === "new" ? undefined : id);
   const isNew = !note;
@@ -124,7 +123,7 @@ export default function NoteScreen() {
           scaleTo={0.95}
           style={[styles.chip, { borderColor: colors.line }]}
         >
-          {area ? <View style={[styles.dot, { backgroundColor: areaColor(area) }]} /> : <Icon name="tag" size={14} color={colors.ink2} weight="semibold" />}
+          <Icon name="tag" size={14} color={colors.ink2} weight="semibold" />
           <Txt variant="subhead" weight="semibold">
             {area ?? "Area"}
           </Txt>
@@ -363,7 +362,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   top: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: edge - 10, paddingBottom: space[1] },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: radius.pill, borderCurve: "continuous", borderWidth: 1.5 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
   parked: { flexDirection: "row", alignItems: "center", gap: 5, marginRight: 10 },
   content: { paddingHorizontal: edge + 4, paddingTop: space[4], paddingBottom: space[12] },
   title: { marginTop: space[2] },

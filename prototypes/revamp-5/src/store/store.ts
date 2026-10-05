@@ -133,7 +133,7 @@ export const useStore = create<State>()((set, get) => ({
   focusToday: initial.focusToday,
   suggestions: {},
   searched: {},
-  prefs: { accent: "sage", focusLength: 15, breakAfter: true, fastTimers: false, largeText: false },
+  prefs: { accent: "sage", paper: "linen", focusLength: 15, breakAfter: true, fastTimers: false, largeText: false },
   viewDay: today(),
   lastAdded: null,
   deleted: [],

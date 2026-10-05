@@ -7,7 +7,7 @@ import type { FocusLength } from "../src/store/model";
 import { useStore } from "../src/store/store";
 import { duration, easeOut, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
-import { accentOrder, accents, edge, pad, radius, space, type AccentName, type Phase } from "../src/theme/tokens";
+import { accentOrder, accents, edge, pad, paperOrder, papers, radius, space, type AccentName, type PaperName, type Phase } from "../src/theme/tokens";
 import { useAcknowledge } from "../src/ui/Acknowledgement";
 import { Button, ButtonPair } from "../src/ui/Button";
 import { CardGroup, CardRow } from "../src/ui/Card";
@@ -70,6 +70,25 @@ export default function Settings() {
         </View>
         <Txt variant="footnote" tone="ink3" center style={styles.note}>
           Pick a colour, any colour. Buttons, checks and focus time take it.
+        </Txt>
+
+        <Caption>Paper</Caption>
+        <View style={styles.papers} accessibilityRole="radiogroup" accessibilityLabel="Paper, for light mode">
+          {paperOrder.map((name) => (
+            <PaperTile
+              key={name}
+              name={name}
+              selected={prefs.paper === name}
+              onPress={() => {
+                if (prefs.paper === name) return;
+                tick();
+                setPref("paper", name);
+              }}
+            />
+          ))}
+        </View>
+        <Txt variant="footnote" tone="ink3" center style={styles.note}>
+          How warm the page is in light mode, from cool stone to rosy clay.
         </Txt>
 
         <Caption>Appearance</Caption>
@@ -222,6 +241,25 @@ function Swatch({ name, selected, onPress }: { name: AccentName; selected: boole
   );
 }
 
+/** One light page to choose: its colour with a small card on it, and its name. The chosen one takes an ink edge. */
+function PaperTile({ name, selected, onPress }: { name: PaperName; selected: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  const tone = papers[name].palette;
+  return (
+    <Pressable onPress={onPress} accessibilityRole="radio" aria-selected={selected} accessibilityLabel={papers[name].label} style={({ pressed }) => [styles.paper, { borderColor: selected ? colors.ink : "transparent", transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
+      <View style={[styles.sample, { backgroundColor: tone.page }]}>
+        <View style={[styles.sampleCard, { backgroundColor: tone.card, boxShadow: tone.cardShadow }]}>
+          <View style={[styles.sampleLine, { backgroundColor: tone.ink, width: "70%" }]} />
+          <View style={[styles.sampleLine, { backgroundColor: tone.ink3, width: "45%" }]} />
+        </View>
+      </View>
+      <Txt variant="footnote" weight={selected ? "bold" : "semibold"} tone={selected ? "ink" : "ink2"}>
+        {papers[name].label}
+      </Txt>
+    </Pressable>
+  );
+}
+
 function ToggleRow({ icon, label, detail, value, onChange }: { icon: IconName; label: string; detail?: string; value: boolean; onChange: (value: boolean) => void }) {
   const { colors } = useTheme();
   return (
@@ -253,6 +291,11 @@ const styles = StyleSheet.create({
   disc: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   halo: { position: "absolute", width: 44, height: 44, borderRadius: 22, borderWidth: 2 },
   note: { paddingHorizontal: edge * 2, paddingTop: space[3] },
+  papers: { flexDirection: "row", gap: space[2], paddingHorizontal: edge },
+  paper: { flex: 1, alignItems: "center", gap: space[2], padding: 6, paddingBottom: space[2], borderRadius: radius.card, borderCurve: "continuous", borderWidth: 1.5 },
+  sample: { alignSelf: "stretch", height: 64, borderRadius: radius.sm, borderCurve: "continuous", padding: 8, justifyContent: "center" },
+  sampleCard: { borderRadius: 7, padding: 7, gap: 5 },
+  sampleLine: { height: 4, borderRadius: 2 },
   inset: { marginHorizontal: edge },
   group: { marginTop: space[3] },
   row: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: space[3], paddingHorizontal: pad, paddingVertical: 10 },
