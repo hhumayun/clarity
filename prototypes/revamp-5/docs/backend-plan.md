@@ -2,24 +2,39 @@
 
 **Goal:** turn revamp 5 from a sample-data prototype into a working Clarity client. It should have real accounts, the user's own notes, tasks and areas, offline use that never loses a word, the rich-text editor, AI help and reminders, all inside Sage's design.
 
-**How:** carry over the main app's non-visual layer (`/root/projects/clarity/mobile/src`), which already does all of this, and connect it to Sage's screens through a thin adapter, so the screens barely change.
+**How:**
+- Carry over the main app's non-visual layer (`mobile/src`), which already does all of this.
+- Connect it to Sage's screens through a thin adapter, so the screens barely change.
+- Change the API a little where Sage needs it (section 5).
 
-This plan rests on two read-only surveys of the main app and the server, taken on 2026-10-05 from the files on disk, including the other session's uncommitted rich-text work.
+**Decided on 2026-10-05** (details in section 7):
+- the main app's code is copied into revamp 5;
+- four small API changes;
+- notes can have several areas;
+- a test account comes first.
+
+The facts here were checked against the code on 2026-10-05.
 
 ---
 
 ## 1. What already exists, and what it means for revamp 5
 
-**The server** (Hono, `/root/projects/clarity/server.ts`)
+**The server** (Hono, `server.ts`)
 - **Routes:** 34 routes under `/_api`, GET and POST only.
 - **Wire format:** superjson in both directions, and plain JSON bodies fail. Dates in some fields must be tagged as Dates.
 - **Accounts:** Clerk. The server has no sign-up or password endpoints. The app signs people up and in with Clerk directly and sends its session token (`Authorization: Bearer …`). A user's row is created on their first request.
-- **Environments:** there is **one, production** (`clarity-notes-production.up.railway.app`), with its database on Neon. There is no staging. **Wiring revamp 5 in means working against real data**, which is why decision A exists.
-- **Sync:** no incremental sync. Lists come back whole, and the notes list pages by creation date and caps unpaged lists at 200. Client-made ids are accepted (replays are safe). The last write wins, field by field.
+- **Environment:**
+  - There is one, on Railway, called production (`clarity-notes-production.up.railway.app`), with its database on Neon.
+  - The app is still in development, so this is the environment to build against. Its database does hold your own notes.
+- **Deploys:** `railway up` from this machine ships the whole folder it runs in. The last deploy (3ce3894e, 3 October) added rich text: `notes.doc`, migration 013.
+- **Sync:**
+  - No incremental sync: lists come back whole. The notes list pages by creation date, and caps unpaged lists at 200.
+  - Client-made ids are accepted, so replays are safe.
+  - The last write wins, field by field.
 - **AI:** OpenRouter, all on the server. Suggestions, Find tasks, task summaries, first steps, title ideas and indexing are all endpoints.
 - **Reminders:** stored as task fields only. There's no push and no scheduler on the server; the phone schedules local notifications.
 
-**The main app** (`/root/projects/clarity/mobile`). Every piece below runs in plain Expo Go.
+**The main app** (`mobile/`). Every piece below runs in plain Expo Go. All of it is now committed: the rich-text work that had sat unsaved since 4 October is checkpoint 44abd69, merged into revamp 5's branch as 32e8adf.
 
 | Piece | Where | What it does |
 |---|---|---|
@@ -28,9 +43,9 @@ This plan rests on two read-only surveys of the main app and the server, taken o
 | Server data | `src/hooks/useNotes.ts`, `useTasks.ts`, `useFocus.ts`, `usePreferences.ts` | TanStack Query with local-first writes: the cache is patched at once and the change is queued |
 | Offline | `src/sync/*` (outbox, store, runner, cache, persist, SyncProvider), `src/sync/network.ts` | the queue of unsent changes, kept per user, sent in order with backoff. Reads never overwrite unsent work. The query cache is kept on the phone for 30 days |
 | Note safety | `src/lib/localDrafts.ts`, `src/lib/noteDocs.ts`, the save flow in `app/(app)/note/[id].tsx` | drafts written every second; the rich text kept per note; careful rules for when the server's copy may replace what's on screen |
-| Editor | `src/editor/NoteEditor.tsx` (uncommitted), the `BootedNoteEditor` wrapper in `note/[id].tsx` | Tiptap in a web view (an Expo DOM component), writing Markdown plus Tiptap JSON. The app drives it with `run(...)` |
+| Editor | `src/editor/NoteEditor.tsx`, the `BootedNoteEditor` wrapper in `note/[id].tsx` | Tiptap in a web view (an Expo DOM component), writing Markdown plus Tiptap JSON. The app drives it with `run(...)` |
 | Reminders | `src/lib/reminders.ts`, `reminderRules.ts`, `notifications.ts`, `focusAlerts.ts`, `src/providers/Reminders.tsx` | local notifications with Done and Snooze; repeating tasks roll forward on the phone |
-| Pure logic | `src/lib/dates.ts`, `taskDates.ts`, `notesList.ts`, `noteTitle.ts`, `taskSort.ts`, `taskLinks.ts`, `movedFrom.ts` | ports as is |
+| Pure logic | `src/lib/dates.ts`, `taskDates.ts`, `notesList.ts`, `noteTitle.ts`, `taskSort.ts`, `taskLinks.ts` | ports as is |
 
 **What revamp 5 has now:**
 - one zustand store with sample data (`src/store/*`) that every screen reads;
@@ -43,8 +58,8 @@ This plan rests on two read-only surveys of the main app and the server, taken o
 ## 2. The approach
 
 1. **Carry over, don't rewrite.**
-   - Copy the main app's non-visual modules into revamp 5 under `src/core/` (api, sync, hooks, lib, editor, providers), keeping their behaviour.
-   - Record each file's source commit at the top of `src/core/SOURCE.md`, so later fixes in the main app can be brought across.
+   - Copy the main app's non-visual modules from checkpoint 44abd69 into revamp 5 under `src/core/` (api, sync, hooks, lib, editor, providers), keeping their behaviour.
+   - Record each file's source commit in `src/core/SOURCE.md`, so later fixes in the main app can be brought across.
    - The offline layer (outbox, cache patching, `unlessSyncing`) goes over **as one piece**: moving half of it would break offline edits.
 2. **An adapter between the API and Sage's screens.**
    - Sage's components read a small view model: a task's `area`, `day`, `time`, `remind`, `repeat` and `done`; a note's `excerpt`, `day`, `time` and `area`.
@@ -52,11 +67,16 @@ This plan rests on two read-only surveys of the main app and the server, taken o
 3. **Keep the sample data as Demo mode.**
    - The current store becomes `src/demo/`, behind a switch in Settings (and the default when signed out).
    - Design reviews and the screenshot tests keep working without an account.
-4. **Stay in Expo Go.** Everything needed runs there. Revamp 5 has no `expo-dev-client`, so `npx expo start` already targets Go. A development build can come later, if it's ever needed.
+4. **Four small API changes** (section 5).
+   - Each only adds: new columns, a new table, a new allowed value, an optional field. The main app keeps working unchanged.
+   - They ship together, in one migration and one deploy.
+5. **Stay in Expo Go.** Everything needed runs there. Revamp 5 has no `expo-dev-client`, so `npx expo start` already targets Go. A development build can come later, if it's ever needed.
 
 ---
 
 ## 3. Mapping Sage's data to the API
+
+"New" marks a field the API changes in section 5 add.
 
 | Sage (today's store) | API | Notes |
 |---|---|---|
@@ -65,20 +85,21 @@ This plan rests on two read-only surveys of the main app and the server, taken o
 | Task `day` (`yyyy-mm-dd`) | `completeBy` (a Date at local noon) | Convert with the main app's `taskDates` helpers |
 | Task `time` (minutes) | `dueTime` (`"HH:MM"`) | Clearing the day also clears the time (server rule) |
 | Task `remind`, `repeat` | `remindBefore`, `remindRepeat` | Same meaning |
-| Task `done`, `doneAt` | `status: "done"`, `updatedAt` | "Done today" uses `updatedAt` once done; there is no done-at field |
+| Task `done`, `doneAt` | `status: "done"`, `completedAt` (new) | The Done list and "done today" read `completedAt` |
 | Task `details` | `description` | |
 | Task `noteIds`, `foundIn` | `noteIds`, `noteId` | |
-| Task `movedFrom` | none; kept on the phone (`movedFrom.ts`) | Catch up's "moved from" doesn't sync between devices, same as today |
+| Task `movedFrom` | `movedFrom` (new) | "Moved from Tue" shows on every device |
 | Note `title`, `blocks`, `excerpt` | `title`, `content` (Markdown), `doc` (Tiptap JSON) | The excerpt comes from `plainText(content)`. The blocks disappear: the editor renders the note |
-| Note `area` (one) | `projectIds` (up to 20) | **Design question:** show the first area on cards and let the area sheet pick several, or keep one area per note in Sage? |
+| Note `area` | `projectIds` (up to 20) | **Several areas:** cards show the first; the area sheet picks several |
 | Note `day`, `time` | `createdAt` | |
 | Note `source: "focus"` | `source: "focus"`, `taskId` on create | Parked thoughts |
+| Today's page (the note that answered the day's question) | a note with `source: "page"` (new) | The day's page is the first such note written that day, so every device knows it |
 | Focus history per task | `focus/summary` → `{sessions, totalSeconds, lastLeftOff, lastOutcome, lastEndedAt}` | `focusToday` comes from `todaySeconds` |
-| Find tasks results | `tasks/extract` (suggest) + `tasks/add` (save) | Sage adds one card at a time: `tasks/add` with one task. "Not now" stays on the phone |
+| Find tasks results | `tasks/extract` (suggest), `tasks/add` (save), `tasks/dismiss_suggestion` (new) | Sage adds one card at a time: `tasks/add` with one task. "Not now" dismisses on the server. Undecided suggestions come back with the note's tasks |
 | How it's going | `tasks/summary` | The server returns the whole text; Sage's word-by-word reveal is drawn on the phone |
 | Go deeper and Next question | `suggestions/generate` → `reflectionQuestions` | Offline, or with AI off, Sage's built-in questions stand in |
 | Focus first steps | `tasks/first_steps` | Replaces Sage's fixed ideas |
-| Today's page (which note answered the day's question) | none | Keep a small map on the phone (like `movedFrom`). A server field could come later |
+| Edits made offline | `changedAt` on updates (new) | An edit keeps the time it was made, not the time it synced |
 | Accent, paper, appearance, larger text | none | Device settings in AsyncStorage, as the main app keeps its theme |
 | AI on or off; personalization | device setting; `preferences` endpoint | |
 
@@ -89,7 +110,6 @@ This plan rests on two read-only surveys of the main app and the server, taken o
 Each phase ends with something to try on the phone and a check that it worked. Sizes: S is up to half a day, M about a day, L two days or more.
 
 ### Phase 0: groundwork (S)
-- Decisions A–D (section 6).
 - Environment:
   - Revamp 5's own `.env` (gitignored) with `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` (the same Clerk instance as the server) and `EXPO_PUBLIC_API_BASE_URL`.
   - Google sign-in comes back to the app at `Linking.createURL("/")`. In Expo Go that's an `exp://` address built from the tunnel's, which Clerk may need to allow (see the risks).
@@ -99,8 +119,7 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - Logic: `superjson`, `zod`.
   - Device: `expo-notifications`, `expo-keep-awake`, `expo-file-system`, `expo-sharing`.
   - Editor: `react-native-webview`, `expo-asset`, `react-native-keyboard-controller`, and the Tiptap packages pinned at 3.27.1, as the app pins them.
-- Copy the modules into `src/core/` and write `src/core/SOURCE.md`. Put the sample store behind Demo mode. Add an `ErrorBoundary`.
-- **Production check, read only, with your go-ahead:** confirm which server code is live and whether `notes.doc` (migration 013) exists. The editor's rich text depends on it.
+- Copy the modules from 44abd69 into `src/core/` and write `src/core/SOURCE.md`. Put the sample store behind Demo mode. Add an `ErrorBoundary`.
 - **Check:** the app starts in Demo mode exactly as it does now; `tsc` passes.
 
 ### Phase 1: accounts (M)
@@ -114,32 +133,39 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - Sign in and Create account (white fields on the page, a full-width accent button);
   - Email code (six boxes that advance as you type, then a check that pops).
 - **New:** forgot password, through Clerk's email reset code (the main app has none).
-- **First run:** the main app's three-step welcome (write freely, word help, private by default), redrawn in Sage, with one added step: pick your colour and paper. Notification permission waits until it's first needed (Phase 6).
+- **First run:** the main app's three-step welcome (write freely, word help, private by default), redrawn in Sage, with one added step: pick your colour and paper. Notification permission waits until it's first needed (Phase 7).
 - **Settings → Account:**
   - your email;
   - Sign out, which asks in place and **warns if changes haven't synced** (the main app silently drops them);
   - Export data (`account/export`, shared as a file);
   - Personalization (`preferences`), and clearing what it has learned (`account/clear_personalization`);
   - Delete account (`account/delete`, which also removes the sign-in account), asked in place. Afterwards the phone clears its saved session and cancels reminders, two steps the main app skips.
-- **Check:** create a test account, verify the code, sign out and in, sign in with Google, open the app offline with a session already saved.
+- **The test account:** an address with `+clerk_test` in it. Clerk's development instances (this one's key is `pk_test_…`) send no email to those and accept the fixed code 424242, so no inbox is needed, as long as the instance's test mode is on (the default).
+- **Check:** create the test account, verify the code, sign out and in, sign in with Google, open the app offline with a session already saved.
 
-### Phase 2: real data on screen (L)
+### Phase 2: the API changes (M)
+- The four changes in section 5, in one migration and one deploy, shipped as section 5 describes.
+- **Check:**
+  - each new field and endpoint works against the test account;
+  - after the deploy, the main app still works on your phone: notes, tasks, Find tasks, focus.
+
+### Phase 3: real data on screen (L)
 - **Hooks:** `useTasks()` (every task and area), `useNotes({from, to})` for the week Today shows (plus the weeks either side, prefetched), `useNotesPages` for the Notes tab, `useFocusSummary`, `useTaskNotes`, `useTaskSummary`.
 - **Adapters** (section 3) turn records into Sage's view model. The selectors (`openOn`, `doneOn`, `slipped`, `groupTasks`, `noteGroup`) keep working on that model.
 - **Screens move off the store** one at a time, with Demo mode kept working throughout:
-  - Today: tasks, notes and the week's marks;
+  - Today: tasks, notes, the week's marks, today's page (`source: "page"`), and Done by `completedAt`;
   - Notes: paged, with the area filter as `projectId`;
   - Life Center: everything grouped by when;
   - Search: server search for notes (`notes/list?q=`, which also matches area names), tasks filtered on the phone, and cached lists when offline;
-  - Task page; Catch up (slipped tasks).
+  - Task page, with "moved from" from the server; Catch up (slipped tasks).
 - **States:**
   - card-shaped placeholders that match each screen's layout while it loads;
   - the existing pictures for empty lists;
   - errors said plainly in place, never a full-screen spinner.
-- **Sample content:** a small script fills a test account with the same notes and tasks as revamp 5's sample data, so screenshots and checks stay comparable.
+- **Sample content:** a small script fills the test account with the same notes and tasks as revamp 5's sample data, so screenshots and checks stay comparable. It never touches your account.
 - **Check:** every screen shows the test account's data. Pull to refresh works. A second device sees the same data.
 
-### Phase 3: changes, offline (L)
+### Phase 4: changes, offline (L)
 - **The offline layer goes in whole:**
   - outbox (merging updates, deletes cancelling queued work, area id remapping);
   - runner (one at a time, with backoff);
@@ -148,12 +174,13 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - the saved query cache;
   - network watch;
   - per-user queue storage.
+- **Every update carries `changedAt`,** the time it was made. When the outbox folds several edits together it keeps the latest.
 - **Every Sage action becomes a queued change:**
-  - Tasks: add (quick add), tick and untick (a repeating task rolls forward), move (Catch up, the menu, the date sheet), edit, delete, link and unlink.
+  - Tasks: add (quick add), tick and untick (a repeating task rolls forward), move (Catch up, the menu and the date sheet send `movedFrom`), edit, delete, link and unlink.
   - Areas: create, rename, remove (move tasks or remove them).
-  - Notes: create, edit, archive, delete, change areas.
+  - Notes: create (Today's card creates the day's page), edit, archive, delete, change areas.
   - Focus: sessions (`focus.record`), and parked thoughts (a note create with `source:"focus"` and `taskId`).
-  - Find tasks: Add (`tasks/add`).
+  - Find tasks: Add (`tasks/add`) and Not now (`tasks/dismiss_suggestion`).
   - Clear done (`tasks/clear_done`).
 - **Offline, the Sage way, with no counts:**
   - a quiet capsule ("Offline. Changes will sync."), never "3 changes";
@@ -162,16 +189,18 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - Acknowledgements ("Moved to Tomorrow") keep coming from the capsule that already exists.
 - **Conflicts** follow the main app's rules: the last write wins on the server, but the phone never replaces what you're looking at while you have unsent changes to it.
 - **Check:**
-  - in airplane mode, add, tick, move and write, then reconnect: everything arrives once, in order;
+  - in airplane mode, add, tick, move and write, then reconnect: everything arrives once, in order, with the times it was made;
   - kill the app while offline: nothing is lost;
   - a create that the server returns under another area id is remapped.
+- **Then switch to your own account,** once these checks pass.
 
-### Phase 4: the editor (L)
+### Phase 5: the editor (L)
 - **What comes over:** `NoteEditor` (Tiptap in a DOM component), the `BootedNoteEditor` wrapper (the first props stay empty until the page is up, to work around the WebView escaping problem), `localDrafts`, `noteDocs` and the note screen's save rules:
   - save 900 ms after typing stops, and on leave, background or tab switch;
   - flush the editor on leave;
   - the draft wins over the server's copy if it's newer;
   - the server's copy only replaces the page when you haven't typed.
+- **Rich text is live** (since 3 October), so notes keep their formatting from the start.
 - **Sage styling** through the editor's props and CSS:
   - Nunito Sans through `expo-asset`;
   - Sage's page and ink colours;
@@ -179,25 +208,26 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - quotes drawn as Sage's accent questions;
   - checklist boxes drawn like `CircleCheck`.
 - **Sage's note page stays:**
-  - the area chip (a sheet that can pick several areas, if decided in section 3);
+  - the area chip, opening a sheet that picks several areas;
   - the small-capital date line and the title field;
   - the tools row mapped to `run(...)`: text styles, checklist, list, link, indent and outdent (the image tool waits for photos in the main app's plan);
   - Tasks and Done.
 - **Writing to questions:**
-  - Today's card opens a new note with its question as the first quote. "Next question" inserts another as a quote (`run("insertQuestion")`).
+  - Today's card opens the day's page with its question as the first quote. "Next question" inserts another as a quote (`run("insertQuestion")`).
   - The questions come from `suggestions/generate`, with Sage's built-in ones when offline or with AI off.
   - "Go deeper" at the end of a note uses the same questions.
-  - Word suggestions (completions and sentence starters) come in Phase 5, or later.
-- **Rich text needs `notes.doc` live** (decision C). Until then the editor still works on Markdown alone: notes keep their formatting as Markdown, but lose the rich-only parts (indents on headings and lists).
+  - Word suggestions (completions and sentence starters) come in Phase 6, or later.
+- **Edit times:** with `changedAt`, a server copy can carry an earlier time than before. The draft-or-server choice (`applyNote`) must still prefer a draft written after it.
 - **Tidying:** turn off the editor's `TRACE` logging and keep perf logging to development.
 - **Check:**
   - the main app's editor tests (`tests/note-editor`, about 75 checks) run against revamp 5's dev server;
   - on the phone: typing, the keyboard, the cursor kept in view, lists and checklists, Backspace at an item's start, links;
   - leave mid-sentence, kill the app, come back offline: the words are there.
 
-### Phase 5: AI help and focus (M)
+### Phase 6: AI help and focus (M)
 - **Find tasks:**
-  - `tasks/extract` waits for the note to sync first, then shows the results as Sage's cards (Add becomes a check);
+  - a note's undecided suggestions come with its tasks (`pending`), so they're there when you come back, without asking the AI again;
+  - `tasks/extract` waits for the note to sync first, then shows new results as Sage's cards (Add becomes a check, Not now dismisses);
   - it runs automatically the first time a note's tasks open, as the main app does.
 - **How it's going:** `tasks/summary`, cached, read while offline, shown with Sage's dots and word-by-word reveal.
 - **Focus:**
@@ -207,9 +237,9 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - the chime and keep-awake as in the main app.
 - **Title ideas** (`notes/suggest_title`) are applied quietly when you leave a note with no title. **Indexing** (`notes/reindex`) runs after edits. Accepted suggestions are logged (`suggestions/event`).
 - **AI errors stay calm:** out of credits, or too many requests, gives a quiet message. Offline, the AI buttons step back rather than fail.
-- **Check:** each AI action works on the test account, and degrades gracefully offline and when the AI is busy.
+- **Check:** each AI action works, and degrades gracefully offline and when the AI is busy. Suggestions left undecided are still there after leaving and reopening a note.
 
-### Phase 6: reminders (S–M)
+### Phase 7: reminders (S–M)
 - **What comes over:** the reminders code as is:
   - local notifications, at most 50 waiting, repeating tasks scheduled up to six times ahead;
   - Done and Snooze buttons on each reminder;
@@ -218,55 +248,103 @@ Each phase ends with something to try on the phone and a check that it worked. S
 - Sage's reminder sheet already speaks the same model (`remindBefore`, `remindRepeat`).
 - **Check:** a reminder fires on the phone in Expo Go; Done from the notification ticks the task; Snooze moves it an hour.
 
-### Phase 7: hardening (M)
+### Phase 8: hardening (M)
 - **Checks:**
   - the web-based interaction checks (`interact.js`), run against the test account as well as Demo mode;
   - the scan for counts;
   - light and dark screenshots.
 - **On the phone:** slow network, airplane mode, sign out with unsynced changes, two devices, large text, Reduce Motion.
 - **Performance:** check on a release build before anything ships. Expo Go hides jank.
-- **Decide the end state** (section 7).
+- **Decide the end state** (section 8).
 
-**Order and size:** 0 → 1 → 2 → 3 are the spine; 4, 5 and 6 can follow in any order once 3 is in. Roughly two weeks of focused work in total, with the editor and the offline layer the largest pieces.
+**Order and size:** phases 0 to 4 go in order; 5, 6 and 7 can follow in any order once 4 is in. Roughly two weeks of focused work in total, with the editor and the offline layer the largest pieces.
 
 ---
 
-## 5. Risks and how they're handled
+## 5. The API changes
+
+All four live on revamp 5's branch and share one migration, `migrations/014_task_times_pages_suggestions.sql`. The third and fourth also settle two open write-ups in `docs/investigations.md`.
+
+### 5.1 When a task was done, and the day it moved from
+- **Migration:**
+  - add `tasks.completed_at` (timestamptz) and `tasks.moved_from` (timestamptz, at local noon like `complete_by`);
+  - fill `completed_at` from `updated_at` for tasks already done (the best guess there is).
+- **`tasks/update`:**
+  - a status of done sets `completed_at` (to `changedAt` when given, else now), only if the task wasn't done already, so a replayed change doesn't move it; any other status clears it;
+  - accepts `movedFrom` (a date, or null). The phone sends it when Catch up, the menu or the date sheet moves a task, keeping the first day it was planned for, as Sage's store does.
+- **`tasks/list`:** each task now includes `completedAt` and `movedFrom`.
+- **Repeating tasks:** ticking one rolls it forward rather than finishing it (as in the main app), so it doesn't appear under Done. Listing it there would need a "last done" time. Left out for now.
+- **The main app** ignores both fields; its own moved-from list on the phone keeps working.
+
+### 5.2 Today's page
+- **Migration:** `notes.source` may also be `'page'` (its check constraint is widened).
+- **Server:** `NoteSource` gains `"page"`. `notes/create` accepts it without further change, because its schema is built from the list of allowed values.
+- **Sage:** the day's page is the first note with `source: "page"` written that day. Today's card creates it; "Next question" adds to the same note.
+- **The main app** only looks for `"focus"`, so it shows a page as an ordinary note.
+
+### 5.3 Real times for edits made offline
+- **No migration.**
+- **Server:** `notes/update` and `tasks/update` accept an optional `changedAt` and set `updatedAt` to it, never later than now (`notInFuture` in `helpers/clientIds.tsx`). Clients that leave it out keep today's behaviour.
+- **Phone:** stamps each queued update; see Phase 4, and Phase 5 for the editor's draft check.
+- From the write-up "Changes made offline are stamped with the time they sync, not when they were made".
+
+### 5.4 Find tasks suggestions kept until you decide
+- **Migration:** a new `task_suggestions` table:
+  - columns `id`, `user_id`, `note_id`, `fingerprint`, `text`, `project_name`, `complete_by`, `status` (`pending` or `dismissed`) and `created_at`;
+  - unique on `(note_id, fingerprint)`, and removed with its note.
+- **`tasks/extract`:**
+  - replaces the note's pending suggestions with the new result, skipping dismissed ones and ones already added;
+  - on an unchanged note it returns the pending ones instead of nothing. Both apps already show whatever comes back, so this also fixes the main app's vanishing suggestions without touching its code.
+- **`tasks/list?noteId=`:** adds `pending`, so a note's tasks open with its undecided suggestions and no AI call.
+- **`tasks/add`:** removes the pending rows it turns into tasks.
+- **New `tasks/dismiss_suggestion`:** marks one dismissed; Sage's "Not now".
+- From the write-up "Suggested tasks disappear if you leave a note without deciding".
+
+### Shipping them
+1. Write the changes on revamp 5's branch; `npm run typecheck` passes.
+2. **Apply migration 014, with your OK.** It only adds, so the live server simply doesn't see the new parts. It goes on before any code that reads it.
+3. Run the new server on this machine (`npx tsx server.ts` with Railway's variables, through `railway run`) and exercise every change against the test account.
+4. **Deploy from revamp 5's branch, with your OK.**
+   - First list what would ship (`git diff --stat` against the last deploy).
+   - The deploy also ships the 4 October change to the notes lists (they leave the rich text out), which the main app's current code expects.
+   - Afterwards `/` gives 200 and `/_api/notes/list` gives 401 when signed out.
+5. Check the main app on your phone.
+
+**From then on, deploy from revamp 5's branch.** The main app's branch doesn't have these changes, and a deploy from it would remove them. Merge revamp 5's server changes into it first.
+
+---
+
+## 6. Risks and how they're handled
 
 | Risk | Handling |
 |---|---|
-| **Only production exists**, so mistakes touch real data | Build against a **separate test account** (every query is scoped to the signed-in user). Never run migrations or seeding from here. The production check stays read only, and only with your go-ahead. The real account comes once Phase 3's checks pass |
-| **The main app is changing under us.** The uncommitted rich-text work in `/root/projects/clarity` touches 18 files: the three note endpoints, and on the phone the offline layer (`persist.ts`, `outbox.ts`), `localDrafts`, `notesList`, the notes API and hooks. The editor and its tests are new, unsaved files | Copy Phases 0–3 from the last commit (13e5a79). Bring the rich-text changes across in Phase 4, once they're committed. Record sources in `SOURCE.md` and bring later fixes across deliberately |
-| **Rich text depends on `notes.doc`** (migration 013, not yet confirmed live) | Decision C; Markdown-only works meanwhile. Sending `doc` to a server without it is harmless: unknown fields are dropped |
+| **One database, holding your notes.** The app is in development, but revamp 5 and the main app share the database | Build with a **test account** (every query is scoped to the signed-in user). Migrations only add, and each one waits for your OK. Seeding only ever fills the test account. Your account comes once the offline phase's checks pass |
+| **A deploy ships a whole folder**, so deploying from the wrong place removes work | Deploy only from revamp 5's branch, which carries the live server code. List what would ship and ask before each deploy. Merge into the main app's branch before anyone deploys from it |
+| **The two apps drift apart.** The main app keeps changing | Copy from 44abd69, record sources in `SOURCE.md`, and bring later fixes across deliberately |
 | **superjson and Clerk details** | Use the main app's client and `AuthProvider` unchanged; Phase 1's checks cover token refresh and offline start |
 | **No incremental sync** (whole lists; notes capped at 200 unpaged) | Today asks for the visible week's notes, the Notes tab pages, and Search asks the server |
-| **Some data lives on the phone only** (moved-from dates, today's page, Sage's settings) | Said in Settings' small print. Server fields can come later if they matter across devices |
+| **Sage's appearance settings stay on the phone** (colour, paper, appearance, larger text) | As the main app does with its theme. They could join `preferences` later if they should follow you to a new phone |
 | **Google sign-in in Expo Go** comes back through an `exp://` address, and the quick tunnel's address changes on every restart | Email sign-in works regardless. Test Google once on a stable address (a named tunnel), allowed in Clerk if it asks |
-| **Memory on this machine** (Metro, tests and other servers share 5.4 GB) | Same habits as now: one Metro, fresh browser tabs per check, web exports for screenshots |
+| **Memory on this machine** (Metro, tests and other servers share 5.4 GB) | Same habits as now: one Metro, fresh browser tabs per check, web exports for screenshots. The local server runs only while the API changes are tested |
 
 ---
 
-## 6. Decisions to make before Phase 0
+## 7. Decisions (2026-10-05)
 
-- **A. Which data to build against:**
-  - (Recommended) production with a test account, then your real account once offline is proven;
-  - a new staging setup (a Railway environment, a Neon branch, the same Clerk instance), which adds about a day and some cost;
-  - your real account from the start.
-- **B. Where the shared code lives:**
-  - (Recommended) copy into revamp 5's `src/core/` with recorded sources;
-  - a shared package used by both apps, which changes the main app while another session is working in it;
-  - instead, port Sage's design into the main app, the reverse direction.
-- **C. Rich text:**
-  - (Recommended) start Markdown-only and switch rich text on once the `doc` work is deployed;
-  - wait for it before Phase 4.
-- **D. Notes in several areas:**
-  - (Recommended) let a note have several areas, as the server allows: cards show the first, and the sheet picks several;
-  - keep one area per note in Sage.
+| Question | Decision |
+|---|---|
+| Which backend | The existing one: still in development, so no separate staging setup |
+| Which account | A test account first; yours once the offline phase's checks pass |
+| Where the code goes | Copied into revamp 5's `src/core/`, as asked |
+| The rich-text work that sat unsaved | Committed where it was, as checkpoint 44abd69 on `dev-build-editor-lab`, then merged into `revamp-5` (32e8adf). Neither is pushed |
+| Rich text | Live since 3 October, so there's no Markdown-only stage |
+| API changes | All four in section 5 |
+| Areas on notes | Several: cards show the first, and the area sheet picks several |
 
-## 7. After this: the end state
+## 8. After this: the end state
 
 When revamp 5 works against real data, choose how it reaches the App Store:
 - **(a)** it becomes the app: same EAS project, bundle ids and Clerk instance, replacing `mobile/`;
 - **(b)** its screens and tokens move into `mobile/`, following DESIGN.md's porting order.
 
-Phase 7's findings should settle it. Either way the backend needs nothing new for this plan, apart from the `doc` migration already in progress.
+Phase 8's findings should settle it. Either way the backend needs nothing beyond section 5.
