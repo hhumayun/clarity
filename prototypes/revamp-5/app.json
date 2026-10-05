@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Clarity Revamp 5",
+    "slug": "clarity-revamp-5",
+    "version": "0.1.0",
+    "scheme": "clarityrevamp5",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
