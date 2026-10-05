@@ -28,6 +28,7 @@ import { hapticDone, hapticUndone } from "../../../src/lib/haptics";
 import { areaTag } from "../../../src/lib/lifeCenter";
 import { useMovedFrom } from "../../../src/lib/movedFrom";
 import { dueTimeLabel, reminderLabel, REPEAT_LABELS, type TaskChange } from "../../../src/lib/reminderRules";
+import { plainText } from "../../../src/lib/notesList";
 import { linkedNoteIds } from "../../../src/lib/taskLinks";
 import { sortProjects } from "../../../src/lib/taskSort";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
@@ -61,7 +62,7 @@ function stepDate(isoDay: string): string {
 function noteLabel(note: { title: string; preview?: string; content?: string }): string {
   const title = note.title.trim();
   if (title) return title;
-  const text = (note.preview ?? note.content ?? "").replace(/\s+/g, " ").trim();
+  const text = plainText(note.preview ?? note.content ?? "").replace(/\s+/g, " ").trim();
   return text ? text.slice(0, 80) : "Untitled";
 }
 
@@ -608,7 +609,7 @@ export default function TaskScreen() {
                         </Text>
                         {note.title.trim() && note.preview ? (
                           <Text style={styles.notePreview} numberOfLines={2}>
-                            {note.preview}
+                            {plainText(note.preview)}
                           </Text>
                         ) : null}
                       </Pressable>

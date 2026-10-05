@@ -1,13 +1,23 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { kbOf, perfNow, perfRecord } from "./perf";
 
-export type LocalDraft = { title: string; content: string; at: number };
+export type LocalDraft = {
+  title: string;
+  content: string;
+  /** The rich text as the editor keeps it, when there is one. */
+  doc?: unknown;
+  at: number;
+};
 
 const keyFor = (key: string) => `clarity:draft:${key}`;
 
 export const localDrafts = {
   async save(key: string, draft: LocalDraft): Promise<void> {
     try {
-      await AsyncStorage.setItem(keyFor(key), JSON.stringify(draft));
+      const started = perfNow();
+      const text = JSON.stringify(draft);
+      await AsyncStorage.setItem(keyFor(key), text);
+      perfRecord("draft write", perfNow() - started, kbOf(text));
     } catch {
       // Best effort.
     }

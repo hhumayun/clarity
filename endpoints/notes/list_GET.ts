@@ -2,7 +2,7 @@ import superjson from "superjson";
 import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
-import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
+import { NOTE_LIST_COLUMNS } from "../../helpers/NoteRecord";
 import { attachProjectIds } from "../../helpers/noteProjects";
 import { filterNotes, listNotesPage } from "../../helpers/listNotesPage";
 import { schema, type OutputType } from "./list_GET.schema";
@@ -31,7 +31,7 @@ export async function handle(request: Request) {
     // A date range reaches back past that cap, so the journal can show a
     // week from any time, not just recent ones.
     const rows = await filterNotes(
-      db.selectFrom("notes").select([...NOTE_RECORD_COLUMNS]),
+      db.selectFrom("notes").select([...NOTE_LIST_COLUMNS]),
       user.id,
       input,
     )

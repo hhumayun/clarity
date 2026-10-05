@@ -1,0 +1,11 @@
+{
+  "name": "clarity-note-editor-tests",
+  "private": true,
+  "description": "Tests for the app's note editor page, run in desktop Chrome against the dev server. See README.md.",
+  "scripts": {
+    "test": "node note-editor.test.js"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}

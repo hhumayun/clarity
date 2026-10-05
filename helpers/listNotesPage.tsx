@@ -1,6 +1,6 @@
 import { sql, type Kysely, type SelectQueryBuilder } from "kysely";
 import type { DB } from "./schema";
-import { NOTE_RECORD_COLUMNS, type NoteRecord } from "./NoteRecord";
+import { NOTE_LIST_COLUMNS, type NoteListRecord } from "./NoteRecord";
 import { attachProjectIds } from "./noteProjects";
 
 export type NoteFilters = {
@@ -100,11 +100,11 @@ export async function listNotesPage(
   db: Kysely<DB>,
   userId: number,
   input: NoteFilters & { limit: number; cursor?: string },
-): Promise<{ notes: NoteRecord[]; nextCursor: string | null }> {
+): Promise<{ notes: NoteListRecord[]; nextCursor: string | null }> {
   let query = filterNotes(
     db
       .selectFrom("notes")
-      .select([...NOTE_RECORD_COLUMNS])
+      .select([...NOTE_LIST_COLUMNS])
       .select(sql<string>`notes.created_at::text`.as("createdAtText")),
     userId,
     input,

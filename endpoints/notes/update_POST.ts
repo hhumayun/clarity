@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 import superjson from "superjson";
 import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
@@ -21,11 +22,22 @@ export async function handle(request: Request) {
     if (input.title !== undefined) values.title = input.title;
     if (input.content !== undefined) values.content = input.content;
     if (input.archived !== undefined) values.archived = input.archived;
+    // The rich text comes with its Markdown. New words without it (a plain
+    // edit, from the web app) leave the old document behind: it goes.
+    const doc =
+      input.doc !== undefined
+        ? input.doc === null
+          ? null
+          : sql<string>`${JSON.stringify(input.doc)}::jsonb`
+        : input.content !== undefined
+          ? null
+          : undefined;
 
     const row = await db.transaction().execute(async (trx) => {
       const updated = await trx
         .updateTable("notes")
         .set(values)
+        .set(doc === undefined ? {} : { doc })
         .where("id", "=", input.id)
         .where("userId", "=", user.id)
         .returning([...NOTE_RECORD_COLUMNS])

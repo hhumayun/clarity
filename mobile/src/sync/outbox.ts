@@ -16,6 +16,7 @@ export type Op =
         createdAt: Date;
         title: string;
         content: string;
+        doc?: unknown;
         source?: "focus";
         taskId?: string;
         projectIds?: string[];
@@ -23,7 +24,7 @@ export type Op =
     }
   | {
       kind: "note.update";
-      body: { id: string; title?: string; content?: string; archived?: boolean; projectIds?: string[] };
+      body: { id: string; title?: string; content?: string; doc?: unknown; archived?: boolean; projectIds?: string[] };
     }
   | { kind: "note.delete"; body: { id: string } }
   | {
@@ -143,7 +144,7 @@ const isUpdate = (op: Op) => op.kind.endsWith(".update");
 // What each create can carry. An update with only these fields can be folded
 // into its still-unsent create.
 const CREATE_FIELDS: Record<string, Set<string>> = {
-  "note.create": new Set(["title", "content", "projectIds"]),
+  "note.create": new Set(["title", "content", "doc", "projectIds"]),
   "task.create": new Set(["text", "description", "projectId", "completeBy", "dueTime", "remindBefore", "remindRepeat", "status"]),
   "project.create": new Set(["name"]),
 };

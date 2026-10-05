@@ -234,12 +234,8 @@ export default function EditorLabScreen() {
               fontSize={fontSize}
               onMarkdown={async (markdown) => setOutput((current) => ({ ...current, tiptap: markdown }))}
               onState={async (next) => setState(next)}
-              dom={{
-                style: styles.flex,
-                useExpoDOMWebView: false,
-                hideKeyboardAccessoryView: true,
-                keyboardDisplayRequiresUserAction: false,
-              }}
+              // Expo's own web view, which hands over the first props safely.
+              dom={{ style: styles.flex, hideKeyboardAccessoryView: true }}
             />
           )}
         </View>

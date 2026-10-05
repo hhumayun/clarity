@@ -19,6 +19,8 @@ const MONTHS = [
 ];
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const TITLE_MAX = 60;
+// Where escaped Markdown marks wait while the rest is read (Private Use Area).
+const ESCAPED = 0xe000;
 
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -27,6 +29,39 @@ function startOfDay(date: Date): Date {
 /** Whole days from `date` back to `now`: 0 today, 1 yesterday. */
 export function daysAgo(date: Date, now: Date = new Date()): number {
   return Math.round((startOfDay(now).getTime() - startOfDay(date).getTime()) / DAY_MS);
+}
+
+/**
+ * A note's text as plain words, for titles and previews. Notes are written
+ * in Markdown (the rich editor): heading marks, bullets, checkboxes, quote
+ * marks, emphasis and link addresses go, the words stay. Numbered lists
+ * keep their numbers. Only marks that come in pairs or start a line are
+ * taken, so a note written as plain text before reads the same.
+ */
+export function plainText(markdown: string): string {
+  // Escaped marks (\\*) are set aside first, so they are never read as
+  // formatting, and come back as the plain marks at the end.
+  const kept = markdown.replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, (_m, mark: string) =>
+    String.fromCharCode(ESCAPED + mark.charCodeAt(0)),
+  );
+  return kept
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^\s{0,3}#{1,6}\s+/, "")
+        .replace(/^\s*>\s?/, "")
+        .replace(/^(\s*)(?:[-*+]|\d+[.)])\s+\[[ xX]\]\s+/, "$1")
+        .replace(/^(\s*)[-*+]\s+/, "$1"),
+    )
+    .join("\n")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\((?:[^)(]|\([^)]*\))*\)/g, "$1")
+    .replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, "$2")
+    .replace(/~~(?=\S)([\s\S]*?\S)~~/g, "$1")
+    .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, "$1$2")
+    .replace(/(^|\W)_(?=\S)([^_\n]*?\S)_(?!\w)/g, "$1$2")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/[\ue000-\ue0ff]/g, (mark) => String.fromCharCode(mark.charCodeAt(0) - ESCAPED));
 }
 
 /**
@@ -39,10 +74,11 @@ export function displayTitle(note: { title: string; content: string }): {
   derived: boolean;
 } {
   const collapse = (text: string) => text.replace(/\s+/g, " ").trim();
+  const content = plainText(note.content);
   const title = note.title.trim();
-  if (title) return { title, preview: collapse(note.content), derived: false };
+  if (title) return { title, preview: collapse(content), derived: false };
 
-  const lines = note.content.split("\n");
+  const lines = content.split("\n");
   const firstIndex = lines.findIndex((line) => line.trim().length > 0);
   if (firstIndex === -1) return { title: "Untitled note", preview: "", derived: true };
 

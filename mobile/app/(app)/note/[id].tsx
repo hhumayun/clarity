@@ -1,13 +1,41 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { Archive, ArchiveRestore, ChevronLeft, Eye, EyeOff, MoreHorizontal, Plus, RotateCw, Sparkles, Trash2, X } from "lucide-react-native";
+import {
+  Archive,
+  ArchiveRestore,
+  Bold,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  Heading2,
+  Italic,
+  KeyboardOff,
+  Link,
+  List,
+  ListChecks,
+  ListIndentDecrease,
+  ListIndentIncrease,
+  ListOrdered,
+  MoreHorizontal,
+  Plus,
+  Quote,
+  RotateCw,
+  Sparkles,
+  Strikethrough,
+  Trash2,
+  X,
+} from "lucide-react-native";
 import React, {
+  Profiler,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
 import {
+  Alert,
+  AppState,
   Keyboard,
   Pressable,
   ScrollView,
@@ -17,8 +45,12 @@ import {
   View,
 } from "react-native";
 import { GentleKeyboardAvoidingView } from "../../../src/ui/GentleKeyboardAvoidingView";
-import { ClippingScrollView } from "react-native-keyboard-controller";
-import { useCaretFollow } from "../../../src/hooks/useCaretFollow";
+import * as WebBrowser from "expo-web-browser";
+import NoteEditor, {
+  type NoteCursor,
+  type NoteEditorHandle,
+  type NoteEditorState,
+} from "../../../src/editor/NoteEditor";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNote, postSuggestTitle } from "../../../src/api/notes";
 import { onlineManager } from "@tanstack/react-query";
@@ -31,6 +63,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSuggestions } from "../../../src/hooks/useSuggestions";
 import { TASKS_ENABLED } from "../../../src/featureFlags";
 import { localDrafts, type LocalDraft } from "../../../src/lib/localDrafts";
+import { noteDocs } from "../../../src/lib/noteDocs";
+import { kbOf, perfClock, perfCount, perfMark, perfRecord } from "../../../src/lib/perf";
 import { getTasksList } from "../../../src/api/tasks";
 import { wantsTitleIdea, wantsTitleOnLeave } from "../../../src/lib/noteTitle";
 import { useAppTheme } from "../../../src/providers/AppThemeProvider";
@@ -58,9 +92,18 @@ import { Segmented } from "../../../src/ui/Segmented";
 type SaveStatus = "idle" | "saving" | "saved" | "offline";
 
 const SERVER_SAVE_DELAY_MS = 900;
+// The area and the Note/Tasks switch come back once writing has stopped for
+// this long (see `writing`), and for longer just after coming back to the
+// app, while the keyboard returns.
+const WRITING_SETTLE_MS = 300;
+const RETURN_SETTLE_MS = 1_000;
+// A save still under way after this long is shown ("Saving…"); quicker ones,
+// the usual, go unsaid.
+const SLOW_SAVE_MS = 2_000;
+// The draft on the phone is the whole note: written at most this often while
+// writing, and at once when the app goes to the background.
+const DRAFT_WRITE_MS = 1_000;
 const REINDEX_DELAY_MS = 4_000;
-// Roughly four lines: below this the note stops feeling like somewhere to write.
-const MIN_BODY_HEIGHT = 120;
 // The note's line height, before the text size setting scales it.
 const BODY_LINE_HEIGHT = 28;
 // An untitled note's title idea waits for a pause in the writing, so it comes
@@ -94,10 +137,6 @@ export default function NoteEditorScreen() {
   useEffect(() => {
     reveal.value = loaded ? withTiming(1, { duration: MOTION.slow, easing: EASE_OUT }) : 0;
   }, [loaded, reveal]);
-  const revealStyle = useAnimatedStyle(() => ({
-    opacity: reveal.value,
-    transform: [{ translateY: (1 - reveal.value) * 8 }],
-  }));
   const titleRevealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const [status, setStatus] = useState<SaveStatus>("idle");
   // Archive and delete live here now that the notes list has no "…" menu.
@@ -117,18 +156,72 @@ export default function NoteEditorScreen() {
   const [areasOpen, setAreasOpen] = useState(false);
   const { query: tasksQuery, createProject } = useTasks(undefined, TASKS_ENABLED);
   const allProjects = tasksQuery.data?.projects ?? [];
-  const [cursorPos, setCursorPos] = useState(0);
+  // The words either side of the cursor, as the editor last reported them.
+  const [cursor, setCursor] = useState<NoteCursor>({ before: "", after: "" });
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
   const [editorTab, setEditorTab] = useState<"note" | "tasks">("note");
   // The suggestion tray, in the keyboard's place. Closing it with the
   // keyboard coming back lets the two swap without the note moving.
   const [trayOpen, setTrayOpen] = useState(false);
   const [trayKeyboardComing, setTrayKeyboardComing] = useState(false);
-  const bodyRef = useRef<TextInput>(null);
+  const editorRef = useRef<NoteEditorHandle>(null);
+  // The formats at the cursor, whether the text has the keyboard, and
+  // whether the editor (a web view) has drawn the note yet.
+  const [editorState, setEditorState] = useState<NoteEditorState | null>(null);
+  const editorStateRef = useRef(editorState);
+  editorStateRef.current = editorState;
+  const [editorFocused, setEditorFocused] = useState(false);
+  const [editorReady, setEditorReady] = useState(false);
+  // Writing: the keyboard is up for the note or its title, or the suggestion
+  // tray has its place. The area and the Note/Tasks switch then fold away,
+  // giving the note their room. They come back once writing has stopped for
+  // a moment: handing over between the tray and the keyboard drops focus
+  // briefly, and they would flicker in and out.
+  const [titleFocused, setTitleFocused] = useState(false);
+  const writingNow = editorTab === "note" && (editorFocused || titleFocused || trayOpen);
+  const [writing, setWriting] = useState(false);
+  // Leaving the app takes the keyboard with it, and coming back brings it
+  // back: the header stays as it was meanwhile, rather than unfolding and
+  // folding again.
+  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  const activeSinceRef = useRef(0);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") activeSinceRef.current = Date.now();
+      setAppActive(state === "active");
+    });
+    return () => subscription.remove();
+  }, []);
+  useEffect(() => {
+    if (writingNow) {
+      setWriting(true);
+      return;
+    }
+    if (!appActive) return;
+    const justBack = Date.now() - activeSinceRef.current < RETURN_SETTLE_MS;
+    const timer = setTimeout(() => setWriting(false), justBack ? RETURN_SETTLE_MS : WRITING_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [writingNow, appActive]);
+  // The note's words fade in and rise a little once the editor has them.
+  const bodyReveal = useSharedValue(0);
+  useEffect(() => {
+    bodyReveal.value = loaded && editorReady ? withTiming(1, { duration: MOTION.slow, easing: EASE_OUT }) : 0;
+  }, [loaded, editorReady, bodyReveal]);
+  const bodyRevealStyle = useAnimatedStyle(() => ({
+    opacity: bodyReveal.value,
+    transform: [{ translateY: (1 - bodyReveal.value) * 8 }],
+  }));
+  // What the editor starts from, and any new copy of the note from outside
+  // (the server's newer one): the editor takes the text in when `key` changes.
+  const [seedDoc, setSeedDoc] = useState<{ key: number; text: string; doc: unknown }>({ key: 0, text: "", doc: null });
+  // The rich text as the editor last reported it (its Markdown is `content`),
+  // and a count of its changes, which saving follows along with the words.
+  const docRef = useRef<unknown>(null);
+  const [docChanges, setDocChanges] = useState(0);
   const titleInputRef = useRef<TextInput>(null);
   // Where the writer was typing, so Keyboard takes them back there.
   const lastFieldRef = useRef<"title" | "body">("body");
-  const [pendingSelection, setPendingSelection] = useState<number | null>(null);
-  const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
 
   const contentRef = useRef(content);
   contentRef.current = content;
@@ -156,7 +249,17 @@ export default function NoteEditorScreen() {
   // whose text changed, so just opening and closing one never edits it.
   const baselineContentRef = useRef<string | null>(null);
   // The title and text as last saved (or loaded) from the server.
-  const lastSavedRef = useRef<{ title: string; content: string } | null>(null);
+  const lastSavedRef = useRef<{ title: string; content: string; doc: string } | null>(null);
+  // Words (or a title) changed since the last save: only then is a draft
+  // worth writing.
+  const unsavedRef = useRef(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Saved: nothing unsaved, and no draft write still to come.
+  const cancelDraft = () => {
+    unsavedRef.current = false;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = null;
+  };
   const aiSuggestionsRef = useRef(aiSuggestions);
   aiSuggestionsRef.current = aiSuggestions;
 
@@ -200,7 +303,8 @@ export default function NoteEditorScreen() {
       setTitle(draft?.title ?? "");
       setContent(draft?.content ?? "");
       baselineContentRef.current = draft?.content ?? "";
-      setCursorPos(draft?.content.length ?? 0);
+      docRef.current = draft?.doc ?? null;
+      setSeedDoc((prev) => ({ key: prev.key + 1, text: draft?.content ?? "", doc: docRef.current }));
       setStatus("idle");
       loadedKeyRef.current = draftKey;
       setLoaded(true);
@@ -221,16 +325,19 @@ export default function NoteEditorScreen() {
         setTitle(draft.title);
         setContent(draft.content);
         baselineContentRef.current = draft.content;
-        setCursorPos(draft.content.length);
+        docRef.current = draft.doc ?? null;
+        setSeedDoc((prev) => ({ key: prev.key + 1, text: draft.content, doc: docRef.current }));
         setStatus("saving");
+        unsavedRef.current = true;
       } else {
         setTitle(note.title);
         setContent(note.content);
         baselineContentRef.current = note.content;
-        setCursorPos(note.content.length);
+        docRef.current = note.doc ?? null;
+        setSeedDoc((prev) => ({ key: prev.key + 1, text: note.content, doc: docRef.current }));
         setStatus("saved");
       }
-      lastSavedRef.current = { title: note.title, content: note.content };
+      lastSavedRef.current = { title: note.title, content: note.content, doc: JSON.stringify(note.doc ?? null) };
       setNoteId(note.id);
       noteIdRef.current = note.id;
       setArchived(note.archived);
@@ -241,18 +348,24 @@ export default function NoteEditorScreen() {
     };
 
     void (async () => {
-      // Opened from a list: it already holds the whole note, so show that at
-      // once and check with the server behind it.
-      const cached = findCachedNote(queryClient, routeId as string);
+      // Opened from a list: it already holds the note's words, so show them
+      // at once and check with the server behind it. The rich text is not in
+      // the lists; the phone keeps it for notes opened before (noteDocs).
+      const listed = findCachedNote(queryClient, routeId as string);
+      let cached: NoteRecord | null = null;
       let openedFromDraft = false;
-      if (cached) {
-        const draft = await localDrafts.load(draftKey);
+      if (listed) {
+        const [draft, doc] = await Promise.all([localDrafts.load(draftKey), noteDocs.load(listed.id, listed.content)]);
         if (cancelled) return;
+        cached = { ...listed, doc };
         openedFromDraft = applyNote(cached, draft);
       }
       try {
         const { note } = await getNote({ id: routeId as string });
         if (cancelled) return;
+        // Kept for next time, offline too.
+        if (note.doc) void noteDocs.save(note.id, note.doc, note.content);
+        else void noteDocs.remove(note.id);
         if (cached) {
           // Only a newer copy matters, and only while the writer has not
           // started; their words are never swapped out under them.
@@ -262,7 +375,12 @@ export default function NoteEditorScreen() {
             contentRef.current === baselineContentRef.current && !titleTouchedRef.current;
           // Changes made here and still on their way are newer than the server's copy.
           const waiting = outbox.isPending(`note:${note.id}`);
-          if (!openedFromDraft && !waiting && untouched && note.updatedAt.getTime() > cached.updatedAt.getTime()) {
+          // Newer, or the same words with the rich text the phone did not
+          // have (a note never opened here before).
+          const better =
+            note.updatedAt.getTime() > cached.updatedAt.getTime() ||
+            (cached.doc == null && note.doc != null && note.content === cached.content);
+          if (!openedFromDraft && !waiting && untouched && better) {
             applyNote(note, null);
           }
           return;
@@ -279,7 +397,8 @@ export default function NoteEditorScreen() {
           setTitle(draft.title);
           setContent(draft.content);
           baselineContentRef.current = draft.content;
-          setCursorPos(draft.content.length);
+          docRef.current = draft.doc ?? null;
+          setSeedDoc((prev) => ({ key: prev.key + 1, text: draft.content, doc: docRef.current }));
           setStatus("offline");
           loadedKeyRef.current = draftKey;
           setLoaded(true);
@@ -311,8 +430,11 @@ export default function NoteEditorScreen() {
       // Nothing changed since it was last saved (or loaded): saving again
       // would only mark the note edited. Opening and closing it never does.
       const saved = lastSavedRef.current;
-      if (noteIdRef.current && saved && saved.title === nextTitle && saved.content === nextContent) {
+      const doc = docRef.current ?? undefined;
+      const docText = JSON.stringify(doc ?? null);
+      if (noteIdRef.current && saved && saved.title === nextTitle && saved.content === nextContent && saved.doc === docText) {
         setStatus("saved");
+        cancelDraft();
         void localDrafts.clear(draftKey);
         return;
       }
@@ -328,6 +450,7 @@ export default function NoteEditorScreen() {
             createdAt: now,
             title: nextTitle,
             content: nextContent,
+            ...(doc ? { doc } : {}),
             ...(tagIdsRef.current.length ? { projectIds: tagIdsRef.current } : {}),
           },
         });
@@ -342,6 +465,7 @@ export default function NoteEditorScreen() {
           id,
           title: nextTitle,
           content: nextContent,
+          doc: doc ?? null,
           archived: false,
           source: null,
           createdAt: now,
@@ -350,25 +474,65 @@ export default function NoteEditorScreen() {
         });
       } else {
         const id = noteIdRef.current;
-        outbox.enqueue({ kind: "note.update", body: { id, title: nextTitle, content: nextContent } });
+        // The rich text goes with its Markdown, or the server takes the
+        // words as a plain edit and drops the rich text.
+        outbox.enqueue({ kind: "note.update", body: { id, title: nextTitle, content: nextContent, ...(doc ? { doc } : {}) } });
         const current = findCachedNote(queryClient, id);
-        if (current) upsertNoteInLists(queryClient, { ...current, title: nextTitle, content: nextContent, updatedAt: now });
+        if (current) upsertNoteInLists(queryClient, { ...current, title: nextTitle, content: nextContent, doc: doc ?? null, updatedAt: now });
       }
-      lastSavedRef.current = { title: nextTitle, content: nextContent };
+      lastSavedRef.current = { title: nextTitle, content: nextContent, doc: docText };
+      // The rich text, for opening the note again (offline too).
+      const savedId = noteIdRef.current;
+      if (savedId && doc) void noteDocs.save(savedId, doc, nextContent);
       setStatus("saved");
+      cancelDraft();
       await localDrafts.clear(draftKey);
     },
+    // cancelDraft only touches refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [draftKey, newId, queryClient],
   );
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+
+  /** The draft, now: only if something is unsaved. */
+  const writeDraftNow = useCallback(() => {
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = null;
+    if (!unsavedRef.current || loadedKeyRef.current !== draftKey) return;
+    void localDrafts.save(draftKey, {
+      title: titleRef.current,
+      content: contentRef.current,
+      doc: docRef.current ?? undefined,
+      at: Date.now(),
+    });
+  }, [draftKey]);
+  const writeDraftRef = useRef(writeDraftNow);
+  writeDraftRef.current = writeDraftNow;
 
   useEffect(() => {
     if (!loaded || loadedKeyRef.current !== draftKey) return;
-    void localDrafts.save(draftKey, { title, content, at: Date.now() });
+    // The draft: at most once a second (DRAFT_WRITE_MS), not on every change.
+    if (unsavedRef.current && !draftTimerRef.current) {
+      draftTimerRef.current = setTimeout(() => writeDraftRef.current(), DRAFT_WRITE_MS);
+    }
     const timer = setTimeout(() => {
       void persist(title, content);
     }, SERVER_SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [title, content, loaded, draftKey, persist]);
+    // docChanges: a change only to the rich text (an indent) is saved too.
+  }, [title, content, docChanges, loaded, draftKey, persist]);
+
+  // Going to the background: the editor sends what it has not yet, and the
+  // draft is written at once, in case the app is closed from there.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") return;
+      editorRef.current?.run("flush");
+      writeDraftRef.current();
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!loaded || !noteId) return;
@@ -389,32 +553,53 @@ export default function NoteEditorScreen() {
     });
   }, [noteId, queryClient]);
 
-  // The room made for the keyboard, shared so the page can keep the cursor in
-  // view while it gets shorter.
-  const keyboardRoom = useSharedValue(0);
-  const follow = useCaretFollow({
-    textRef: bodyRef,
-    textLength: () => contentRef.current.length,
-    lineHeight: BODY_LINE_HEIGHT * scale,
-    keyboardRoom,
-  });
-  // Off the Note tab the text is gone, and with it any focus to follow.
-  const { onTextBlur, onSelectionEnd, onCaretToEnd } = follow;
-  useEffect(() => {
-    if (editorTab !== "note") onTextBlur();
-  }, [editorTab, onTextBlur]);
-
-  // A tap under the text writes on from its end, as in Notes. It used to land
-  // on the page, which takes a tap outside the text as the sign to put the
-  // keyboard away.
-  const writeAtEnd = useCallback(() => {
-    const end = contentRef.current.length;
-    onCaretToEnd();
-    bodyRef.current?.focus();
-    bodyRef.current?.setSelection(end, end);
-  }, [onCaretToEnd]);
-
-  const textBeforeCursor = useMemo(() => content.slice(0, cursorPos), [content, cursorPos]);
+  const textBeforeCursor = cursor.before;
+  const editorPalette = useMemo(
+    () => ({
+      text: colors.foreground,
+      muted: colors.mutedForeground,
+      accent: colors.primary,
+      border: colors.border,
+      surface: colors.muted,
+    }),
+    [colors],
+  );
+  // The web view: no bar of its own above the keyboard, and the keyboard may
+  // come up when the app puts the cursor in the text (after a suggestion).
+  const editorDom = useMemo(
+    () => ({
+      style: { flex: 1, backgroundColor: "transparent" },
+      useExpoDOMWebView: false,
+      hideKeyboardAccessoryView: true,
+      keyboardDisplayRequiresUserAction: false,
+      contentInsetAdjustmentBehavior: "never" as const,
+      automaticallyAdjustContentInsets: false,
+    }),
+    [],
+  );
+  const onEditorChange = useCallback(async (markdown: string, doc: unknown, sentAt?: number) => {
+    if (typeof sentAt === "number") perfRecord("change: editor → app", perfClock() - sentAt, kbOf(markdown));
+    docRef.current = doc;
+    unsavedRef.current = true;
+    setDocChanges((count) => count + 1);
+    contentRef.current = markdown;
+    setContent(markdown);
+    // The last words, sent as the note was left: saved straight away, as
+    // leaving would have (the page is going, and with it the save timer).
+    if (leftRef.current) void persistRef.current(titleRef.current, markdown);
+    // Sent as the app went to the background: the draft now.
+    else if (AppState.currentState !== "active") writeDraftRef.current();
+  }, []);
+  const onEditorCursor = useCallback(async (next: NoteCursor) => setCursor(next), []);
+  const onEditorState = useCallback(async (next: NoteEditorState, sentAt?: number) => {
+    if (typeof sentAt === "number") perfRecord("formats: editor → app", perfClock() - sentAt);
+    setEditorState(next);
+  }, []);
+  const onEditorFocus = useCallback(async (focused: boolean) => {
+    setEditorFocused(focused);
+    if (focused) lastFieldRef.current = "body";
+  }, []);
+  const onEditorReady = useCallback(async () => setEditorReady(true), []);
   const {
     suggestions,
     completionSuggestions,
@@ -439,77 +624,46 @@ export default function NoteEditorScreen() {
     });
   }, [refresh, toast]);
 
-  useEffect(() => {
-    if (pendingSelection === null) return;
-    setSelection({ start: pendingSelection, end: pendingSelection });
-    setCursorPos(pendingSelection);
-    const timer = setTimeout(() => {
-      setSelection(undefined);
-      setPendingSelection(null);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [pendingSelection]);
-
+  // A suggestion goes in at the cursor, cased and spaced for where it lands.
   const insertSuggestion = useCallback(
     (suggestion: BubbleSuggestion) => {
-      const current = contentRef.current;
-      const start = cursorPos;
-      let before = current.slice(0, start);
-      const after = current.slice(start);
+      const { before, after } = cursorRef.current;
       const trimmedBefore = before.trimEnd();
+      // At the start of the note or of a line, a new sentence starts.
+      const lineStart = trimmedBefore.length === 0 || /\n\s*$/.test(before);
       const midClause = /[,;:({["'‘“–—-]$/.test(trimmedBefore);
 
       let text = suggestion.text;
+      let endSentence = false;
       if (isCompletionSuggestion(suggestion)) {
         // Finishes the sentence it follows: the model's own casing, unless
         // there is no sentence left to finish.
-        if (shouldCapitalize(before)) text = text.charAt(0).toUpperCase() + text.slice(1);
-      } else if (shouldCapitalize(before)) {
+        if (lineStart || shouldCapitalize(before)) text = text.charAt(0).toUpperCase() + text.slice(1);
+      } else if (lineStart || shouldCapitalize(before)) {
         text = text.charAt(0).toUpperCase() + text.slice(1);
       } else if (midClause) {
         text = text.charAt(0).toLowerCase() + text.slice(1);
       } else {
-        before = trimmedBefore + ".";
+        // The sentence before it ends first.
+        endSentence = true;
         text = text.charAt(0).toUpperCase() + text.slice(1);
       }
 
-      const needsSpaceBefore =
-        before.length > 0 && !/\s$/.test(before) && !/^[,.!?;:'")]/.test(text);
+      const lead = endSentence ? `${trimmedBefore}.` : before;
+      const needsSpaceBefore = !lineStart && lead.length > 0 && !/\s$/.test(lead) && !/^[,.!?;:'")]/.test(text);
       const needsSpaceAfter = after.length === 0 || !/^\s/.test(after);
-      const inserted = (needsSpaceBefore ? " " : "") + text + (needsSpaceAfter ? " " : "");
-
-      const next = before + inserted + after;
-      const caret = before.length + inserted.length;
-      contentRef.current = next;
-      setContent(next);
-      setPendingSelection(caret);
-      // Set from here, the cursor is never reported: the page follows it
-      // if the text grows with it at the end.
-      onSelectionEnd(caret);
+      const inserted = (endSentence ? "." : "") + (needsSpaceBefore ? " " : "") + text + (needsSpaceAfter ? " " : "");
+      editorRef.current?.run("insertText", JSON.stringify({ text: inserted, trimBefore: endSentence }));
       accept(suggestion);
-      return caret;
     },
-    [accept, cursorPos, onSelectionEnd],
+    [accept],
   );
 
   // A question goes in as its own line where the cursor is, with the cursor
   // on the line below it, ready for the answer.
-  const insertQuestion = useCallback(
-    (question: string) => {
-      const current = contentRef.current;
-      const before = current.slice(0, cursorPos).replace(/\s+$/, "");
-      const after = current.slice(cursorPos).replace(/^\s+/, "");
-      const block = (before ? "\n\n" : "") + question + "\n";
-      const next = before + block + (after ? "\n" + after : "");
-      const caret = before.length + block.length;
-      contentRef.current = next;
-      setContent(next);
-      setPendingSelection(caret);
-      onSelectionEnd(caret);
-      return caret;
-    },
-    [cursorPos, onSelectionEnd],
-  );
+  const insertQuestion = useCallback((question: string) => {
+    editorRef.current?.run("insertQuestion", question);
+  }, []);
 
   const openTray = useCallback(() => {
     if (!onlineManager.isOnline()) {
@@ -525,23 +679,29 @@ export default function NoteEditorScreen() {
     });
   }, [refreshIfStale, toast]);
 
+  // The tray takes the keyboard's place: a tap in the note then only moves
+  // the cursor.
+  useEffect(() => {
+    editorRef.current?.run("tray", trayOpen ? "on" : "off");
+  }, [trayOpen]);
+
   /**
    * Back to typing, only ever from Keyboard or an added suggestion: the
-   * keyboard comes up as the tray goes down. With a caret position (after an
-   * added suggestion) the cursor lands in the note there; otherwise the
-   * writer goes back to the field they were in.
+   * keyboard comes up as the tray goes down. After an added suggestion the
+   * writer goes back to the note, where it went in; otherwise to the field
+   * they were in.
    */
-  const backToKeyboard = useCallback((caret?: number) => {
+  const backToKeyboard = useCallback((toNote = false) => {
     setTrayKeyboardComing(true);
     setTrayOpen(false);
-    const field = caret !== undefined || lastFieldRef.current === "body" ? bodyRef : titleInputRef;
+    if (toNote || lastFieldRef.current === "body") {
+      editorRef.current?.run("keyboard");
+      return;
+    }
     // A field tapped while the tray was open is focused with no keyboard;
     // it has to let go and take focus again for the keyboard to come.
-    field.current?.blur();
-    setTimeout(() => {
-      field.current?.focus();
-      if (caret !== undefined) field.current?.setSelection(caret, caret);
-    }, 60);
+    titleInputRef.current?.blur();
+    setTimeout(() => titleInputRef.current?.focus(), 60);
   }, []);
 
   // With the tray open, a tap in the note only moves the cursor (no
@@ -550,7 +710,7 @@ export default function NoteEditorScreen() {
     if (!trayOpen) return;
     const timer = setTimeout(() => void refreshIfStale(), CURSOR_REFRESH_MS);
     return () => clearTimeout(timer);
-  }, [trayOpen, cursorPos, refreshIfStale]);
+  }, [trayOpen, cursor, refreshIfStale]);
 
   // Nothing to show it for: the Tasks tab, or suggestions turned off.
   useEffect(() => {
@@ -592,6 +752,9 @@ export default function NoteEditorScreen() {
   const leave = useCallback(() => {
     if (leftRef.current) return;
     leftRef.current = true;
+    // Words typed in the last moment may still be in the editor: it sends
+    // them now, and they are saved as they arrive (onEditorChange).
+    editorRef.current?.run("flush");
     // Deleted, or never finished loading: nothing to save.
     if (loadedKeyRef.current === null) return;
     const content = contentRef.current;
@@ -644,26 +807,95 @@ export default function NoteEditorScreen() {
   // is back online.
   const pendingHere = useIsPending(noteId ? `note:${noteId}` : null);
   const online = useOnline();
+  // Only what is worth knowing: words kept on this phone until it is back
+  // online, or a save taking a while. Saved is the normal state, and quick
+  // saves (most) go unsaid.
+  const savingNow = status !== "idle" && (pendingHere ? online : status === "saving");
+  const [slowSave, setSlowSave] = useState(false);
+  useEffect(() => {
+    if (!savingNow) {
+      setSlowSave(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowSave(true), SLOW_SAVE_MS);
+    return () => clearTimeout(timer);
+  }, [savingNow]);
   const statusLabel =
-    status === "idle"
-      ? ""
-      : pendingHere
-        ? online
-          ? "Saving…"
-          : "Saved on this device"
-        : status === "saving"
-          ? "Saving…"
-          : status === "offline"
-            ? "Saved on this device"
-            : "Saved";
+    status !== "idle" && ((pendingHere && !online) || (!pendingHere && status === "offline"))
+      ? "Saved on this device"
+      : savingNow && slowSave
+        ? "Saving…"
+        : "";
+
+  // Links: a web address as typed or pasted, opened in the in-app browser.
+  const withProtocol = (url: string) => (/^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`);
+  const askForLink = (current: string) =>
+    Alert.prompt(
+      "Link",
+      "Type or paste a web address.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: (value?: string) => {
+            const url = (value ?? "").trim();
+            if (url) editorRef.current?.run("link", withProtocol(url));
+          },
+        },
+      ],
+      "plain-text",
+      current || "https://",
+      "url",
+    );
+  // In a link: open it, change it or take it off. Elsewhere: link the words
+  // chosen, or put a new link at the cursor.
+  const onLinkTool = () => {
+    const href = editorStateRef.current?.link;
+    if (href == null) {
+      askForLink("");
+      return;
+    }
+    Alert.alert(href || "Link", undefined, [
+      { text: "Open", onPress: () => void WebBrowser.openBrowserAsync(withProtocol(href)) },
+      { text: "Change", onPress: () => askForLink(href) },
+      { text: "Remove", style: "destructive", onPress: () => editorRef.current?.run("link", "") },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+  // The tap's time goes along, so the editor can say how long it took to
+  // arrive and to be on screen (the timing log).
+  const format = (name: string) => () => {
+    perfMark(`toolbar: ${name} tapped`);
+    editorRef.current?.run(name, null, perfClock());
+  };
+  const formatTools = [
+    { key: "task", Icon: ListChecks, label: "Checklist", active: Boolean(editorState?.task), onPress: format("task") },
+    { key: "bullet", Icon: List, label: "Bulleted list", active: Boolean(editorState?.bullet), onPress: format("bullet") },
+    { key: "ordered", Icon: ListOrdered, label: "Numbered list", active: Boolean(editorState?.ordered), onPress: format("ordered") },
+    { key: "indent", Icon: ListIndentIncrease, label: "Indent", active: false, onPress: format("indent") },
+    { key: "outdent", Icon: ListIndentDecrease, label: "Outdent", active: false, onPress: format("outdent") },
+    { key: "bold", Icon: Bold, label: "Bold", active: Boolean(editorState?.bold), onPress: format("bold") },
+    { key: "italic", Icon: Italic, label: "Italic", active: Boolean(editorState?.italic), onPress: format("italic") },
+    { key: "strike", Icon: Strikethrough, label: "Strikethrough", active: Boolean(editorState?.strike), onPress: format("strike") },
+    { key: "heading", Icon: Heading2, label: "Heading", active: Boolean(editorState?.heading), onPress: format("heading") },
+    { key: "quote", Icon: Quote, label: "Quote", active: Boolean(editorState?.quote), onPress: format("quote") },
+    {
+      key: "link",
+      Icon: Link,
+      label: editorState?.link != null ? "Link: open, change or remove" : "Add a link",
+      active: editorState?.link != null,
+      onPress: onLinkTool,
+    },
+  ];
 
   return (
+    <Profiler id="note" onRender={recordNoteRender}>
     <SafeAreaView style={styles.page} edges={["top"]}>
       {/* Makes room for the keyboard on the UI thread, gliding a little
           slower than the keyboard itself. React Native's own avoiding view
           drove this with LayoutAnimation, which under the new renderer ran
           out of step with the keyboard and lurched. */}
-      <GentleKeyboardAvoidingView style={styles.flex} room={keyboardRoom}>
+      <GentleKeyboardAvoidingView style={styles.flex}>
         <View style={styles.header}>
           <Button variant="ghost" size="icon" accessibilityLabel="Back to your notes" onPress={goBack}>
             <ChevronLeft size={26} color={colors.foreground} />
@@ -674,13 +906,16 @@ export default function NoteEditorScreen() {
               value={title}
               onChangeText={(value) => {
                 titleTouchedRef.current = true;
+                unsavedRef.current = true;
                 setTitle(value);
               }}
               ref={titleInputRef}
               editable={loaded}
               onFocus={() => {
                 lastFieldRef.current = "title";
+                setTitleFocused(true);
               }}
+              onBlur={() => setTitleFocused(false)}
               showSoftInputOnFocus={!trayOpen}
               placeholder={loaded ? "Untitled" : ""}
               placeholderTextColor={colors.mutedForeground}
@@ -690,10 +925,14 @@ export default function NoteEditorScreen() {
               returnKeyType="done"
             />
             </Animated.View>
-            {/* Reserved height even when blank, so the header never shifts. */}
-            <Text style={styles.status} numberOfLines={1}>
-              {statusLabel}
-            </Text>
+            {/* Under the title only when there is something to say, and
+                taking no room of its own: the title and the note never
+                move for it. */}
+            {statusLabel ? (
+              <Text style={styles.status} numberOfLines={1}>
+                {statusLabel}
+              </Text>
+            ) : null}
           </View>
           {noteId ? (
             <Button
@@ -739,141 +978,112 @@ export default function NoteEditorScreen() {
           </View>
         </Collapse>
 
-        {TASKS_ENABLED && loaded ? (
-          <View style={styles.areaRow}>
-            {tagIds
-              .map((id) => allProjects.find((project) => project.id === id))
-              .filter((project): project is NonNullable<typeof project> => Boolean(project))
-              .map((project) => (
-                <Animated.View key={project.id} entering={fadeInFast} exiting={fadeOut} layout={layoutTransition}>
+        {TASKS_ENABLED ? (
+          // While writing, the area and the Note/Tasks switch fold away
+          // (see `writing`): the note gets their room. Not on opening.
+          <Collapse open={!writing} appear={false}>
+            <View>
+              {loaded ? (
+                <View style={styles.areaRow}>
+                  {tagIds
+                    .map((id) => allProjects.find((project) => project.id === id))
+                    .filter((project): project is NonNullable<typeof project> => Boolean(project))
+                    .map((project) => (
+                      <Animated.View key={project.id} entering={fadeInFast} exiting={fadeOut} layout={layoutTransition}>
+                        <Pressable
+                          onPress={() => setAreasOpen(true)}
+                          style={styles.areaChip}
+                          accessibilityLabel={`Area: ${project.name}. Change areas`}
+                        >
+                          <Text style={styles.areaChipText}>{areaTag(project.name)}</Text>
+                        </Pressable>
+                      </Animated.View>
+                    ))}
+                  <Animated.View layout={layoutTransition}>
                   <Pressable
                     onPress={() => setAreasOpen(true)}
-                    style={styles.areaChip}
-                    accessibilityLabel={`Area: ${project.name}. Change areas`}
+                    style={[styles.areaChip, styles.areaChipAdd]}
+                    accessibilityLabel={tagIds.length ? "Change areas" : "Tag this note with an area"}
                   >
-                    <Text style={styles.areaChipText}>{areaTag(project.name)}</Text>
+                    <Plus size={14} color={colors.mutedForeground} />
+                    {tagIds.length === 0 ? <Text style={styles.areaChipMuted}>Area</Text> : null}
                   </Pressable>
-                </Animated.View>
-              ))}
-            <Animated.View layout={layoutTransition}>
-            <Pressable
-              onPress={() => setAreasOpen(true)}
-              style={[styles.areaChip, styles.areaChipAdd]}
-              accessibilityLabel={tagIds.length ? "Change areas" : "Tag this note with an area"}
-            >
-              <Plus size={14} color={colors.mutedForeground} />
-              {tagIds.length === 0 ? <Text style={styles.areaChipMuted}>Area</Text> : null}
-            </Pressable>
-            </Animated.View>
-          </View>
-        ) : null}
+                  </Animated.View>
+                </View>
+              ) : null}
 
-        {TASKS_ENABLED ? (
-        <View style={styles.tabs}>
-        <Segmented
-          size="sm"
-          accessibilityLabel="Note sections"
-          value={editorTab}
-          onChange={(value) => {
-            if (value === "tasks") {
-              // Saving puts the note in the outbox under its own id, so its
-              // tasks can open at once, online or not.
-              void persist(titleRef.current, contentRef.current);
-              if (noteIdRef.current) setEditorTab("tasks");
-              else toast.show("Write something in the note first; its tasks are kept with it.");
-            } else {
-              setEditorTab("note");
-            }
-          }}
-          options={[
-            { label: "Note", value: "note" },
-            { label: "Tasks", value: "tasks" },
-          ]}
-        />
-        </View>
+              <View style={styles.tabs}>
+              <Segmented
+                size="sm"
+                accessibilityLabel="Note sections"
+                value={editorTab}
+                onChange={(value) => {
+                  if (value === "tasks") {
+                    // Saving puts the note in the outbox under its own id, so its
+                    // tasks can open at once, online or not. Words still in the
+                    // editor come over first, and are saved as they arrive.
+                    editorRef.current?.run("flush");
+                    void persist(titleRef.current, contentRef.current);
+                    if (noteIdRef.current) {
+                      setEditorFocused(false);
+                      setEditorTab("tasks");
+                    }
+                    else toast.show("Write something in the note first; its tasks are kept with it.");
+                  } else {
+                    // The editor starts again from the note as it now stands.
+                    setEditorReady(false);
+                    setSeedDoc((prev) => ({ key: prev.key + 1, text: contentRef.current, doc: docRef.current }));
+                    setEditorTab("note");
+                  }
+                }}
+                options={[
+                  { label: "Note", value: "note" },
+                  { label: "Tasks", value: "tasks" },
+                ]}
+              />
+              </View>
+            </View>
+          </Collapse>
         ) : null}
 
         {/* Note and Tasks cross-fade rather than cut. */}
         <FadeSwitch switchKey={editorTab} style={styles.flex}>
         {!TASKS_ENABLED || editorTab === "note" ? (
           <View style={styles.flex}>
-            {/* iOS's own scrolling of this page is switched off: it scrolled
-                the page to the top of the note when a line wrapped at the
-                end (see the text below). The page follows the cursor itself
-                (useCaretFollow). ClippingScrollView is keyboard-controller's
-                piece for this, the one its KeyboardAwareScrollView sits on;
-                that whole component would make room for the keyboard a
-                second time, on top of the page's own. */}
-            <ClippingScrollView style={styles.flex}>
-            <Animated.ScrollView
-              ref={follow.pageRef}
-              style={styles.flex}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.notePage}
-              scrollEventThrottle={16}
-            >
-              {!loaded ? (
+            {/* The note's text, rich: Tiptap in a web view (NoteEditor),
+                writing Markdown. It scrolls itself and keeps the cursor in
+                view as the keyboard comes and goes. Until it has drawn the
+                note, a skeleton holds its place. */}
+            <View style={styles.flex}>
+              {loaded ? (
+                <Animated.View style={[styles.flex, bodyRevealStyle]}>
+                  <BootedNoteEditor
+                    ref={editorRef}
+                    markdown={seedDoc.text}
+                    doc={seedDoc.doc}
+                    seed={String(seedDoc.key)}
+                    placeholder="Start writing…"
+                    autoFocus={isNew}
+                    palette={editorPalette}
+                    fontSize={textSize.large * scale}
+                    lineHeight={BODY_LINE_HEIGHT * scale}
+                    onChange={onEditorChange}
+                    onCursor={onEditorCursor}
+                    onState={onEditorState}
+                    onFocusChange={onEditorFocus}
+                    onReady={onEditorReady}
+                    dom={editorDom}
+                  />
+                </Animated.View>
+              ) : null}
+              {!loaded || !editorReady ? (
                 <Animated.View style={styles.bodySkeleton} exiting={FadeOut.duration(MOTION.fast)}>
                   <Skeleton style={styles.skeletonLine} />
                   <Skeleton style={styles.skeletonLine} />
                   <Skeleton style={styles.skeletonLineShort} />
                 </Animated.View>
-              ) : (
-                <Animated.View style={revealStyle} onLayout={follow.onTextFrameLayout}>
-              <TextInput
-                ref={bodyRef}
-                multiline
-                autoFocus={isNew}
-                onFocus={() => {
-                  lastFieldRef.current = "body";
-                  follow.onTextFocus();
-                }}
-                onBlur={follow.onTextBlur}
-                onPressIn={(event) => follow.onTextPressIn(event.nativeEvent.locationY)}
-                onLayout={follow.onTextLayout}
-                // With the tray open a tap places the cursor and nothing
-                // more; only Keyboard brings the keyboard back.
-                showSoftInputOnFocus={!trayOpen}
-                value={content}
-                onChangeText={(value) => setContent(value)}
-                onSelectionChange={(event) => {
-                  follow.onSelectionEnd(event.nativeEvent.selection.end);
-                  if (pendingSelection === null) {
-                    setCursorPos(event.nativeEvent.selection.start);
-                  }
-                }}
-                selection={selection}
-                placeholder="Start writing…"
-                placeholderTextColor={colors.mutedForeground}
-                accessibilityLabel="Note text"
-                // The text grows with its words and the page scrolls; the
-                // text never scrolls itself. A text that scrolls itself only
-                // lays out the lines on screen and estimates the rest
-                // (TextKit 2), and each new estimate moved the note under the
-                // writer by a line or two. Grown to its full height, every
-                // line is laid out.
-                //
-                // No height here, on purpose. Under the new architecture the
-                // shadow node measures the text on every keystroke, so an
-                // unsized multiline input grows with its content by itself.
-                // Pinning the height from onContentSizeChange defeats that:
-                // that event only fires from updateLayoutMetrics, i.e. when
-                // the frame changes — which a pinned height never lets happen.
-                scrollEnabled={false}
-                // A drag that scrolls the page lets go of the text. By
-                // default a text input keeps hold of the touch, so a flick
-                // that started on the note still counted as a press when the
-                // finger lifted, and focused the text with the cursor where it
-                // last was (often the end), and the page went after it.
-                rejectResponderTermination={false}
-                style={styles.body}
-                textAlignVertical="top"
-              />
-                </Animated.View>
-              )}
-              {loaded ? <Pressable style={styles.pageEnd} onPress={writeAtEnd} accessible={false} /> : null}
-            </Animated.ScrollView>
-            </ClippingScrollView>
+              ) : null}
+            </View>
             <View style={[styles.footer, trayOpen && styles.footerTray]}>
               {trayOpen ? (
                 // The tray's own bar: what to do, a fresh set, and the way back.
@@ -896,6 +1106,50 @@ export default function NoteEditorScreen() {
                     accessibilityLabel="Back to the keyboard"
                   >
                     <Text style={styles.keyboardButtonText}>Keyboard</Text>
+                  </Pressable>
+                </View>
+              ) : editorFocused ? (
+                // Writing in the note: its formats in a row that scrolls
+                // sideways, then suggestions and the way to put the
+                // keyboard away.
+                <View style={styles.formatBar}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyboardShouldPersistTaps="always"
+                    style={styles.flex}
+                    contentContainerStyle={styles.formatTools}
+                  >
+                    {formatTools.map(({ key, Icon, label, active, onPress }) => (
+                      <Pressable
+                        key={key}
+                        onPress={onPress}
+                        style={({ pressed }) => [styles.formatTool, active && styles.formatToolOn, pressed && styles.pressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={label}
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Icon size={19} color={active ? colors.primaryForeground : colors.foreground} />
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                  {aiSuggestions ? (
+                    <Pressable
+                      onPress={openTray}
+                      style={({ pressed }) => [styles.formatTool, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Suggestions: words to keep going, and questions"
+                    >
+                      <Sparkles size={18} color={colors.primary} />
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    onPress={() => editorRef.current?.run("blur")}
+                    style={({ pressed }) => [styles.formatTool, pressed && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Put the keyboard away"
+                  >
+                    <KeyboardOff size={19} color={colors.mutedForeground} />
                   </Pressable>
                 </View>
               ) : (
@@ -938,8 +1192,14 @@ export default function NoteEditorScreen() {
                 stems={suggestions}
                 questions={reflectionQuestions}
                 loading={loading}
-                onPick={(suggestion) => backToKeyboard(insertSuggestion(suggestion))}
-                onPickQuestion={(question) => backToKeyboard(insertQuestion(question))}
+                onPick={(suggestion) => {
+                  insertSuggestion(suggestion);
+                  backToKeyboard(true);
+                }}
+                onPickQuestion={(question) => {
+                  insertQuestion(question);
+                  backToKeyboard(true);
+                }}
               />
             ) : null}
           </View>
@@ -1082,7 +1342,64 @@ export default function NoteEditorScreen() {
         )}
       </Sheet>
     </SafeAreaView>
+    </Profiler>
   );
+}
+
+/**
+ * The note editor, given the note's text only once it is up. Its first
+ * props reach the web view embedded in a JavaScript template string by
+ * react-native-webview, unescaped, so a line break (or a backtick) in them
+ * breaks the page and the editor never starts. The text follows a moment
+ * later through the props channel, which is escaped (and is sent again
+ * when the page says it is ready, in case it was still loading).
+ */
+// Memoised: each time it renders, Expo sends every prop over to the page
+// again, the note it opened with included. Its props only change when the
+// note is given to it anew, so the screen's redraws (one per change typed)
+// no longer cost the editor anything.
+const BootedNoteEditor = React.memo(function BootedNoteEditor({ ref, ...props }: React.ComponentProps<typeof NoteEditor>) {
+  const [booted, setBooted] = useState(false);
+  useEffect(() => setBooted(true), []);
+  // This editor's own handle. Expo gives a ref its editor's handle only
+  // while the ref is empty, and never takes it back when that editor goes. The
+  // screen's ref outlived its editor (the Tasks tab and back, a reload while
+  // developing) and kept the first one's handle: every command (formats, the
+  // tray, the flush on leaving) went to a page that was gone, and nothing
+  // happened. Each editor gets a fresh ref here, and the screen's reaches
+  // whichever editor is on screen.
+  // A fresh one too whenever the editor component itself is new, as when
+  // its code is reloaded while developing.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const own = useMemo(() => React.createRef<NoteEditorHandle>(), [NoteEditor]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      run: (...args: unknown[]) => {
+        // Only once the page has said what it takes (a moment after it loads).
+        const run = own.current?.run;
+        if (typeof run === "function") run(...args);
+      },
+    }),
+    [own],
+  );
+  const renders = useRef(0);
+  renders.current += 1;
+  if (renders.current > 1) perfCount("props sent to the editor");
+  return (
+    <NoteEditor
+      {...props}
+      ref={own}
+      markdown={booted ? props.markdown : ""}
+      doc={booted ? props.doc : null}
+      seed={booted ? props.seed : "boot"}
+    />
+  );
+});
+
+/** How long each redraw of the note screen took, for the timing log. */
+function recordNoteRender(_id: string, _phase: string, actualDuration: number) {
+  perfRecord("note screen render", actualDuration);
 }
 
 function makeStyles(colors: Colors, scale: number) {
@@ -1090,7 +1407,16 @@ function makeStyles(colors: Colors, scale: number) {
     page: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },
     titleWrap: { alignSelf: "stretch" },
-    bodySkeleton: { gap: spacing[3], paddingTop: spacing[2] },
+    // Where the note's lines will be, until the editor has drawn them.
+    bodySkeleton: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      gap: spacing[3],
+      paddingTop: spacing[3],
+      paddingHorizontal: spacing[4],
+    },
     skeletonLine: { height: 18 * scale },
     skeletonLineShort: { height: 18 * scale, width: "60%" },
     header: {
@@ -1110,6 +1436,11 @@ function makeStyles(colors: Colors, scale: number) {
       paddingVertical: 2,
     },
     status: {
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      right: 0,
+      textAlign: "center",
       fontFamily: fonts.base,
       fontSize: textSize.label * scale,
       lineHeight: 16 * scale,
@@ -1178,32 +1509,6 @@ function makeStyles(colors: Colors, scale: number) {
       paddingBottom: spacing[16],
       gap: spacing[3],
     },
-    // The page under the note's text, at least as tall as the screen.
-    notePage: {
-      flexGrow: 1,
-      paddingHorizontal: spacing[4],
-      paddingTop: spacing[3],
-    },
-    // The rest of the page, under the last line, edge to edge; a tap here
-    // writes on from the end. It is never shorter than the line of room the
-    // cursor is kept above, and more under that, so the page is never
-    // scrolled to its very end while writing there: a line that comes and
-    // goes below the cursor (iOS's grey word completions wrap) then changes
-    // nothing on screen.
-    pageEnd: {
-      flexGrow: 1,
-      minHeight: BODY_LINE_HEIGHT * scale + spacing[16],
-      marginHorizontal: -spacing[4],
-    },
-    body: {
-      // Height comes from the text itself (see the input). The floor keeps a
-      // usable tap target on an empty note.
-      minHeight: MIN_BODY_HEIGHT,
-      fontFamily: fonts.base,
-      fontSize: textSize.large * scale,
-      lineHeight: BODY_LINE_HEIGHT * scale,
-      color: colors.foreground,
-    },
     footer: {
       paddingHorizontal: spacing[4],
       paddingTop: spacing[1],
@@ -1227,6 +1532,12 @@ function makeStyles(colors: Colors, scale: number) {
       color: colors.mutedForeground,
     },
     toolButton: { width: 36, height: 36 },
+    // While writing: the formats in a row that scrolls sideways, then the
+    // suggestions and the way to put the keyboard away.
+    formatBar: { flexDirection: "row", alignItems: "center", gap: 2, marginHorizontal: -spacing[2] },
+    formatTools: { gap: 2, paddingHorizontal: spacing[1] },
+    formatTool: { width: 40, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    formatToolOn: { backgroundColor: colors.primary },
     pressed: { opacity: 0.7 },
     // Above the open tray the bar joins it: its colour, a hairline above.
     footerTray: {

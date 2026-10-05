@@ -1,6 +1,6 @@
 import { z } from "zod";
 import superjson from "superjson";
-import type { NoteRecord } from "../../helpers/NoteRecord";
+import type { NoteListRecord } from "../../helpers/NoteRecord";
 import { apiFetch } from "../../helpers/apiFetch";
 
 export const schema = z.object({
@@ -24,7 +24,8 @@ export const schema = z.object({
 export type InputType = z.infer<typeof schema>;
 
 export type OutputType = {
-  notes: NoteRecord[];
+  /** Without their rich text: see NoteListRecord. */
+  notes: NoteListRecord[];
   /** Paged lists only: pass back as `cursor` for the next page; null on the last. */
   nextCursor?: string | null;
 };

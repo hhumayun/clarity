@@ -16,6 +16,18 @@ export const listNotesSchema = z.object({
 });
 export type ListNotesInput = z.infer<typeof listNotesSchema>;
 
+/**
+ * A note as the lists keep it: without its rich text. The lists only show
+ * and search the Markdown, and the copy of them kept on the phone for offline
+ * use is written whole, so it stays small. The note screen fetches the rich
+ * text, and the phone keeps it for opened notes (noteDocs).
+ */
+export function withoutDoc(note: NoteRecord): NoteRecord {
+  if (note.doc === undefined) return note;
+  const { doc: _doc, ...rest } = note;
+  return rest;
+}
+
 export async function getNotesList(
   params: ListNotesInput = {},
   init?: RequestInit,
@@ -32,7 +44,8 @@ export async function getNotesList(
     method: "GET",
     ...init,
   });
-  return parseResponse(result);
+  const list = await parseResponse<{ notes: NoteRecord[] }>(result);
+  return { notes: list.notes.map(withoutDoc) };
 }
 
 export type NotesPage = { notes: NoteRecord[]; nextCursor: string | null };
@@ -58,7 +71,7 @@ export async function getNotesPage(
     ...init,
   });
   const page = await parseResponse<{ notes: NoteRecord[]; nextCursor?: string | null }>(result);
-  return { notes: page.notes, nextCursor: page.nextCursor ?? null };
+  return { notes: page.notes.map(withoutDoc), nextCursor: page.nextCursor ?? null };
 }
 
 /** Whole counts, so the list need not load every note to show one. */
@@ -103,6 +116,8 @@ export async function postNoteCreate(
     createdAt?: Date;
     title?: string;
     content?: string;
+    /** The rich text as the editor keeps it; `content` is its Markdown. */
+    doc?: unknown;
     source?: "focus";
     /** For a thought parked during focus time: the task being worked on. */
     taskId?: string;
@@ -124,6 +139,8 @@ export async function postNoteUpdate(
     id: string;
     title?: string;
     content?: string;
+    /** Sent with `content`. New words without it clear it on the server. */
+    doc?: unknown;
     archived?: boolean;
     projectIds?: string[];
   },
