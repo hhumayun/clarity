@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { dayChoices, today, type Day } from "../src/lib/dates";
 import { parseTask } from "../src/lib/parseTask";
 import { whenLabel } from "../src/store/selectors";
-import { useSage } from "../src/data/sage";
+import { useSage, useSageStatus } from "../src/data/sage";
 import { duration, easeOut, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, radius, space } from "../src/theme/tokens";
@@ -65,6 +65,16 @@ export default function QuickAdd() {
   // A day picked by hand wins over the words; a typed time still applies.
   const [manual, setManual] = useState<{ day: Day | null; time: number | null } | null>(null);
   const [newArea, setNewArea] = useState<string | null>(null);
+  // An account's first task needs its first area: with none yet, the field to
+  // name one is already showing, without taking the keyboard from the task.
+  const { ready: loaded } = useSageStatus();
+  const firstArea = loaded && areas.length === 0;
+  useEffect(() => {
+    if (firstArea && area === null && newArea === null) {
+      setPanel("areas");
+      setNewArea("");
+    }
+  }, [firstArea, area, newArea]);
   const [keyboard, setKeyboard] = useState(300);
   const input = useRef<TextInput>(null);
 
@@ -78,19 +88,24 @@ export default function QuickAdd() {
   const time = manual ? (manual.time ?? (parsed.fromText ? parsed.time : null)) : parsed.time;
   const when = day ? whenLabel({ day, time }) : null;
   const sparkle = !manual && parsed.fromText;
-  const ready = text.trim().length > 0 && !!area;
+  // A name typed for a new area counts, even before Return.
+  const typedArea = newArea?.trim() || null;
+  const ready = text.trim().length > 0 && !!(area ?? typedArea);
 
   const [state, setState] = useState<ButtonState>("idle");
   const submit = () => {
-    if (!ready || !area || state !== "idle") return;
+    if (!ready || state !== "idle") return;
+    const chosen = area ?? (typedArea ? addArea(typedArea) : null);
+    if (!chosen) return;
+    if (chosen !== area) setArea(chosen);
     const title = (parsed.fromText ? parsed.title : text.trim()) || text.trim();
-    addTask({ title, area, day, time: day ? time : null, noteId: params.note ?? null });
+    addTask({ title, area: chosen, day, time: day ? time : null, noteId: params.note ?? null });
     doneHaptic();
     setState("done");
     const where = when ?? "Someday";
     setTimeout(() => {
       router.back();
-      acknowledge(params.note ? `Added to this note · ${where}` : day && day !== viewDay && params.day ? `Added · it's due ${where}` : `Added to ${area} · ${where}`, "check");
+      acknowledge(params.note ? `Added to this note · ${where}` : day && day !== viewDay && params.day ? `Added · it's due ${where}` : `Added to ${chosen} · ${where}`, "check");
     }, 260);
   };
 
@@ -140,6 +155,11 @@ export default function QuickAdd() {
             accessibilityLabel="New task"
           />
 
+          {panel === "areas" && firstArea ? (
+            <Txt variant="footnote" tone="ink3">
+              Every task lives in an area, like Home or Work.
+            </Txt>
+          ) : null}
           {panel === "areas" ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.areaRow}>
               {areas.map((item) => (
@@ -154,12 +174,12 @@ export default function QuickAdd() {
               {newArea === null ? (
                 <Chip onCard icon="plus" label="New" accessibilityLabel="New area" onPress={() => setNewArea("")} />
               ) : (
-                <View style={[styles.newArea, { borderColor: colors.ink }]}>
+                <View style={[styles.newArea, firstArea && styles.firstArea, { borderColor: colors.ink }]}>
                   <TextInput
-                    autoFocus
+                    autoFocus={!firstArea}
                     value={newArea}
                     onChangeText={setNewArea}
-                    placeholder="Name"
+                    placeholder={firstArea ? "Name your first area" : "Name"}
                     placeholderTextColor={colors.ink3}
                     selectionColor={accent.solid}
                     cursorColor={accent.solid}
@@ -177,7 +197,7 @@ export default function QuickAdd() {
             <Chip
               onCard
               icon="tag"
-              label={area ?? undefined}
+              label={area ?? "Area"}
               accessibilityLabel={`Area: ${area ?? "none"}`}
               selected={panel === "areas"}
               onPress={() => (tap(), setPanel(panel === "areas" ? "none" : "areas"))}
@@ -247,6 +267,7 @@ const styles = StyleSheet.create({
   tools: { flexDirection: "row", alignItems: "center", gap: space[2] },
   newArea: { height: 34, minWidth: 110, paddingHorizontal: 14, borderRadius: radius.pill, borderCurve: "continuous", borderWidth: 1.5, justifyContent: "center" },
   newAreaInput: { paddingVertical: 0, outlineWidth: 0 },
+  firstArea: { minWidth: 200 },
   datePanel: { marginTop: space[3], borderTopWidth: StyleSheet.hairlineWidth },
   datePanelInner: { paddingHorizontal: edge, paddingTop: space[4], gap: space[4] },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: space[2] },
