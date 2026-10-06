@@ -17,7 +17,8 @@ export const schema = z.object({
 export type InputType = z.infer<typeof schema>;
 
 export type OutputType = {
-  recorded: true;
+  /** False when personalization is off: then nothing is kept. */
+  recorded: boolean;
 };
 
 export const postSuggestionEvent = async (
