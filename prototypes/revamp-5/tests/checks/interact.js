@@ -80,19 +80,24 @@ const demo = (path) => `${path}${path.includes("?") ? "&" : "?"}demo`;
     await btn("Back to today").click();
     await page.waitForTimeout(900);
 
-    // Write to today's question, one question at a time
+    // Write to today's question, one question at a time (the editor: questions are quotes)
     const write = page.getByRole("button", { name: /^Good (morning|afternoon|evening)|^Still up/ }).first();
     await write.click();
-    await page.waitForTimeout(1500);
-    const answer = page.getByRole("textbox", { name: /^Answer:/ }).first();
-    ok("the question stands above the answer", await visible(answer));
-    await answer.fill("A long walk after lunch, and the brief finally made sense.");
+    await page.waitForFunction(() => document.querySelector('iframe[title="Note"]')?.contentDocument?.querySelector(".ProseMirror blockquote"), null, { timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    const editor = page.frames().filter((frame) => frame.url() === "about:srcdoc" && !frame.isDetached()).at(-1);
+    ok("the question stands above the answer", !!editor && (await editor.locator("blockquote").count()) === 1);
+    await page.keyboard.type("A long walk after lunch, and the brief finally made sense.", { delay: 5 });
+    await page.waitForTimeout(600);
     await btn("Next question").click();
     await page.waitForTimeout(700); await shot("guided");
-    ok("Next question adds a second question", (await page.getByRole("textbox", { name: /^Answer:/ }).count()) === 2);
+    ok("Next question adds a second question", !!editor && (await editor.locator("blockquote").count()) === 2);
+    await btn("Put the keyboard away").click().catch(() => {});
+    await page.waitForTimeout(400);
     await btn("Done").click();
-    const saved = await page.waitForFunction(() => document.body.innerText.includes("Saved"), null, { timeout: 4000 }).then(() => true, () => false);
-    ok("Saved capsule", saved);
+    // Done's own check says it: no word about saving (asked for on 2026-10-06).
+    const saved = await page.waitForFunction(() => document.body.innerText.includes("Saved"), null, { timeout: 2500 }).then(() => true, () => false);
+    ok("Done says nothing about saving", !saved);
     await shot("done_morph");
     await page.waitForTimeout(1000); await shot("written");
     ok("Today's card shows the page as written", await visible(page.getByRole("button", { name: /written at/ })));

@@ -24,10 +24,12 @@ for (const copies of (process.env.COPIES || "1,2,3").split(",").map(Number)) {
     return 0;
   }, copies);
   await page.waitForTimeout(2000);
+  // A phone's pace when asked (THROTTLE=4).
+  if (process.env.THROTTLE) await cdp.send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.THROTTLE) });
   const before = await script();
   const t = Date.now();
   await page.getByRole("tab", { name: "Life" }).first().click({ timeout: 120000 });
-  const ok = await page.waitForFunction(() => document.body.innerText.includes("Life Center") && document.body.innerText.includes("Expenses for September"), null, { timeout: 120000 }).then(() => true).catch(() => false);
+  const ok = await page.waitForFunction(() => document.body.innerText.includes("Life Center") && document.body.innerText.includes("Book the dentist"), null, { timeout: 120000 }).then(() => true).catch(() => false);
   console.log(`tasks ${count}: Life on screen ${ok ? `after ${Date.now() - t} ms` : "not within 120 s"}, ${Math.round(((await script()) - before) * 1000)} ms of JavaScript`);
   await page.close();
 }

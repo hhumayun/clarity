@@ -72,6 +72,44 @@ export function TaskCard({
   );
 }
 
+// How far a slice's card reaches past its clip above and below, so the shadow
+// down its sides runs on into the next slice with no seam; and the room kept
+// for the shadow above the first slice and below the last.
+const REACH = 32;
+const SHADOW_ROOM = 20;
+
+/**
+ * One task as a slice of a card, for long lists drawn as they scroll (Life):
+ * each row is its own item, and the slices together look like one card. Each
+ * slice's card reaches past its clip above and below (except where the real
+ * card starts and ends), so its side shadow never thins at a join; the first
+ * and last slices carry the corners. A row that leaves fades out.
+ */
+export const TaskSlice = React.memo(function TaskSlice({
+  task,
+  variant,
+  first,
+  last,
+  showArea,
+}: {
+  task: Task;
+  variant: TaskVariant;
+  first: boolean;
+  last: boolean;
+  showArea: boolean;
+}) {
+  const { colors } = useTheme();
+  const highlight = useSage((state) => state.lastAdded === task.id);
+  return (
+    <Animated.View exiting={FadeOut.duration(duration.quick)} style={[styles.sliceClip, first && styles.sliceFirst, last && styles.sliceLast]}>
+      <View style={[styles.sliceCard, { backgroundColor: colors.card, boxShadow: colors.cardShadow }, first ? styles.cardTop : styles.reachUp, last ? styles.cardBottom : styles.reachDown]}>
+        {first ? null : <View style={[styles.rule, { backgroundColor: colors.hairline }]} />}
+        <TaskRow task={task} variant={variant} showArea={showArea} highlight={highlight} />
+      </View>
+    </Animated.View>
+  );
+});
+
 /**
  * What's been finished, folded under a small centred "Done": no count, a
  * check and a chevron. When a task arrives here the word gives a small
@@ -138,6 +176,14 @@ export function DoneFold({ tasks, label = "Done", showArea = true, onClear }: { 
 
 const styles = StyleSheet.create({
   card: { marginHorizontal: edge, borderRadius: radius.card, borderCurve: "continuous", overflow: "hidden" },
+  sliceClip: { overflow: "hidden", paddingHorizontal: edge },
+  sliceFirst: { paddingTop: SHADOW_ROOM, marginTop: -SHADOW_ROOM },
+  sliceLast: { paddingBottom: SHADOW_ROOM, marginBottom: -SHADOW_ROOM },
+  sliceCard: { borderCurve: "continuous", overflow: "hidden" },
+  reachUp: { marginTop: -REACH, paddingTop: REACH },
+  reachDown: { marginBottom: -REACH, paddingBottom: REACH },
+  cardTop: { borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
+  cardBottom: { borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card },
   rule: { height: 1 },
   empty: { paddingHorizontal: pad, paddingVertical: space[6], alignItems: "center", gap: space[3] },
   foldHead: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: space[2], paddingTop: space[4], paddingBottom: space[3] },

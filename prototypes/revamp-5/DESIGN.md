@@ -2,7 +2,7 @@
 
 A redesign of Clarity guided by **Rosebud** (the AI journal), taken as a design language rather than a feature list. It's a separate Expo Go app, built on revamp 4's code (features, store and motion) and redrawn. Since 2026-10-05 it has real accounts (see Accounts below). The notes and tasks are still samples until real data is wired in, following `docs/backend-plan.md`.
 
-- **Open it on your phone:** in Expo Go, scan `docs/expo-go-qr.png` or enter `exp://cassette-excuse-legs-sake.trycloudflare.com`. The address changes whenever the tunnel restarts.
+- **Open it on your phone:** in Expo Go, scan `docs/expo-go-qr.png` or enter `exp://sheets-winning-suspected-promise.trycloudflare.com`. The address changes whenever the tunnel restarts.
 - **Where it lives:** `/root/projects/clarity-revamp-5` is the running copy. It's committed on the clarity repo's `revamp-5` branch, under `prototypes/revamp-5`. Nothing has been ported into the main app.
 - **The one-page version** of this document, with live specimens, is `docs/design.html`. Rebuild it with `node docs/build-presentation.mjs`.
 
@@ -70,6 +70,12 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 - **Today's question:** the page opens with the question as a quote and the cursor under it. Before anything's written, it can be swapped for another or taken away.
 - **If the editor can't start:** the note is shown to read, as Sage drew it before, with Try again.
 - **Quiet saving:** the note page says nothing about saving or syncing. With the keyboard up, whether for the title or the words, Tasks and Done stay down until it goes.
+
+## Moving between places (2026-10-06)
+
+- **A short fade-through, on the page only.** The old page is gone in the first third, then the new one fades in from very nearly its full size (200 ms). It's how iOS's own tab bar has moved since iOS 18. Nothing slides, and the bar only changes which place is chosen. With Reduce Motion, the switch is instant.
+- **Every place is drawn ahead** once the app has a quiet moment, one at a time, so even a first visit opens at once.
+- **Long lists draw as they scroll.** Notes builds only the cards on screen; Life draws each task as a slice of its section's card, and the slices still read as one card with its shadow and corners.
 
 ## Repeats and reminders (2026-10-06)
 

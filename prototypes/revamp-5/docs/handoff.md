@@ -42,7 +42,17 @@ Written as this session ended (the dev machine is getting more memory). Read thi
 
 ## Next, in order
 
-### 1. Tab switching: finish
+### 1. Tab switching: done (2026-10-07), waiting on the phone test
+
+- **Life** is drawn as it scrolls: each task is a slice of its section's card (`TaskSlice`), with a clipped, taller card under each slice so the shadow runs on with no seam.
+  - At phone speed (Chrome 4×) with 80 tasks, Life took 4.6 s to appear; now about 2 s, whatever the number of tasks.
+  - The earlier "minutes" were this machine running out of memory.
+- **A 200 ms fade-through** between places (`app/(tabs)/_layout.tsx`), instant with Reduce Motion.
+- **Preloading:** once the app is idle, Notes, Life and Search are drawn ahead, one at a time, with `router.prefetch`. Switches now take about 0.35–0.43 s in the web build, fade included (`tests/checks/tab-feel.mjs`).
+- `tests/checks/interact.js` now expects the editor's note page and no "Saved" after Done (27/27).
+- Still worth doing: judge the feel with `npx expo start --no-dev --minify` on the phone; dev mode is several times slower.
+
+The notes below are from before this work, kept for the record:
 
 - **Life is slow with many tasks, and grows faster than the number of tasks.**
   - Life with 20 demo tasks drew in about 0.6 s; with 80 it didn't finish in minutes in the web build. The machine was short on memory, so treat the absolute numbers with care, but the growth is real.

@@ -1,7 +1,8 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, View, type ListRenderItem } from "react-native";
 import Animated, { FadeIn, LinearTransition, useAnimatedRef } from "react-native-reanimated";
+import type { Task } from "../../src/store/model";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sprout } from "../../src/art/Pictures";
 import { groupTasks } from "../../src/store/selectors";
@@ -19,7 +20,8 @@ import { confirm } from "../../src/ui/confirm";
 import { Icon } from "../../src/ui/Icon";
 import { IconButton } from "../../src/ui/IconButton";
 import { SectionTitle } from "../../src/ui/SectionTitle";
-import { DoneFold, TaskCard } from "../../src/ui/TaskCard";
+import { DoneFold, TaskSlice } from "../../src/ui/TaskCard";
+import type { TaskVariant } from "../../src/ui/TaskRow";
 import { TopBar } from "../../src/ui/TopBar";
 import { Txt } from "../../src/ui/Txt";
 
@@ -31,11 +33,21 @@ const SECTIONS = [
   { key: "undated", title: "Someday" },
 ] as const;
 
+/** The list, flat: what slipped, then each section's name and its tasks, one slice of the card each. */
+type Row =
+  | { kind: "slipped"; key: string }
+  | { kind: "title"; key: string; title: string; first: boolean }
+  | { kind: "task"; key: string; task: Task; variant: TaskVariant; first: boolean; last: boolean };
+
 /**
  * Life Center: every task in one calm place, sorted by when, the way
  * Rosebud lists goals: a centred word for each section and the tasks on a
  * card under it. Areas filter the list from one row of chips under the bar.
  * What slipped is a single card with one way forward. Nothing counts.
+ *
+ * Only the rows on screen are drawn: each task is a slice of its section's
+ * card (TaskSlice), so a long list opens as fast as a short one. With 80
+ * tasks, drawing every row made opening this tab take seconds.
  */
 export default function LifeCenter() {
   const { colors } = useTheme();
@@ -46,7 +58,7 @@ export default function LifeCenter() {
   const areas = useSage((state) => state.areas);
   const clearCompleted = useSage((state) => state.clearCompleted);
   const { onScroll, scrollY } = useScrollY();
-  const scroller = useAnimatedRef<Animated.ScrollView>();
+  const scroller = useAnimatedRef<Animated.FlatList<Row>>();
   const { ready } = useSageStatus();
   const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
@@ -54,6 +66,19 @@ export default function LifeCenter() {
   const groups = useMemo(() => groupTasks(tasks, area), [tasks, area]);
   const anySlipped = useMemo(() => groupTasks(tasks, null).slipped.length > 0, [tasks]);
   const anyOpen = groups.today.length + groups.week.length + groups.later.length + groups.undated.length > 0;
+
+  const rows = useMemo(() => {
+    const list: Row[] = [];
+    if (anySlipped) list.push({ kind: "slipped", key: "slipped" });
+    SECTIONS.forEach((section, i) => {
+      const tasks = groups[section.key];
+      if (!tasks.length) return;
+      list.push({ kind: "title", key: `title:${section.key}`, title: section.title, first: i === 0 && !anySlipped });
+      const variant: TaskVariant = section.key === "today" ? "day" : "list";
+      tasks.forEach((task, n) => list.push({ kind: "task", key: task.id, task, variant, first: n === 0, last: n === tasks.length - 1 }));
+    });
+    return list;
+  }, [groups, anySlipped]);
 
   const clear = async () => {
     const ok = await confirm({
@@ -66,6 +91,28 @@ export default function LifeCenter() {
     acknowledge("Cleared", "trash");
   };
 
+  const renderRow = useCallback<ListRenderItem<Row>>(
+    ({ item }) => {
+      if (item.kind === "title") return <SectionTitle title={item.title} first={item.first} />;
+      if (item.kind === "task") return <TaskSlice task={item.task} variant={item.variant} first={item.first} last={item.last} showArea={!area} />;
+      return (
+        <Card style={styles.slipped}>
+          <View style={[styles.slippedIcon, { backgroundColor: colors.warmSoft }]}>
+            <Icon name="rotate" size={18} color={colors.warm} weight="bold" />
+          </View>
+          <View style={styles.flex}>
+            <Txt variant="headline">A few things slipped</Txt>
+            <Txt variant="subhead" tone="ink2">
+              Pick them up, move them, or let them go.
+            </Txt>
+          </View>
+          <Button label="Catch up" variant="soft" size="sm" onPress={() => router.push("/catch-up")} accessibilityLabel="Catch up on what slipped" />
+        </Card>
+      );
+    },
+    [area, colors, router],
+  );
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
       <TopBar title="Life Center" scrollY={scrollY} right={<IconButton icon="sliders" label="Manage areas" onPress={() => router.push("/sheet/areas")} />}>
@@ -77,55 +124,48 @@ export default function LifeCenter() {
         </ScrollView>
       </TopBar>
 
-      <Animated.ScrollView
+      <Animated.FlatList
         ref={scroller}
+        data={rows}
+        keyExtractor={(row) => row.key}
+        renderItem={renderRow}
+        // Rows that stay close the gap a leaving one leaves.
+        itemLayoutAnimation={settle}
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         refreshControl={pull}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120, paddingTop: space[4] }}
-      >
-        <LoadProblem />
-        {ready ? null : <SkeletonCards cards={2} rows={3} />}
-        {anySlipped ? (
-          <Card style={styles.slipped}>
-            <View style={[styles.slippedIcon, { backgroundColor: colors.warmSoft }]}>
-              <Icon name="rotate" size={18} color={colors.warm} weight="bold" />
+        // A screenful first, then the rest as it comes into view.
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        windowSize={9}
+        ListHeaderComponent={
+          <>
+            <LoadProblem />
+            {ready ? null : <SkeletonCards cards={2} rows={3} />}
+          </>
+        }
+        ListFooterComponent={
+          <>
+            {ready && !anyOpen ? (
+              <Animated.View entering={FadeIn.duration(duration.enter).easing(easeOut)} style={styles.empty}>
+                <Sprout size={104} />
+                <Txt variant="headline" center>
+                  {tasks.length === 0 ? "Nothing here yet" : area ? `Nothing waiting in ${area}` : "All clear"}
+                </Txt>
+                <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
+                  {tasks.length === 0 ? "Tasks you add, or find in your notes, gather here." : "Enjoy the quiet."}
+                </Txt>
+              </Animated.View>
+            ) : null}
+            <View style={styles.fold}>
+              <DoneFold tasks={groups.done} onClear={clear} showArea={!area} />
             </View>
-            <View style={styles.flex}>
-              <Txt variant="headline">A few things slipped</Txt>
-              <Txt variant="subhead" tone="ink2">
-                Pick them up, move them, or let them go.
-              </Txt>
-            </View>
-            <Button label="Catch up" variant="soft" size="sm" onPress={() => router.push("/catch-up")} accessibilityLabel="Catch up on what slipped" />
-          </Card>
-        ) : null}
-
-        {SECTIONS.map((section, i) =>
-          groups[section.key].length ? (
-            <Animated.View key={section.key} layout={settle} entering={FadeIn.duration(duration.base)}>
-              <SectionTitle title={section.title} first={i === 0 && !anySlipped} />
-              <TaskCard tasks={groups[section.key]} variant={section.key === "today" ? "day" : "list"} showArea={!area} />
-            </Animated.View>
-          ) : null,
-        )}
-        {ready && !anyOpen ? (
-          <Animated.View entering={FadeIn.duration(duration.enter).easing(easeOut)} style={styles.empty}>
-            <Sprout size={104} />
-            <Txt variant="headline" center>
-              {tasks.length === 0 ? "Nothing here yet" : area ? `Nothing waiting in ${area}` : "All clear"}
-            </Txt>
-            <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
-              {tasks.length === 0 ? "Tasks you add, or find in your notes, gather here." : "Enjoy the quiet."}
-            </Txt>
-          </Animated.View>
-        ) : null}
-        <View style={styles.fold}>
-          <DoneFold tasks={groups.done} onClear={clear} showArea={!area} />
-        </View>
-      </Animated.ScrollView>
+          </>
+        }
+      />
     </View>
   );
 }
