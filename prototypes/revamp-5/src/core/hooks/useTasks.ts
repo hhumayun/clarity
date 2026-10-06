@@ -114,6 +114,7 @@ export function useTasks(noteId?: string, enabled = true) {
       dueTime?: string | null;
       remindBefore?: number | null;
       remindRepeat?: ReminderRepeat | null;
+      remindOnce?: boolean;
       status?: TaskStatus;
       noteId?: string | null;
     }) => {
@@ -139,6 +140,7 @@ export function useTasks(noteId?: string, enabled = true) {
         dueTime: body.completeBy ? (body.dueTime ?? null) : null,
         remindBefore: body.remindBefore ?? null,
         remindRepeat: body.remindRepeat ?? null,
+        remindOnce: body.remindOnce ?? false,
         createdAt: now,
         updatedAt: now,
       };
@@ -154,6 +156,7 @@ export function useTasks(noteId?: string, enabled = true) {
           ...(task.dueTime ? { dueTime: task.dueTime } : {}),
           ...(task.remindBefore != null ? { remindBefore: task.remindBefore } : {}),
           ...(task.remindRepeat ? { remindRepeat: task.remindRepeat } : {}),
+          ...(task.remindOnce ? { remindOnce: true } : {}),
           status: task.status,
           noteId: task.noteId,
         },
@@ -191,6 +194,7 @@ export function useTasks(noteId?: string, enabled = true) {
                 ...(body.dueTime !== undefined ? { dueTime: body.dueTime } : {}),
                 ...(body.remindBefore !== undefined ? { remindBefore: body.remindBefore } : {}),
                 ...(body.remindRepeat !== undefined ? { remindRepeat: body.remindRepeat } : {}),
+                ...(body.remindOnce !== undefined ? { remindOnce: body.remindOnce } : {}),
                 // Done keeps the moment it first became done; reopening clears it (revamp 5).
                 ...(body.status !== undefined ? { completedAt: body.status === "done" ? (task.status === "done" ? (task.completedAt ?? body.changedAt) : body.changedAt) : null } : {}),
                 ...(body.movedFrom !== undefined ? { movedFrom: body.movedFrom } : {}),

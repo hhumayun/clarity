@@ -100,11 +100,13 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
 
 ## 4. Saving and offline
 
-- **The main app's rules, unchanged:**
-  - a draft at most every second;
-  - sent 900 ms after a pause, and at once on leave, tab switch or background;
+- **The main app's rules, with fewer calls (changed 2026-10-06, as you asked):**
+  - a draft on the phone at most every second, as before;
+  - the server at most once a minute while writing, and at once on leaving the note, going to the background or opening its tasks (the main app sends 900 ms after every pause);
+  - a new note is still made on the server as its first words settle, so it's never only on the phone;
   - the newer draft wins;
   - the server's copy never replaces words you're typing.
+- **Nothing is said about saving on the note page:** no "Saved on this phone", no "Saved" after Done (its check says it), and no offline or "All changes saved" notices while a note is open.
 - **Always sent together.** The Markdown and the rich copy go together. Words without the rich copy would clear it on the server.
 - **Edit times.** Saves carry `changedAt` (phase 4), so the server's copy now carries the time of the edit rather than the time it arrived.
   - The main app's check (`applyNote`) uses the draft if it was written after the server copy's time.

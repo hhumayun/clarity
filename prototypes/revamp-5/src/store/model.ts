@@ -27,6 +27,11 @@ export type Task = {
   /** Minutes before the time, or before 9:00 on the day when there's no time. */
   remind: number | null;
   repeat: Repeat | null;
+  /**
+   * The reminder is for this time only: when a repeating task comes back, it
+   * has none. Otherwise the reminder goes off each time it repeats.
+   */
+  remindOnce?: boolean;
   /** Linked notes, oldest link first. */
   noteIds: string[];
   /** The note it was found in, if any. */

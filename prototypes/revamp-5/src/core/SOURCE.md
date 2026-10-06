@@ -59,6 +59,9 @@ Each one only adds, and is marked "(revamp 5)" in the code. They follow the API 
 - `api/tasks.ts` and `api/notes.ts`: the update bodies take `changedAt` (and tasks take `movedFrom`); note creates may be a `"page"`.
 - `hooks/useTasks.ts`: an update is stamped with `changedAt`, and the phone's copy shows `completedAt` and `movedFrom` at once.
 - `hooks/useNotes.ts`: a note update is stamped with `changedAt`; a create may be a `"page"`.
+- **A reminder for this time only (`remindOnce`, 2026-10-06; server migration 016).**
+  - It's on `TaskRecord` (`types.ts`), in the task create and update bodies (`api/tasks.ts`, `sync/outbox.ts`, where creates may take it), and in the tasks hook's create and cache patch (`hooks/useTasks.ts`).
+  - `lib/reminderRules.ts`: `reminderTimes` gives a reminder for this time only once, though the task repeats. `withReminders` clears it (`remindBefore: null, remindOnce: false`) when a repeating task comes back. Tested by `src/data/reminders.test.ts`.
 
 ## The editor (phase 5, 2026-10-06)
 

@@ -64,6 +64,8 @@ export type TaskRecord = {
   remindBefore?: number | null;
   /** How the task comes back once ticked off; null if it does not repeat. */
   remindRepeat?: ReminderRepeat | null;
+  /** The reminder is for this time only: when the repeating task comes back, it has none (revamp 5). */
+  remindOnce?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

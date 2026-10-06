@@ -3,10 +3,12 @@ import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { useKeyboardState } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { deeper, deeperFallback, questions } from "../../src/data/prompts";
 import { useNote } from "../../src/data/hooks";
-import { useDataMode, useSage, useUnsent } from "../../src/data/sage";
+import { useDataMode, useSage } from "../../src/data/sage";
+import { useQuietSyncNotices } from "../../src/data/quiet";
 import { blocksOf } from "../../src/data/adapt";
 import type { NoteEditorHandle } from "../../src/editor/bridge";
 import { useEditorLook } from "../../src/editor/look";
@@ -93,6 +95,10 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
   const acknowledge = useAcknowledge();
   const titleType = useType("title1");
   const look = useEditorLook(PLACEHOLDER);
+  // No word about syncing while writing: saving is quiet here.
+  useQuietSyncNotices();
+  // With the keyboard up (the title or the words), Tasks and Done stay down.
+  const keyboardUp = useKeyboardState((state) => state.isVisible);
 
   const note = useNote(session.noteId ?? (isNew ? undefined : id));
   const draftArea = useSage((state) => state.draftArea);
@@ -149,20 +155,20 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
   leaveRef.current = leave;
   useEffect(() => navigation.addListener("beforeRemove", () => leaveRef.current()), [navigation]);
 
-  // Going to the background: the editor sends what it hasn't, and the draft is kept.
+  // Going to the background: the editor sends what it hasn't, and it's saved now.
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (next) => {
       if (next === "active") return;
       editor.current?.run("flush");
-      sessionRef.current.keep();
+      sessionRef.current.saveNow();
     });
     return () => subscription.remove();
   }, []);
 
   const onChange = useCallback((markdown: string, doc: unknown) => {
     sessionRef.current.change(markdown, doc);
-    // Sent as the app went to the background: the draft now.
-    if (AppState.currentState !== "active") sessionRef.current.keep();
+    // The last words, sent as the app went to the background: saved now too.
+    if (AppState.currentState !== "active") sessionRef.current.saveNow();
   }, []);
 
   const nextQuestion = () => {
@@ -175,12 +181,9 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
     if (state !== "idle") return;
     doneHaptic();
     setState("done");
-    const saved = !!session.noteId || session.written;
     leave();
-    setTimeout(() => {
-      router.back();
-      if (saved) acknowledge("Saved");
-    }, 300);
+    // The check on Done says it; nothing more about saving.
+    setTimeout(() => router.back(), 300);
   };
 
   const askNext = () => {
@@ -249,9 +252,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
     acknowledge("Deleted");
   };
 
-  const unsent = useUnsent(`note:${session.noteId ?? id}`);
-  const when = note ? `${longDay(note.day)} · ${noteTime(note.time)}` : longDay(today());
-  const meta = `${when}${unsent ? " · Saved on this phone" : ""}`.toUpperCase();
+  const meta = (note ? `${longDay(note.day)} · ${noteTime(note.time)}` : longDay(today())).toUpperCase();
   const fresh = isNew && !session.written;
 
   return (
@@ -405,7 +406,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
               <Icon name="keyboardDown" size={20} color={colors.ink3} weight="medium" />
             </Pressable>
           </View>
-        ) : (
+        ) : keyboardUp ? null : (
           <View style={[styles.bottom, { borderTopColor: colors.hairline, paddingBottom: Math.max(insets.bottom, space[3]) }]}>
             {!isNew && session.noteId && shown ? (
               <GoDeeper
@@ -433,7 +434,9 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
                     disabled={!session.noteId}
                     onPress={() => {
                       if (!session.noteId) return;
+                      // Its tasks are kept with it on the server: the latest words go first.
                       editor.current?.run("flush");
+                      session.saveNow();
                       router.push(`/note-tasks?note=${session.noteId}`);
                     }}
                     accessibilityLabel="This note's tasks"

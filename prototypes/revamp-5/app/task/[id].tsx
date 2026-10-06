@@ -66,7 +66,11 @@ export default function TaskScreen() {
 
   const linked = task.noteIds.map((noteId) => notes.find((note) => note.id === noteId)).filter((note): note is Note => Boolean(note));
   const foundIn = task.foundIn ? notes.find((note) => note.id === task.foundIn) : undefined;
-  const reminder = reminderLabel(task.remind, task.time !== null);
+  const reminder = (() => {
+    const label = reminderLabel(task.remind, task.time !== null);
+    // A repeating task's reminder for this time only says so.
+    return label && task.repeat && task.remindOnce ? `${label}, this time` : label;
+  })();
 
   const toggle = () => {
     if (task.done) {
@@ -91,7 +95,7 @@ export default function TaskScreen() {
     { key: "date", icon: "calendar", label: "Day", value: task.day ? dayLabel(task.day) : "Someday", empty: !task.day, href: `/sheet/date?task=${task.id}` },
     { key: "time", icon: "clock", label: "Time", value: task.time !== null ? clockLabel(task.time) : "Any time", empty: task.time === null, href: `/sheet/time?task=${task.id}` },
     { key: "reminder", icon: "bell", label: "Reminder", value: reminder ?? "Off", empty: !reminder, href: `/sheet/reminder?task=${task.id}` },
-    { key: "repeat", icon: "repeat", label: "Repeats", value: task.repeat ? repeatLabels[task.repeat] : "Off", empty: !task.repeat, href: `/sheet/reminder?task=${task.id}` },
+    { key: "repeat", icon: "repeat", label: "Repeats", value: task.repeat ? repeatLabels[task.repeat] : "Off", empty: !task.repeat, href: `/sheet/repeat?task=${task.id}` },
   ];
 
   const leftOff = history?.leftOff && history.outcome !== "finished" ? history : null;

@@ -4,7 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { dateOf, dayChoices, dayLabel, type Day } from "../../src/lib/dates";
 import { useTask } from "../../src/data/hooks";
 import type { Repeat } from "../../src/store/model";
-import { clockLabel, repeatLabels } from "../../src/store/selectors";
+import { clockLabel } from "../../src/store/selectors";
 import { useSage } from "../../src/data/sage";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { space } from "../../src/theme/tokens";
@@ -16,7 +16,12 @@ type Unit = "minutes" | "hours" | "days" | "weeks";
 const UNIT_MINUTES: Record<Unit, number> = { minutes: 1, hours: 60, days: 1_440, weeks: 10_080 };
 const repeatSentence: Record<Repeat, string> = { daily: "every day", weekdays: "every weekday", weekly: "every week", monthly: "every month" };
 
-/** A reminder counts back from the task's time (or 9:00 on its day) and can repeat; the sentence at the end says when it will go off. */
+/**
+ * A reminder counts back from the task's time (or 9:00 on its day); the
+ * sentence at the end says when it will go off. How the task repeats is its
+ * own sheet: here, a repeating task's reminder goes off each time, or just
+ * this once.
+ */
 export default function ReminderSheet() {
   const { task: taskId } = useLocalSearchParams<{ task: string }>();
   const router = useRouter();
@@ -42,7 +47,7 @@ export default function ReminderSheet() {
   const units: Unit[] = hasTime ? ["minutes", "hours", "days"] : ["days", "weeks"];
   const [unit, setUnit] = useState<Unit>(units[0]);
   const [amount, setAmount] = useState(isPreset || initial === null ? "" : String(initial / UNIT_MINUTES[units[0]]));
-  const [repeat, setRepeat] = useState<Repeat | null>(task?.repeat ?? null);
+  const [once, setOnce] = useState(task?.remindOnce ?? false);
 
   if (!task) return <SheetFrame title="Reminder" description="This task could not be found." />;
 
@@ -64,21 +69,24 @@ export default function ReminderSheet() {
   })();
   const sentence = (() => {
     if (!when) return "How long before?";
-    if (when.getTime() < Date.now() && !repeat) return "That time has already passed, so it will not go off.";
+    const every = !!task.repeat && !once;
+    if (when.getTime() < Date.now() && !every) return "That time has already passed, so it will not go off.";
     const whenDay = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
     const label = dayLabel(whenDay);
     const prefix = label === "Today" || label === "Tomorrow" || label === "Yesterday" ? label.toLowerCase() : `on ${label}`;
     const base = `Reminds you ${prefix} at ${clockLabel(when.getHours() * 60 + when.getMinutes())}`;
-    return repeat ? `${base}, then ${repeatSentence[repeat]}.` : `${base}.`;
+    if (task.repeat && once) return `${base}, this time only.`;
+    return task.repeat ? `${base}, then each time it repeats (${repeatSentence[task.repeat]}).` : `${base}.`;
   })();
 
   const set = () => {
     if (minutesBefore === null) return;
-    updateTask(task.id, { day, remind: minutesBefore, repeat });
+    updateTask(task.id, { day, remind: minutesBefore, remindOnce: task.repeat ? once : false });
     router.back();
   };
   const clear = () => {
-    updateTask(task.id, { remind: null, repeat: null });
+    // The reminder only: how the task repeats stays as it is.
+    updateTask(task.id, { remind: null, remindOnce: false });
     router.back();
   };
 
@@ -107,14 +115,19 @@ export default function ReminderSheet() {
           </Txt>
         </View>
       ) : null}
-      <View style={styles.block}>
-        <SheetLabel icon="repeat" title="Repeat" />
-        <ChoiceChips
-          choices={[{ label: "Never", value: null }, ...(Object.keys(repeatLabels) as Repeat[]).map((r) => ({ label: repeatLabels[r], value: r }))]}
-          selected={(value) => value === repeat}
-          onChoose={setRepeat}
-        />
-      </View>
+      {task.repeat ? (
+        <View style={styles.block}>
+          <SheetLabel icon="repeat" title={`It repeats ${repeatSentence[task.repeat]}. Remind me`} />
+          <ChoiceChips
+            choices={[
+              { label: "Every time", value: false },
+              { label: "Just this time", value: true },
+            ]}
+            selected={(value) => value === once}
+            onChoose={setOnce}
+          />
+        </View>
+      ) : null}
       <View style={styles.sentence}>
         <View style={styles.bell}>
           <Icon name="bell" size={18} color={colors.ink3} weight="medium" />

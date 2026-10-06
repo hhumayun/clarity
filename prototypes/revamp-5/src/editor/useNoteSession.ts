@@ -17,9 +17,12 @@ import { draftWins, serverCopyReplaces } from "./noteCopies";
  * written is kept. Two of them, one per source, behind one shape:
  * - your account's (`useAccountNoteSession`): the main app's save rules
  *   (mobile/app/(app)/note/[id].tsx at 4344bd8), lifted out: a draft on the
- *   phone at most every second, the outbox 900 ms after a pause and at once
- *   on leaving, the newer of the draft and the server's copy winning, and
- *   the server's copy never replacing words being typed;
+ *   phone at most every second, the newer of the draft and the server's copy
+ *   winning, and the server's copy never replacing words being typed. One
+ *   change from the main app, to spend fewer calls: the server hears at most
+ *   once a minute while writing (the main app sends 900 ms after every
+ *   pause), and at once on leaving or going to the background. A new note is
+ *   still made as its first words settle, so it's never only on the phone;
  * - the samples' (`useDemoNoteSession`): the same page, saved into the
  *   sample store and nowhere else.
  */
@@ -37,8 +40,8 @@ export type NoteSession = {
   change: (markdown: string, doc: unknown) => void;
   /** Leaving (Done, back, the swipe back): saved now, and words still arriving are saved as they come. */
   leave: () => void;
-  /** Going to the background: the draft, now. */
-  keep: () => void;
+  /** Sent now, not waiting for the minute: going to the background, or opening the note's tasks. */
+  saveNow: () => void;
   /** A page not yet written on starts over (another question, or none). */
   restart: (markdown: string, doc: unknown) => void;
   /** Deleted: nothing more is saved. */
@@ -61,8 +64,15 @@ export type NoteParams = {
   asked: () => string[];
 };
 
-const SERVER_SAVE_DELAY_MS = 900;
+// The phone's draft: at most once a second while writing.
 const DRAFT_WRITE_MS = 1_000;
+// The server, while writing: at most once a minute. Leaving the note, going to
+// the background and opening its tasks send at once.
+const SEND_EVERY_MS = 60_000;
+// A new note is made on the server as its first words settle.
+const CREATE_AFTER_MS = 900;
+// The samples: saved into the sample store after a pause (nothing is sent anywhere).
+const DEMO_SAVE_DELAY_MS = 900;
 
 /** A page that starts with a question: the question as a quote, and an empty line under it for the answer. */
 export function questionPage(question: string): { markdown: string; doc: unknown } {
@@ -316,26 +326,45 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
   persistRef.current = persist;
 
   /** The draft, now: only if something is unsaved. */
-  const keep = useCallback(() => {
+  const writeDraft = useCallback(() => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = null;
     if (!unsavedRef.current || loadedKeyRef.current !== draftKey) return;
     void localDrafts.save(draftKey, { title: titleRef.current, content: contentRef.current, doc: docRef.current ?? undefined, at: Date.now() });
   }, [draftKey]);
-  const keepRef = useRef(keep);
-  keepRef.current = keep;
+  const writeDraftRef = useRef(writeDraft);
+  writeDraftRef.current = writeDraft;
 
-  // A draft at most once a second while writing; the outbox once writing pauses.
+  // While writing: the draft at most once a second; the server at most once a
+  // minute, the first unsent change starting the clock. A new note is made as
+  // its first words settle, so it's never only on the phone.
+  const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!loaded || loadedKeyRef.current !== draftKey) return;
-    if (unsavedRef.current && !draftTimerRef.current) draftTimerRef.current = setTimeout(() => keepRef.current(), DRAFT_WRITE_MS);
-    const timer = setTimeout(() => void persistRef.current(titleRef.current, contentRef.current), SERVER_SAVE_DELAY_MS);
-    return () => clearTimeout(timer);
+    if (unsavedRef.current && !draftTimerRef.current) draftTimerRef.current = setTimeout(() => writeDraftRef.current(), DRAFT_WRITE_MS);
+    if (!noteIdRef.current) {
+      const timer = setTimeout(() => void persistRef.current(titleRef.current, contentRef.current), CREATE_AFTER_MS);
+      return () => clearTimeout(timer);
+    }
+    if (unsavedRef.current && !sendTimerRef.current) {
+      sendTimerRef.current = setTimeout(() => {
+        sendTimerRef.current = null;
+        void persistRef.current(titleRef.current, contentRef.current);
+      }, SEND_EVERY_MS);
+    }
   }, [title, changes, loaded, draftKey]);
+
+  /** To the server now, not waiting for the minute. */
+  const sendNow = useCallback(() => {
+    if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
+    sendTimerRef.current = null;
+    void persistRef.current(titleRef.current, contentRef.current);
+  }, []);
 
   // Gone without leaving (an unexpected unmount): what's there is saved.
   useEffect(
     () => () => {
+      if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
       if (!leftRef.current) void persistRef.current(titleRef.current, contentRef.current);
     },
     [],
@@ -365,9 +394,9 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
     leave: () => {
       if (leftRef.current) return;
       leftRef.current = true;
-      void persistRef.current(titleRef.current, contentRef.current);
+      sendNow();
     },
-    keep,
+    saveNow: sendNow,
     restart: (markdown, doc) => {
       contentRef.current = markdown;
       docRef.current = doc;
@@ -433,7 +462,7 @@ export function useDemoNoteSession({ id: routeId, prompt, page, asked }: NotePar
   saveRef.current = save;
 
   useEffect(() => {
-    const timer = setTimeout(() => saveRef.current(), SERVER_SAVE_DELAY_MS);
+    const timer = setTimeout(() => saveRef.current(), DEMO_SAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [title, changes]);
 
@@ -464,7 +493,7 @@ export function useDemoNoteSession({ id: routeId, prompt, page, asked }: NotePar
       leftRef.current = true;
       saveRef.current();
     },
-    keep: () => saveRef.current(),
+    saveNow: () => saveRef.current(),
     restart: (markdown, doc) => {
       contentRef.current = markdown;
       setSeed({ key: String(++seeds.current), markdown, doc, focus: "end" });

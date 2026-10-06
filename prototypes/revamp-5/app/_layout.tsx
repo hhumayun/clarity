@@ -191,7 +191,7 @@ function Navigator() {
             {/* A note's tasks are a short interruption over the note. */}
             <Stack.Screen name="note-tasks" options={{ ...sheet, sheetAllowedDetents: [0.7, 0.96], contentStyle: { backgroundColor: colors.page } }} />
             {/* Short choices are native sheets: drag to dismiss, sized to what's in them. */}
-            {["date", "time", "area"].map((name) => (
+            {["date", "time", "area", "repeat"].map((name) => (
               <Stack.Screen key={name} name={`sheet/${name}`} options={{ ...sheet, sheetAllowedDetents: "fitToContents", contentStyle: { backgroundColor: colors.page } }} />
             ))}
             {["reminder", "areas", "link-note", "link-task"].map((name) => (

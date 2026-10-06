@@ -179,7 +179,8 @@ export const useStore = create<State>()((set, get) => ({
     if (!task) return null;
     if (done && task.repeat && task.day) {
       const next = nextRepeat(task.day, task.repeat);
-      get().updateTask(id, { day: next });
+      // A reminder for this time only doesn't come back with it.
+      get().updateTask(id, task.remindOnce ? { day: next, remind: null, remindOnce: false } : { day: next });
       return next;
     }
     get().updateTask(id, { done, doneAt: done ? Date.now() : null });

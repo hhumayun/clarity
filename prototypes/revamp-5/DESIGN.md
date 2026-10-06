@@ -69,6 +69,13 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 - **Reading:** Go deeper sits above Tasks and Done, and the menu by the title archives, or deletes after asking in place.
 - **Today's question:** the page opens with the question as a quote and the cursor under it. Before anything's written, it can be swapped for another or taken away.
 - **If the editor can't start:** the note is shown to read, as Sage drew it before, with Try again.
+- **Quiet saving:** the note page says nothing about saving or syncing. With the keyboard up, whether for the title or the words, Tasks and Done stay down until it goes.
+
+## Repeats and reminders (2026-10-06)
+
+- **Separate rows, separate sheets.** Repeats: Never, every day, weekday, week or month; ticked off, the task comes back on its next day. Reminder: when, counted back from the task's time.
+- **On a repeating task, the reminder sheet asks "Every time" or "Just this time".** The row then reads, for example, "At the time, this time". Ticked off, the task comes back without a reminder that was for this time only.
+- **"No reminder" takes the reminder only;** "Don't repeat" takes the repeat only.
 
 ## The brief
 

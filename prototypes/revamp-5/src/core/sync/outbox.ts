@@ -40,6 +40,8 @@ export type Op =
         dueTime?: string | null;
         remindBefore?: number | null;
         remindRepeat?: ReminderRepeatValue | null;
+        /** The reminder is for this time only (revamp 5). */
+        remindOnce?: boolean;
         status: TaskStatusValue;
         noteId?: string | null;
       };
@@ -55,6 +57,8 @@ export type Op =
         dueTime?: string | null;
         remindBefore?: number | null;
         remindRepeat?: ReminderRepeatValue | null;
+        /** The reminder is for this time only (revamp 5). */
+        remindOnce?: boolean;
         status?: TaskStatusValue;
         /** The day it was planned for before a move pushed it on (revamp 5). */
         movedFrom?: Date | null;
@@ -150,7 +154,7 @@ const isUpdate = (op: Op) => op.kind.endsWith(".update");
 // into its still-unsent create.
 const CREATE_FIELDS: Record<string, Set<string>> = {
   "note.create": new Set(["title", "content", "doc", "projectIds"]),
-  "task.create": new Set(["text", "description", "projectId", "completeBy", "dueTime", "remindBefore", "remindRepeat", "status"]),
+  "task.create": new Set(["text", "description", "projectId", "completeBy", "dueTime", "remindBefore", "remindRepeat", "remindOnce", "status"]),
   "project.create": new Set(["name"]),
 };
 

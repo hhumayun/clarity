@@ -43,6 +43,8 @@ type ReminderTask = Schedule & {
   status: string;
   remindBefore?: number | null;
   remindRepeat?: ReminderRepeat | null;
+  /** The reminder is for this time only, not each time the task comes back (revamp 5). */
+  remindOnce?: boolean;
 };
 
 /** "HH:MM" as minutes after midnight; null if it is not a time. */
@@ -130,7 +132,8 @@ export function reminderTimes(task: ReminderTask, now: Date = new Date(), count 
   for (let step = 0; step < 2000 && times.length < count; step++) {
     const at = reminderAt(day, task.dueTime, task.remindBefore);
     if (at.getTime() > now.getTime()) times.push({ at, day });
-    if (!task.remindRepeat) break;
+    // A reminder for this time only goes off once, though the task repeats (revamp 5).
+    if (!task.remindRepeat || task.remindOnce) break;
     day = nextRepeatDay(day, task.remindRepeat, monthDay);
   }
   return times;
@@ -235,6 +238,8 @@ export type TaskChange = {
   dueTime?: string | null;
   remindBefore?: number | null;
   remindRepeat?: ReminderRepeat | null;
+  /** The reminder is for this time only (revamp 5). */
+  remindOnce?: boolean;
   status?: TaskStatus;
   /** The day it was planned for before this move (revamp 5); null clears it. */
   movedFrom?: Date | null;
@@ -243,7 +248,8 @@ export type TaskChange = {
 /**
  * What a change really does once times and repeats are taken into account:
  * - a repeating task marked done is not finished but comes back on its next
- *   day, keeping its time and reminder, and stays open;
+ *   day, keeping its time and reminder (unless the reminder was for that time
+ *   only, revamp 5), and stays open;
  * - a task with no day has no time either.
  * A change that repeats the task's own day and repeat (the edit form sends
  * everything) counts as leaving them alone. `rolledTo` is the next day, when
@@ -251,7 +257,7 @@ export type TaskChange = {
  */
 export function withReminders(
   change: TaskChange,
-  task: Pick<TaskRecord, "status" | "completeBy" | "remindRepeat"> | undefined,
+  task: Pick<TaskRecord, "status" | "completeBy" | "remindRepeat" | "remindOnce"> | undefined,
   now: Date = new Date(),
 ): { change: TaskChange; rolledTo: Date | null } {
   const keepsRepeat =
@@ -264,7 +270,9 @@ export function withReminders(
   if (task?.remindRepeat && task.completeBy && keepsRepeat && keepsDay && change.status === "done" && task.status !== "done") {
     const next = rollForward({ completeBy: task.completeBy, remindRepeat: task.remindRepeat }, now);
     const { status: _done, ...rest } = change;
-    return { change: { ...rest, completeBy: next }, rolledTo: next };
+    // A reminder for this time only doesn't come back with it (revamp 5).
+    const reminder = task.remindOnce ? { remindBefore: null, remindOnce: false } : {};
+    return { change: { ...rest, ...reminder, completeBy: next }, rolledTo: next };
   }
 
   // No day, no time: whatever time came with the change.

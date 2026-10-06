@@ -35,6 +35,8 @@ export async function postTaskCreate(
     dueTime?: string | null;
     remindBefore?: number | null;
     remindRepeat?: ReminderRepeat | null;
+    /** The reminder is for this time only (revamp 5). */
+    remindOnce?: boolean;
     status?: TaskStatus;
     noteId?: string | null;
   },
@@ -59,6 +61,8 @@ export async function postTaskUpdate(
     dueTime?: string | null;
     remindBefore?: number | null;
     remindRepeat?: ReminderRepeat | null;
+    /** The reminder is for this time only (revamp 5). */
+    remindOnce?: boolean;
     status?: TaskStatus;
     /** The day it was planned for before a move (revamp 5). */
     movedFrom?: Date | null;

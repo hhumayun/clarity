@@ -11,6 +11,7 @@ import { useAuth } from "../core/providers/AuthProvider";
 import { holdAcknowledgements, useAcknowledge } from "../ui/Acknowledgement";
 import { byName, hhmm, noonOf, noteContent, pagesOf, toArea, toFocus, toNote, toTask } from "./adapt";
 import { declined, emptyAccount, setAccountNotifier, useAccountStore, type AccountState } from "./account";
+import { syncNoticesQuiet } from "./quiet";
 import { useDataMode, useOnline } from "./sage";
 
 /**
@@ -148,6 +149,7 @@ export function AccountSource() {
         if (patch.time !== undefined) change.dueTime = patch.time !== null ? hhmm(patch.time) : null;
         if (patch.remind !== undefined) change.remindBefore = patch.remind;
         if (patch.repeat !== undefined) change.remindRepeat = patch.repeat;
+        if (patch.remindOnce !== undefined) change.remindOnce = patch.remindOnce;
         if (patch.done !== undefined) change.status = patch.done ? "done" : "todo";
         if (patch.area !== undefined && patch.area !== null) {
           const known = projectId(patch.area);
@@ -252,7 +254,8 @@ export function AccountSource() {
 /**
  * The connection, said quietly and without counts. Going offline: "Offline.
  * Changes will sync." Back online, once whatever was waiting has gone: "All
- * changes saved". Nothing at all when nothing was waiting.
+ * changes saved". Nothing at all when nothing was waiting, or while a note is
+ * being written (useQuietSyncNotices).
  */
 function ConnectionNotices() {
   const acknowledge = useAcknowledge();
@@ -264,7 +267,8 @@ function ConnectionNotices() {
   useEffect(() => {
     if (!online && !offlineSaid.current) {
       offlineSaid.current = true;
-      acknowledge("Offline. Changes will sync.", "cloudOff", 3200);
+      // Writing a note, nothing is said about syncing.
+      if (!syncNoticesQuiet()) acknowledge("Offline. Changes will sync.", "cloudOff", 3200);
     }
     if (online) offlineSaid.current = false;
   }, [online, acknowledge]);
@@ -273,7 +277,7 @@ function ConnectionNotices() {
     if (!online && pending > 0) waiting.current = true;
     if (online && waiting.current && pending === 0) {
       waiting.current = false;
-      acknowledge("All changes saved", "cloudCheck");
+      if (!syncNoticesQuiet()) acknowledge("All changes saved", "cloudCheck");
     }
   }, [online, pending, acknowledge]);
 

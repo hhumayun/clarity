@@ -57,6 +57,7 @@ export function toTask(record: LiveTask): Task {
     time: record.completeBy && record.dueTime ? minutesOf(record.dueTime) : null,
     remind: record.remindBefore ?? null,
     repeat: record.remindRepeat ?? null,
+    remindOnce: record.remindOnce ?? false,
     noteIds: linkedNoteIds(record),
     foundIn: record.noteId,
     createdAt: asDate(record.createdAt).getTime(),
