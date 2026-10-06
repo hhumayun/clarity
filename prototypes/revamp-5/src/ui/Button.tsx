@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { calm, duration, easeOut, spring, squash } from "../theme/motion";
+import { calm, duration, easeOut, fadeTiming, keep, spring, squash } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, type TypeName } from "../theme/tokens";
 import { Icon, type IconName } from "./Icon";
@@ -81,10 +81,10 @@ export function Button({
       onPress={state === "idle" && !disabled ? onPress : undefined}
       onPressIn={() => {
         if (disabled || state !== "idle") return;
-        scale.value = withTiming(squash, { duration: duration.press, easing: easeOut });
+        scale.value = withTiming(squash, { duration: duration.press, easing: easeOut, reduceMotion: keep });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, reduced ? calm : spring.pop);
+        scale.value = withSpring(1, { ...(reduced ? calm : spring.pop), reduceMotion: keep });
       }}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
@@ -122,14 +122,14 @@ function Morph({ label, icon, color, state, variant, iconSize }: { label: string
     }
     setShown((old) => (old.current === label && old.icon === icon ? old : { current: label, previous: old.current, icon, previousIcon: old.icon }));
     roll.value = 0;
-    roll.value = withTiming(1, { duration: duration.roll, easing: easeOut });
+    roll.value = withTiming(1, fadeTiming(duration.roll));
   }, [label, icon, roll]);
 
   const words = useSharedValue(state === "idle" ? 1 : 0);
   const busy = useSharedValue(state === "busy" ? 1 : 0);
   const done = useSharedValue(state === "done" ? 1 : 0);
   useEffect(() => {
-    const timing = { duration: duration.morph, easing: easeOut };
+    const timing = fadeTiming(duration.morph);
     words.value = withTiming(state === "idle" ? 1 : 0, timing);
     busy.value = withTiming(state === "busy" ? 1 : 0, timing);
     if (state === "done") done.value = reduced ? withTiming(1, timing) : withSequence(withTiming(0.6, { duration: 1 }), withSpring(1, spring.pop));
@@ -178,7 +178,7 @@ export function Spinner({ color, size = 20, active = true }: { color: string; si
       return;
     }
     turn.value = 0;
-    turn.value = withRepeat(withTiming(1, { duration: reduced ? 1400 : 800, easing: Easing.linear }), -1, false);
+    turn.value = withRepeat(withTiming(1, { duration: reduced ? 1400 : 800, easing: Easing.linear, reduceMotion: keep }), -1, false);
     return () => cancelAnimation(turn);
   }, [active, reduced, turn]);
   const style = useAnimatedStyle(() => (reduced ? { opacity: 0.55 + 0.45 * Math.sin(turn.value * Math.PI) } : { transform: [{ rotate: `${turn.value * 360}deg` }] }));

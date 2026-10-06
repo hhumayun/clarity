@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Magnifier, Notebook, Tea } from "../src/art/Pictures";
 import { AI_CHOICE } from "../src/data/ai";
 import { useDevice } from "../src/state/device";
-import { duration, easeOut, spring } from "../src/theme/motion";
+import { duration, easeOut, fadeTiming, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, space } from "../src/theme/tokens";
 import { Button, ButtonPair } from "../src/ui/Button";
@@ -71,14 +71,14 @@ export default function FirstRun() {
     "worklet";
     return {
       initialValues: { opacity: 0, transform: [{ translateX: shift }] },
-      animations: { opacity: withTiming(1, { duration: duration.enter, easing: easeOut }), transform: [{ translateX: withTiming(0, { duration: duration.enter, easing: easeOut }) }] },
+      animations: { opacity: withTiming(1, fadeTiming(duration.enter)), transform: [{ translateX: withTiming(0, { duration: duration.enter, easing: easeOut }) }] },
     };
   };
   const pop = () => {
     "worklet";
     return {
       initialValues: { opacity: 0, transform: [{ scale: reduced ? 1 : 0.8 }] },
-      animations: { opacity: withTiming(1, { duration: duration.quick }), transform: [{ scale: withSpring(1, spring.pop) }] },
+      animations: { opacity: withTiming(1, fadeTiming(duration.quick)), transform: [{ scale: withSpring(1, spring.pop) }] },
     };
   };
 

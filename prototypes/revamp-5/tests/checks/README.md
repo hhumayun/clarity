@@ -31,6 +31,7 @@ mkdir -p /tmp/clarity-revamp-5          # some write their output here
 | `editor-flow.mjs` | 18 note-page checks: open, edit and reopen, the tools, Today's question, Next question |
 | `words-flow.mjs` | 14 checks of word help: no strip while writing, a strip after a pause at a sentence's end, a tap puts the words in, nothing mid-sentence; Go deeper's questions; sends nothing |
 | `repeat-flow.mjs` | 12 checks: repeats and reminders are separate, "Just this time", ticking a task off (the browser's clock is pinned to 8am: its task reminds at 12:30) |
+| `phase1-check.mjs` | 18 checks of UX phase 1 (branch revamp-5-ux): under Reduce Motion, a fade still plays, nothing slides and Hold to stop needs the hold; "Saved to Notes" goes; deleting a task never says "could not be found"; "All done"; Go deeper remembers Not now; Search shows more; the areas sheet says why a name can't be used; renaming the chosen area resets Life's filter |
 | `filter-lag.mjs` | how long an area chip takes on Life and Notes, from the press: until the chip shows it and until the rows on screen are right (samples ×4, CPU 4× slower; PROFILE=1 for a CPU profile) |
 | `smoke.mjs` | the app opens; Today, Notes and Life show; how long each switch takes |
 | `lazy-check.mjs` | whether a first visit to a tab fetches code (it doesn't) |

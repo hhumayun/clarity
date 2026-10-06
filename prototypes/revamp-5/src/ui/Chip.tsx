@@ -34,7 +34,6 @@ export function Chip({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       aria-selected={selected}
-      scaleTo={0.94}
       style={[
         styles.chip,
         label ? null : styles.round,
@@ -43,7 +42,7 @@ export function Chip({
     >
       {icon ? <Icon name={icon} size={15} color={tone} weight="semibold" /> : null}
       {label ? (
-        <Txt variant="footnote" weight={selected ? "bold" : "semibold"} style={{ color: tone }}>
+        <Txt variant="footnote" weight="semibold" style={{ color: tone }}>
           {label}
         </Txt>
       ) : null}

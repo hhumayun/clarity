@@ -4,7 +4,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { dateOf, longDay, today, type Day } from "../lib/dates";
-import { breathe, calm, duration, easeOut, spring } from "../theme/motion";
+import { breathe, calm, duration, easeOut, fadeTiming, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius } from "../theme/tokens";
 import { tick } from "./haptics";
@@ -46,7 +46,7 @@ export function WeekStrip({ days, selected, onSelect, onWeek }: { days: StripDay
     lastFirst.current = firstDay;
     if (reduced) {
       fade.value = 0;
-      fade.value = withTiming(1, { duration: duration.base });
+      fade.value = withTiming(1, fadeTiming(duration.base));
       return;
     }
     x.value = (forward ? 1 : -1) * Math.max(60, width * 0.25);

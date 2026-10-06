@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { useDevice } from "../state/device";
-import { duration, easeOut } from "../theme/motion";
+import { duration, fadeTiming } from "../theme/motion";
 import { type, type TypeName } from "../theme/tokens";
 import { LARGE_TEXT } from "./Txt";
 
@@ -45,7 +45,7 @@ export function Roll({
       return { current: text, previous: old.current, up: Number.isNaN(a) || Number.isNaN(b) ? true : b >= a };
     });
     progress.value = 0;
-    progress.value = withTiming(1, { duration: duration.roll, easing: easeOut });
+    progress.value = withTiming(1, fadeTiming(duration.roll));
   }, [text, progress]);
 
   const base = type[variant];

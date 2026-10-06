@@ -2,7 +2,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import Animated, { FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useKeyboardState } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { deeper, deeperFallback, questions } from "../../src/data/prompts";
@@ -20,7 +20,7 @@ import { useDeeperQuestions, useWritingHelp, type WordIdea } from "../../src/edi
 import { longDay, today } from "../../src/lib/dates";
 import { noteTime } from "../../src/store/selectors";
 import type { Block } from "../../src/store/model";
-import { duration, easeOut } from "../../src/theme/motion";
+import { arrive, arriveSlow, duration, fadeTiming, leave as fadeOut, riseIn } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
@@ -126,6 +126,8 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<ButtonState>("idle");
   const [menu, setMenu] = useState(false);
+  // Go deeper's place: kept here, so the keyboard coming up and going doesn't reset it or bring back what was put away.
+  const [deeperMemory, rememberDeeper] = useState<DeeperMemory>({ n: 0, open: true, askedAbout: null });
   // A page opened from Today's question: "Next question" asks another.
   const [guided, setGuided] = useState(isNew && !!prompt);
 
@@ -153,7 +155,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
   // out. Nothing moves: words being read don't slide.
   const reveal = useSharedValue(0);
   useEffect(() => {
-    reveal.value = shown ? withTiming(1, { duration: duration.base, easing: easeOut }) : 0;
+    reveal.value = shown ? withTiming(1, fadeTiming(duration.base)) : 0;
   }, [shown, reveal]);
   const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
 
@@ -301,7 +303,6 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
           onPress={() => router.push(session.noteId && note ? `/sheet/area?note=${session.noteId}` : "/sheet/area?draft=1")}
           accessibilityRole="button"
           accessibilityLabel={area ? `Area: ${area}. Change` : "Choose an area"}
-          scaleTo={0.95}
           style={[styles.chip, { borderColor: colors.line }]}
         >
           <Icon name="tag" size={14} color={colors.ink2} weight="semibold" />
@@ -332,7 +333,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
       </View>
 
       {menu && session.noteId ? (
-        <Animated.View entering={FadeInDown.duration(duration.enter).easing(easeOut)} style={[styles.menu, { top: insets.top + 48, backgroundColor: colors.sunken }]}>
+        <Animated.View entering={riseIn} style={[styles.menu, { top: insets.top + 48, backgroundColor: colors.sunken }]}>
           <Button label="Archive" icon="archive" variant="outline" size="md" onPress={archive} accessibilityLabel="Archive this note" />
           <AskInPlace label="Delete" icon="trash" variant="outline" danger steps={[{ question: "Delete this note? It can't be undone.", confirm: "Delete", icon: "trash" }]} onConfirm={remove} />
         </Animated.View>
@@ -358,7 +359,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
             accessibilityLabel="Title"
           />
           {fresh && guided ? (
-            <Animated.View entering={FadeIn.duration(duration.enter)} exiting={FadeOut.duration(duration.quick)} style={styles.questionTools}>
+            <Animated.View entering={arriveSlow} exiting={fadeOut} style={styles.questionTools}>
               <QuestionTool icon="another" label="Another question" onPress={anotherFirst} />
               <QuestionTool icon="close" label="Write without a question" onPress={withoutQuestion} />
             </Animated.View>
@@ -448,6 +449,8 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
                 text={noteText}
                 visit={help.questions}
                 asked={asked.list()}
+                memory={deeperMemory}
+                remember={rememberDeeper}
                 onAdd={(question) => {
                   asked.add(question);
                   editor.current?.run("insertQuestion", JSON.stringify({ text: question, atEnd: true }));
@@ -507,15 +510,34 @@ function QuestionTool({ icon, label, onPress }: { icon: IconName; label: string;
  * wanted (once per version of the note), so opening a note to read costs
  * nothing.
  */
-function GoDeeper({ noteId, title, text, visit, asked, onAdd }: { noteId: string; title: string; text: () => string; visit: string[]; asked: string[]; onAdd: (question: string) => void }) {
+/** Go deeper's place on a visit: which question, whether it was put away, what the AI was asked about. */
+type DeeperMemory = { n: number; open: boolean; askedAbout: string | null };
+
+function GoDeeper({
+  noteId,
+  title,
+  text,
+  visit,
+  asked,
+  memory,
+  remember,
+  onAdd,
+}: {
+  noteId: string;
+  title: string;
+  text: () => string;
+  visit: string[];
+  asked: string[];
+  memory: DeeperMemory;
+  remember: React.Dispatch<React.SetStateAction<DeeperMemory>>;
+  onAdd: (question: string) => void;
+}) {
   const { colors } = useTheme();
   const demo = useDataMode((state) => state.mode) === "demo";
   const aiReady = useAiReady();
   const promptType = useType("prompt");
-  const [n, setN] = useState(0);
-  const [open, setOpen] = useState(true);
-  // The note as it stood when another question was wanted (null: not asked).
-  const [askedAbout, setAskedAbout] = useState<string | null>(null);
+  // `askedAbout`: the note as it stood when another question was wanted (null: not asked).
+  const { n, open, askedAbout } = memory;
   const askAi = askedAbout !== null;
   const canAsk = !demo && aiReady && visit.length === 0;
   const fromNote = useDeeperQuestions({ noteId, title, markdown: askedAbout ?? "", enabled: canAsk && askAi });
@@ -532,14 +554,13 @@ function GoDeeper({ noteId, title, text, visit, asked, onAdd }: { noteId: string
   const another = () => {
     tick();
     if (canAsk && !askAi && !ai) {
-      setAskedAbout(text());
-      setN(0);
+      remember((m) => ({ ...m, askedAbout: text(), n: 0 }));
       return;
     }
-    setN((v) => v + 1);
+    remember((m) => ({ ...m, n: m.n + 1 }));
   };
   return (
-    <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)} style={[styles.deeper, { backgroundColor: colors.sunken }]}>
+    <Animated.View entering={arrive} exiting={fadeOut} style={[styles.deeper, { backgroundColor: colors.sunken }]}>
       <View style={styles.deeperHead}>
         <Icon name="idea" size={16} color={colors.ink3} weight="semibold" />
         <Txt variant="footnote" tone="ink3" weight="semibold" style={styles.flex}>
@@ -560,7 +581,7 @@ function GoDeeper({ noteId, title, text, visit, asked, onAdd }: { noteId: string
         {question === null ? <ThinkingDots /> : <Roll value={question} variant="prompt" color={colors.ink} />}
       </View>
       <ButtonPair style={styles.deeperButtons}>
-        <Button label="Not now" variant="outline" size="sm" flex onPress={() => setOpen(false)} />
+        <Button label="Not now" variant="outline" size="sm" flex onPress={() => (tick(), remember((m) => ({ ...m, open: false })))} />
         <Button
           label="Add to note"
           icon="plus"
@@ -572,7 +593,7 @@ function GoDeeper({ noteId, title, text, visit, asked, onAdd }: { noteId: string
             if (question === null) return;
             tick();
             onAdd(question);
-            setOpen(false);
+            remember((m) => ({ ...m, open: false }));
           }}
         />
       </ButtonPair>
@@ -584,7 +605,7 @@ function GoDeeper({ noteId, title, text, visit, asked, onAdd }: { noteId: string
 function WordsLoading() {
   const { colors } = useTheme();
   return (
-    <Animated.View exiting={FadeOut.duration(duration.quick)} style={styles.loading} pointerEvents="none">
+    <Animated.View exiting={fadeOut} style={styles.loading} pointerEvents="none">
       {[1, 0.92, 0.6].map((width, i) => (
         <View key={i} style={[styles.loadingLine, { width: `${width * 100}%`, backgroundColor: colors.sunken }]} />
       ))}

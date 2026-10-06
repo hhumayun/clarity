@@ -1,13 +1,13 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import { dayChoices, dayLabel, lateLabel, today, type Day } from "../src/lib/dates";
 import { slipped } from "../src/store/selectors";
 import { getSage, useSage } from "../src/data/sage";
-import { calm, duration, easeOut, spring } from "../src/theme/motion";
+import { arrive, arriveSlow, calm, duration, easeOut, fadeTiming, keep, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, radius, space } from "../src/theme/tokens";
 import { Sprout } from "../src/art/Pictures";
@@ -69,7 +69,7 @@ export default function CatchUp() {
   // How far through, as a line that fills: no numbers to read.
   const share = useSharedValue(0);
   useEffect(() => {
-    share.value = withSpring(queue.length ? index / queue.length : 0, reduced ? calm : spring.settle);
+    share.value = withSpring(queue.length ? index / queue.length : 0, { ...(reduced ? calm : spring.settle), reduceMotion: keep });
   }, [index, queue.length, share, reduced]);
   const filled = useAnimatedStyle(() => ({ transform: [{ scaleX: share.value }] }));
 
@@ -92,7 +92,7 @@ export default function CatchUp() {
       y.value = withSpring(0, spring.glide);
       turn.value = withSpring(0, spring.glide);
       scale.value = withSpring(1, spring.glide);
-      fade.value = withTiming(1, { duration: duration.base, easing: easeOut });
+      fade.value = withTiming(1, fadeTiming(duration.base));
       busy.current = false;
     };
     const to = reduced ? STILL : LEAVES[result];
@@ -101,7 +101,7 @@ export default function CatchUp() {
     y.value = withTiming(to.y, out);
     turn.value = withTiming(to.turn, out);
     scale.value = withTiming(to.scale, out);
-    fade.value = withTiming(0, { duration: duration.quick + 40, easing: easeOut }, (finished) => {
+    fade.value = withTiming(0, fadeTiming(duration.quick + 40), (finished) => {
       if (finished) scheduleOnRN(arrive);
     });
   };
@@ -157,7 +157,7 @@ export default function CatchUp() {
             </View>
             <View style={styles.noteSlot}>
               {note ? (
-                <Animated.View key={`${index}-note`} entering={FadeIn.duration(duration.base)} style={styles.note}>
+                <Animated.View key={`${index}-note`} entering={arrive} style={styles.note}>
                   <Icon name={note.icon} size={15} color={colors.ink3} weight="medium" />
                   <Txt variant="footnote" tone="ink3">
                     {note.text}
@@ -182,7 +182,7 @@ export default function CatchUp() {
         </>
       ) : (
         <>
-          <Animated.View entering={FadeIn.duration(duration.enter).easing(easeOut)} style={styles.summary}>
+          <Animated.View entering={arriveSlow} style={styles.summary}>
             <Sprout size={128} />
             <Txt variant="title1" center>
               All caught up

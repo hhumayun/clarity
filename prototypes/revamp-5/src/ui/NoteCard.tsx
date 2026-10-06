@@ -4,7 +4,7 @@ import type { Note } from "../store/model";
 import { useUnsent } from "../data/sage";
 import { noteTime } from "../store/selectors";
 import { useTheme } from "../theme/ThemeProvider";
-import { face, pad, space } from "../theme/tokens";
+import { pad, space } from "../theme/tokens";
 import { Card } from "./Card";
 import { Icon } from "./Icon";
 import { Txt } from "./Txt";
@@ -87,7 +87,7 @@ export function Marked({ text, match }: { text: string; match?: string }) {
   while (i !== -1) {
     if (i > at) parts.push(text.slice(at, i));
     parts.push(
-      <Text key={key++} style={{ color: accent.text, fontFamily: face.heavy }}>
+      <Text key={key++} style={{ color: accent.text }}>
         {text.slice(i, i + needle.length)}
       </Text>,
     );

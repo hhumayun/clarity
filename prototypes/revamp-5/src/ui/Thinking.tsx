@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
-import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { breathe, duration, easeOut } from "../theme/motion";
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import { arriveAfter, breathe, duration, keep } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { useType } from "./Txt";
 
@@ -25,7 +25,7 @@ function Dot({ delay, color, size }: { delay: number; color: string; size: numbe
   const reduced = useReducedMotion();
   const v = useSharedValue(0);
   useEffect(() => {
-    v.value = withDelay(delay, withRepeat(withSequence(withTiming(1, { duration: 360, easing: breathe }), withTiming(0, { duration: 360, easing: breathe }), withTiming(0, { duration: 260 })), -1));
+    v.value = withDelay(delay, withRepeat(withSequence(withTiming(1, { duration: 360, easing: breathe, reduceMotion: keep }), withTiming(0, { duration: 360, easing: breathe, reduceMotion: keep }), withTiming(0, { duration: 260, reduceMotion: keep })), -1));
   }, [delay, v]);
   const style = useAnimatedStyle(() => (reduced ? { opacity: 0.35 + 0.65 * v.value } : { opacity: 0.45 + 0.55 * v.value, transform: [{ translateY: -5 * v.value }] }));
   return <Animated.View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }, style]} />;
@@ -76,7 +76,7 @@ export function StreamText({ text, variant = "body", tone, style, onDone, speed 
 
 /** A block that arrives after a reflection: it fades up from a little below. */
 export function Arriving({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  return <Animated.View entering={FadeIn.duration(duration.enter).delay(delay).easing(easeOut)}>{children}</Animated.View>;
+  return <Animated.View entering={arriveAfter(delay)}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

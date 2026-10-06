@@ -18,6 +18,9 @@ import { aiOn } from "./ai";
 import { dayOf } from "../lib/dates";
 import type { Suggestion } from "../store/model";
 
+// How long a task just added stays marked as new (the demo store's 2.5 s).
+const GLOW_MS = 2_500;
+
 /**
  * Every signed-in account saves. Until phase 4's offline checks passed, only
  * test accounts did; saving opened to all accounts on 2026-10-06, with the
@@ -142,7 +145,16 @@ export function AccountSource() {
     const projectId = (name: string | null | undefined) => (name ? latest.current.projects?.find((project) => sameName(project.name, name))?.id : undefined);
     const actions: Actions = {
       addTask: ({ title, area, day, time, noteId }) => {
-        latest.current.tasks.create.mutate({ text: title, projectName: area, completeBy: day ? noonOf(day) : null, dueTime: day && time !== null ? hhmm(time) : null, noteId: noteId ?? null });
+        latest.current.tasks.create.mutate(
+          { text: title, projectName: area, completeBy: day ? noonOf(day) : null, dueTime: day && time !== null ? hhmm(time) : null, noteId: noteId ?? null },
+          {
+            // The new task glows where it lands, as it does looking around (it never did for an account).
+            onSuccess: ({ task }) => {
+              useAccountStore.setState({ lastAdded: task.id });
+              setTimeout(() => useAccountStore.getState().lastAdded === task.id && useAccountStore.setState({ lastAdded: null }), GLOW_MS);
+            },
+          },
+        );
         return "";
       },
       updateTask: (id, patch) => {

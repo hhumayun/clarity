@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
-import { calm, duration, easeOut, spring } from "../theme/motion";
+import { calm, duration, easeOut, fadeTiming, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -67,17 +67,17 @@ function MovingCheck({ on, pressed, size, from }: { on: boolean; pressed: boolea
   const before = useRef(from);
 
   useEffect(() => {
-    down.value = withTiming(pressed ? 1 : 0, { duration: pressed ? duration.press : duration.base, easing: easeOut });
+    down.value = withTiming(pressed ? 1 : 0, fadeTiming(pressed ? duration.press : duration.base));
   }, [pressed, down]);
 
   useEffect(() => {
     if (before.current === on) return;
     before.current = on;
-    fill.value = withTiming(on ? 1 : 0, { duration: on ? duration.base : duration.quick, easing: easeOut });
+    fill.value = withTiming(on ? 1 : 0, fadeTiming(on ? duration.base : duration.quick));
     if (on && !reduced) {
       pop.value = withSequence(withTiming(0.82, { duration: duration.press, easing: easeOut }), withSpring(1, spring.pop));
       halo.value = 0;
-      halo.value = withDelay(60, withTiming(1, { duration: 520, easing: easeOut }));
+      halo.value = withDelay(60, withTiming(1, { duration: duration.halo, easing: easeOut }));
     } else {
       pop.value = withSpring(1, reduced ? calm : spring.settle);
     }

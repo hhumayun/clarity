@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, type SharedValue } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
-import { duration, easeOut } from "../theme/motion";
+import { duration, fadeTiming } from "../theme/motion";
 
 const WAVE = 10;
 
@@ -25,7 +25,7 @@ export function Level({ level, color, running, width, height, children }: { leve
     } else {
       cancelAnimation(drift);
     }
-    dim.value = withTiming(running ? 1 : 0.55, { duration: duration.enter, easing: easeOut });
+    dim.value = withTiming(running ? 1 : 0.55, fadeTiming(duration.enter));
   }, [running, reduced, drift, dim]);
   const surface = useAnimatedStyle(() => ({ transform: [{ translateY: (1 - level.value) * (height + WAVE) - WAVE }], opacity: dim.value }));
   const hold = useAnimatedStyle(() => ({ transform: [{ translateY: -((1 - level.value) * (height + WAVE) - WAVE) }] }));

@@ -1,30 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LayoutAnimationConfig,
-  LinearTransition,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSequence,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { LayoutAnimationConfig, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import type { Task } from "../store/model";
 import { useSage } from "../data/sage";
-import { duration, easeOut, spring } from "../theme/motion";
+import { arrive, arriveSlow, duration, easeOut, leave, settle, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, pad, radius, space } from "../theme/tokens";
 import { Icon } from "./Icon";
 import { TaskRow, type TaskVariant } from "./TaskRow";
 import { Txt } from "./Txt";
 
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
-// Made once: a new builder each render would set the animation up again each time.
-const leave = FadeOut.duration(duration.quick);
-const arrive = FadeIn.duration(duration.base);
+// The presets (arrive, leave, settle) are made once: a new builder each render would set the animation up again each time.
 
 /**
  * Tasks on one card, a hairline between rows. A row that leaves fades while
@@ -64,7 +50,7 @@ export function TaskCard({
         ))}
       </LayoutAnimationConfig>
       {tasks.length === 0 ? (
-        <Animated.View entering={FadeIn.duration(duration.enter)} style={styles.empty}>
+        <Animated.View entering={arriveSlow} style={styles.empty}>
           {typeof empty === "string" ? (
             <Txt variant="subhead" tone="ink3" center>
               {empty}
@@ -136,7 +122,7 @@ export function DoneFold({ tasks, label = "Done", showArea = true, onClear, quie
   useEffect(() => {
     const arrived = tasks.length > before.current.count && scope === before.current.scope;
     if (arrived && !reduced) {
-      bump.value = withSequence(withTiming(1.14, { duration: 140, easing: easeOut }), withSpring(1, spring.pop));
+      bump.value = withSequence(withTiming(1.14, { duration: duration.bump, easing: easeOut }), withSpring(1, spring.pop));
     }
     before.current = { count: tasks.length, scope };
   }, [tasks.length, scope, bump, reduced]);
@@ -147,7 +133,7 @@ export function DoneFold({ tasks, label = "Done", showArea = true, onClear, quie
   const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
   if (tasks.length === 0) return null;
   return (
-    <Animated.View layout={quiet ? undefined : settle} entering={FadeIn.duration(duration.base)}>
+    <Animated.View layout={quiet ? undefined : settle} entering={arrive}>
       <View style={styles.foldHead}>
         <Pressable onPress={() => setOpen((v) => !v)} accessibilityRole="button" accessibilityLabel={open ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} aria-expanded={open} hitSlop={10}>
           {({ pressed }) => (
@@ -163,7 +149,7 @@ export function DoneFold({ tasks, label = "Done", showArea = true, onClear, quie
           )}
         </Pressable>
         {open && onClear ? (
-          <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)} style={styles.clear}>
+          <Animated.View entering={arrive} exiting={leave} style={styles.clear}>
             <Pressable onPress={onClear} accessibilityRole="button" accessibilityLabel="Clear finished tasks" hitSlop={10}>
               {({ pressed }) => (
                 <View style={[styles.foldToggle, { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 }]}>
@@ -178,7 +164,7 @@ export function DoneFold({ tasks, label = "Done", showArea = true, onClear, quie
         ) : null}
       </View>
       {open ? (
-        <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)}>
+        <Animated.View entering={arrive} exiting={leave}>
           <TaskCard tasks={tasks} showArea={showArea} quiet={quiet} />
         </Animated.View>
       ) : null}

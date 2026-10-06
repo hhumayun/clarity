@@ -13,6 +13,37 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - Migrations **001–016** are applied to production.
 - **Never commit:** design research (Appllama, Mobbin and Rosebud images in `/root/projects/clarity-design-research`), `.env*` files (keep them outside project folders), or backups (`/root/.config/clarity-backups`).
 
+## UX improvements: branch `revamp-5-ux` (from 2026-10-06)
+
+- **The plan:** `/root/projects/uximprove/plan.md` (not in git). Seven phases from the UX audit in the same folder.
+- **The user's choices:** filter motion A (fade-through, 8 pt rise); Notes and Search the same as Life; the five product calls agreed; foundations first; a commit at each phase.
+- **Where:** branch `revamp-5-ux`, made from revamp-5 at 830895a, worktree `/root/projects/clarity-revamp-5-ux`. revamp-5 itself stays at 830895a.
+  - To commit, rsync the running copy into `/root/projects/clarity-revamp-5-ux/prototypes/revamp-5/` (same flags as below), copy `tests/*/README.md` by hand, and commit there.
+  - The running copy now holds the UX branch's app. To try revamp-5 as it was, rsync that worktree's `prototypes/revamp-5` back into the running copy.
+- **Phase 1, foundations and bugs, is done:**
+  - **Reduce Motion:** `keep` and `fadeTiming` in motion.ts. Fades, presses and functional timings play; travel snaps.
+    - The plan said `ReducedMotionConfig` Never, but that switch overrides every animation, so anything missed would move under Reduce Motion. This way is safer, with the same outcome.
+  - **Shared presets** (`arrive`, `arriveSlow`, `leave`, `settle`, `riseIn`, `arriveAfter`) and press depths `squash` / `squashSmall`.
+  - **One weight when choosing or ticking.**
+  - **The capsule** in a FullWindowOverlay on iOS: not modal for VoiceOver, mounted only while it shows, rolls its words, announced.
+  - **Bugs:**
+    - Hold to stop under Reduce Motion;
+    - deleting a task showing "could not be found";
+    - Today after midnight (`src/data/dayRollover.ts`);
+    - the Today tab resetting a viewed day;
+    - `(tabs)` sliding in like a push;
+    - Go deeper forgetting Not now;
+    - "Saved to Notes" staying;
+    - filters on a renamed or removed area;
+    - the areas sheet failing silently on a duplicate name (and its 36 pt shift when renaming);
+    - Learn from my writing not optimistic;
+    - accounts' new-task glow;
+    - the skeleton's label and Today's "All done";
+    - Search's 12-result cap ("Show more", no count);
+    - a failed font leaving the splash up.
+  - **Checks:** `tests/checks/phase1-check.mjs` (18). Run against 830895a, it catches six of these bugs. The delete flash only shows during the phone's slide.
+- **Next:** phase 2, swaps (the area filters with `useFilterSwap` and a travelling ring, Today's day change, Search, skeletons).
+
 ## What's done
 
 - **Phases 0–4** (accounts, API changes, your data, offline) are done. Saving is open to every account.

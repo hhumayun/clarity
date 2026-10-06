@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { StyleSheet } from "react-native";
-import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
-import { duration, easeOut } from "../theme/motion";
+import Animated from "react-native-reanimated";
+import { arrive, settle } from "../theme/motion";
 import { space } from "../theme/tokens";
 import { Button, ButtonPair, type ButtonVariant } from "./Button";
 import { tick } from "./haptics";
 import type { IconName } from "./Icon";
 import { Txt } from "./Txt";
 
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
 
 export type AskStep = { question: string; confirm: string; icon?: IconName };
 
@@ -63,7 +62,7 @@ export function AskInPlace({
   return (
     <Animated.View layout={settle}>
       {step === null ? (
-        <Animated.View entering={FadeIn.duration(duration.base)}>
+        <Animated.View entering={arrive}>
           <Button
             label={label}
             icon={icon}
@@ -77,7 +76,7 @@ export function AskInPlace({
           />
         </Animated.View>
       ) : (
-        <Animated.View key={at} entering={FadeIn.duration(duration.base)} style={styles.ask}>
+        <Animated.View key={at} entering={arrive} style={styles.ask}>
           <Txt variant="subhead" tone="ink2" center>
             {step.question}
           </Txt>

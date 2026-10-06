@@ -238,6 +238,15 @@ Revamp 2's and revamp 4's motion, which the user liked, kept and re-tuned for ca
 
 **Tokens** (`src/theme/motion.ts`): press 90 ms, quick 160, base 220, enter 300, roll 280, morph 260, flood 600. One ease-out curve, `bezier(0.16, 1, 0.3, 1)`. Springs: pop (420 ms, 0.58), glide (460, 0.78), lead and trail (320/0.82 and 540/0.86, the stretching pill), settle (380, 1), bloom (420, 0.7). Under Reduce Motion, springs land without overshoot, travel becomes a fade and loops stop.
 
+**Reduce Motion, and the presets (2026-10-06, branch revamp-5-ux).**
+- When Reduce Motion is on, Reanimated snaps every animation, and Sage never overrode that. So the fades meant to stand in for travel snapped too, and Hold to stop became a tap.
+- Now fades, colour and progress, presses and the timings that do a job all carry `keep` (`fadeTiming` for timings) and play either way. Those timings are Hold to stop's fill, the focus timer and the keyboard padding.
+- Travel keeps the default and snaps. Where something both moves and fades, Sage plays only the fade.
+- Shared presets replace the one-off builders: `arrive` (fade, base, ease-out), `arriveSlow` (enter), `leave` (quick), `settle` (layout), `riseIn` (`rise`, a fade under Reduce Motion) and `arriveAfter` (a delay).
+- Presses squash to `squash` (0.97), or `squashSmall` (0.9) for small round targets.
+- A choice never changes a label's weight or width: chips, segmented controls, swatches, outcomes, sheet rows, search matches and ticked titles all keep one face.
+- The capsule shows over sheets and Settings, rolls its words when something new is said, and VoiceOver hears it.
+
 **Kept from revamp 2 and 4:**
 
 - the press squash and spring-back;

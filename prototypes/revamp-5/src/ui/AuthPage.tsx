@@ -1,9 +1,9 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View, type TextInputProps } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { duration } from "../theme/motion";
+import { arrive, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, space } from "../theme/tokens";
 import { Icon } from "./Icon";
@@ -55,7 +55,7 @@ export function AuthPage({ title, subtitle, children, footer }: { title: string;
 export function FieldError({ message }: { message: string }) {
   if (!message) return null;
   return (
-    <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)} accessibilityLiveRegion="polite">
+    <Animated.View entering={arrive} exiting={leave} accessibilityLiveRegion="polite">
       <Txt variant="footnote" tone="danger" center>
         {message}
       </Txt>

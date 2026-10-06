@@ -7,7 +7,7 @@ import { dayChoices, today, type Day } from "../src/lib/dates";
 import { parseTask } from "../src/lib/parseTask";
 import { whenLabel } from "../src/store/selectors";
 import { useSage, useSageStatus } from "../src/data/sage";
-import { duration, easeOut, spring } from "../src/theme/motion";
+import { arrive, duration, easeOut, reducedAtLaunch, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, radius, space } from "../src/theme/tokens";
 import { useAcknowledge } from "../src/ui/Acknowledgement";
@@ -133,7 +133,7 @@ export default function QuickAdd() {
       <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={() => router.back()} accessibilityLabel="Close" />
       <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} style={styles.flex} pointerEvents="box-none">
         <View style={styles.flex} pointerEvents="box-none" />
-        <Animated.View entering={rise} style={[styles.card, { backgroundColor: colors.card, boxShadow: colors.shadow, marginBottom: panel === "date" ? 0 : space[3] }]}>
+        <Animated.View entering={reducedAtLaunch ? arrive : rise} style={[styles.card, { backgroundColor: colors.card, boxShadow: colors.shadow, marginBottom: panel === "date" ? 0 : space[3] }]}>
           <Txt variant="eyebrow" tone="ink3">
             {params.note ? "New task for this note" : "New task"}
           </Txt>

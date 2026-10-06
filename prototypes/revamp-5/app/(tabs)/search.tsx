@@ -1,15 +1,16 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from "react-native-reanimated";
+import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Magnifier } from "../../src/art/Pictures";
 import { byPlan } from "../../src/store/selectors";
 import { useSage, useSageStatus } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards } from "../../src/ui/Loading";
-import { duration, easeOut } from "../../src/theme/motion";
+import { arriveSlow, leave, settle } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, radius, space } from "../../src/theme/tokens";
+import { Button } from "../../src/ui/Button";
 import { Chip } from "../../src/ui/Chip";
 import { useScrollY } from "../../src/ui/chrome";
 import { tick } from "../../src/ui/haptics";
@@ -20,9 +21,8 @@ import { TaskCard } from "../../src/ui/TaskCard";
 import { TopBar } from "../../src/ui/TopBar";
 import { Txt, useType } from "../../src/ui/Txt";
 
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
-const enter = FadeIn.duration(duration.enter).easing(easeOut);
-const exit = FadeOut.duration(duration.quick);
+const enter = arriveSlow;
+const exit = leave;
 
 /**
  * One place to find anything: a white field under the bar, and as you type
@@ -44,6 +44,10 @@ export default function Search() {
   const inputType = useType("callout");
   const [query, setQuery] = useState("");
   const [area, setArea] = useState<string | null>(null);
+  // The chosen area renamed or removed: back to every area.
+  useEffect(() => {
+    if (area !== null && !areas.some((item) => item.name === area)) setArea(null);
+  }, [areas, area]);
   const q = query.trim().toLowerCase();
 
   const foundNotes = useMemo(
@@ -58,6 +62,13 @@ export default function Search() {
     [tasks, q, area],
   );
   const looking = q.length > 0 || area !== null;
+  // A few at a time, and a quiet way to more (it used to stop at 12, saying nothing). No counts.
+  const [notesShown, setNotesShown] = useState(PAGE);
+  const [tasksShown, setTasksShown] = useState(PAGE);
+  useEffect(() => {
+    setNotesShown(PAGE);
+    setTasksShown(PAGE);
+  }, [q, area]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
@@ -123,21 +134,23 @@ export default function Search() {
           </Animated.View>
         ) : (
           <Animated.View layout={settle}>
-            {ready ? null : <SkeletonCards cards={1} rows={2} />}
+            {ready ? null : <SkeletonCards cards={1} rows={2} label="Loading" />}
             {foundNotes.length ? (
               <Animated.View layout={settle} entering={enter} exiting={exit}>
                 <SectionTitle title="Notes" first />
                 <View style={styles.cards}>
-                  {foundNotes.slice(0, 12).map((note) => (
+                  {foundNotes.slice(0, notesShown).map((note) => (
                     <NoteCard key={note.id} note={note} match={q} lines={2} onPress={() => router.push(`/note/${note.id}`)} />
                   ))}
                 </View>
+                {foundNotes.length > notesShown ? <Button label="Show more notes" variant="plain" size="sm" onPress={() => setNotesShown((n) => n + PAGE)} style={styles.more} /> : null}
               </Animated.View>
             ) : null}
             {foundTasks.length ? (
               <Animated.View layout={settle} entering={enter} exiting={exit}>
                 <SectionTitle title="Tasks" first={!foundNotes.length} />
-                <TaskCard tasks={foundTasks.slice(0, 12)} />
+                <TaskCard tasks={foundTasks.slice(0, tasksShown)} />
+                {foundTasks.length > tasksShown ? <Button label="Show more tasks" variant="plain" size="sm" onPress={() => setTasksShown((n) => n + PAGE)} style={styles.more} /> : null}
               </Animated.View>
             ) : null}
             {ready && !foundNotes.length && !foundTasks.length ? (
@@ -154,8 +167,12 @@ export default function Search() {
   );
 }
 
+// How many notes, and tasks, show before "Show more".
+const PAGE = 12;
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  more: { alignSelf: "center", marginTop: space[2] },
   field: { flexDirection: "row", alignItems: "center", gap: space[2], height: 48, marginHorizontal: edge, marginBottom: space[3], paddingHorizontal: space[4], borderRadius: radius.button, borderCurve: "continuous" },
   input: { flex: 1, height: 48, paddingVertical: 0, outlineWidth: 0 },
   clear: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },

@@ -1,16 +1,16 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAiOn, useAiReady } from "../../src/data/ai";
 import { useTaskSummary } from "../../src/core/hooks/useTasks";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { addDays, dayLabel, durationLabel, today } from "../../src/lib/dates";
 import { useFocusHistory, useTask } from "../../src/data/hooks";
 import type { FocusHistory, Note, Task } from "../../src/store/model";
 import { clockLabel, noteGroup, reminderLabel, repeatLabels, shortDate, sinceLabel } from "../../src/store/selectors";
 import { useSage, useUnsent, useDataMode } from "../../src/data/sage";
-import { duration, easeOut } from "../../src/theme/motion";
+import { arrive, leave, riseIn, settle } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
@@ -27,7 +27,6 @@ import { Txt, useType } from "../../src/ui/Txt";
 
 /** Summaries already "read" this session: coming back shows them at once. */
 const summarised = new Set<string>();
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
 
 /**
  * A task on a page of its own, laid out like Rosebud's goal editor: the
@@ -45,7 +44,13 @@ export default function TaskScreen() {
   const insets = useSafeAreaInsets();
   const { colors, accent } = useTheme();
   const acknowledge = useAcknowledge();
-  const task = useTask(id);
+  const live = useTask(id);
+  // Deleted here, the page slides away showing the task as it was, not
+  // "could not be found" (2026-10-06).
+  const deleting = useRef(false);
+  const last = useRef(live);
+  if (live) last.current = live;
+  const task = live ?? (deleting.current ? last.current : undefined);
   const history = useFocusHistory(id);
   const notes = useSage((state) => state.notes);
   const updateTask = useSage((state) => state.updateTask);
@@ -85,8 +90,10 @@ export default function TaskScreen() {
     if (next) acknowledge(`Next: ${dayLabel(next)}`, "repeat");
   };
 
+  // A delete isn't a success: a light tap, not the done haptic.
   const remove = () => {
-    doneHaptic();
+    tap();
+    deleting.current = true;
     router.back();
     deleteTask(task.id);
     acknowledge("Task deleted", "trash");
@@ -201,7 +208,7 @@ export default function TaskScreen() {
           </Txt>
           <Animated.View layout={settle} style={styles.deleteWrap}>
             {asking ? (
-              <Animated.View key="ask" entering={FadeIn.duration(duration.base)} style={styles.ask}>
+              <Animated.View key="ask" entering={arrive} style={styles.ask}>
                 <Txt variant="subhead" tone="ink2" center>
                   Delete it? It won't come back, even if its note is read again.
                 </Txt>
@@ -211,7 +218,7 @@ export default function TaskScreen() {
                 </ButtonPair>
               </Animated.View>
             ) : (
-              <Animated.View key="delete" entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)}>
+              <Animated.View key="delete" entering={arrive} exiting={leave}>
                 <Button label="Delete task" icon="trash" variant="danger" size="sm" onPress={() => (tick(), setAsking(true))} style={styles.deleteButton} />
               </Animated.View>
             )}
@@ -266,7 +273,7 @@ function SummaryCard({ id, text, steps, pace = false }: { id: string; text: stri
       <SectionTitle title="How it's going" icon="sparkles" />
       <Animated.View layout={settle} style={[styles.reflection, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>
         {phase === "reading" || text === null ? (
-          <Animated.View exiting={FadeOut.duration(duration.quick)} style={styles.reading}>
+          <Animated.View exiting={leave} style={styles.reading}>
             <ThinkingDots />
           </Animated.View>
         ) : phase === "writing" ? (
@@ -282,7 +289,7 @@ function SummaryCard({ id, text, steps, pace = false }: { id: string; text: stri
           <Txt variant="callout">{text}</Txt>
         )}
         {phase === "done" && text !== null && steps.length ? (
-          <Animated.View entering={seen ? undefined : FadeInDown.duration(duration.enter).easing(easeOut)} style={[styles.steps, { borderTopColor: colors.hairline }]}>
+          <Animated.View entering={seen ? undefined : riseIn} style={[styles.steps, { borderTopColor: colors.hairline }]}>
             {steps.map((step, i) => (
               <View key={i} style={styles.step}>
                 <View style={styles.rail}>

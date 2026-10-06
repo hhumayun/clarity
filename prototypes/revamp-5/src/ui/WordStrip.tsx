@@ -1,8 +1,8 @@
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import type { WordIdea } from "../editor/useWritingHelp";
-import { duration, easeOut } from "../theme/motion";
+import { arrive, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, space } from "../theme/tokens";
 import { Chip } from "./Chip";
@@ -18,8 +18,8 @@ export function WordStrip({ words, onTake }: { words: WordIdea[]; onTake: (word:
   const { colors } = useTheme();
   return (
     <Animated.View
-      entering={FadeIn.duration(duration.base).easing(easeOut)}
-      exiting={FadeOut.duration(duration.quick)}
+      entering={arrive}
+      exiting={leave}
       style={[styles.strip, { borderTopColor: colors.hairline }]}
       accessibilityLabel="Words you could use"
     >

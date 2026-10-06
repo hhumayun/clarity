@@ -19,7 +19,7 @@ import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import { AppState, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, { FadeOut, useReducedMotion, withTiming } from "react-native-reanimated";
+import Animated, { useReducedMotion, withTiming } from "react-native-reanimated";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { moveDocsOutOfLists } from "../src/core/hooks/useNotes";
@@ -30,7 +30,7 @@ import { CACHE_VERSION, keepOnPhone, OFFLINE_MAX_AGE_MS, queryPersister, saveOff
 import { SyncProvider } from "../src/core/sync/SyncProvider";
 import { AccountSource } from "../src/data/AccountSource";
 import { useDevice } from "../src/state/device";
-import { duration, easeOut } from "../src/theme/motion";
+import { duration, easeOut, leave } from "../src/theme/motion";
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider";
 import { light, space, type } from "../src/theme/tokens";
 import { AcknowledgementProvider } from "../src/ui/Acknowledgement";
@@ -70,7 +70,8 @@ export default function RootLayout() {
   // (React Query's default pauses mutations offline, which would hold every
   // change, on screen too, until the connection came back.)
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: Math.min(OFFLINE_MAX_AGE_MS, MAX_TIMER_MS) }, mutations: { networkMode: "always" } } }));
-  const [loaded] = useFonts({
+  // A face that fails to load falls back to the system's, rather than leaving the splash up for good.
+  const [fontsLoaded, fontError] = useFonts({
     NunitoSans_400Regular,
     NunitoSans_400Regular_Italic,
     NunitoSans_500Medium,
@@ -78,6 +79,7 @@ export default function RootLayout() {
     NunitoSans_700Bold,
     NunitoSans_800ExtraBold,
   });
+  const loaded = fontsLoaded || fontError !== null;
   useEffect(() => {
     if (loaded) void SplashScreen.hideAsync();
   }, [loaded]);
@@ -179,7 +181,8 @@ function Navigator() {
       {ready ? (
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.page } }}>
           <Stack.Protected guard={inApp}>
-            <Stack.Screen name="(tabs)" />
+            {/* Arriving in the app (signing in, looking around, the opening screens done) fades, as every door does; it isn't going deeper. */}
+            <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
             {/* Pages you go into and come back from: pushed, with the edge swipe back. */}
             <Stack.Screen name="note/[id]" options={{ contentStyle: { backgroundColor: colors.card } }} />
             <Stack.Screen name="task/[id]" />
@@ -246,7 +249,7 @@ function LaunchVeil({ ready }: { ready: boolean }) {
     };
   };
   return (
-    <Animated.View exiting={reduced ? FadeOut.duration(duration.quick) : lift} style={[StyleSheet.absoluteFill, styles.veil, { backgroundColor: colors.page }]}>
+    <Animated.View exiting={reduced ? leave : lift} style={[StyleSheet.absoluteFill, styles.veil, { backgroundColor: colors.page }]}>
       {reduced ? null : <LaunchMark />}
     </Animated.View>
   );

@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSage, useWhenEditable } from "../data/sage";
-import { duration, easeOut, spring } from "../theme/motion";
+import { duration, easeOut, fadeTiming, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius } from "../theme/tokens";
 import { tap, tick } from "./haptics";
@@ -51,7 +51,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const bottom = Math.max(insets.bottom, 10);
 
   useEffect(() => {
-    dial.value = reduced ? withTiming(open ? 1 : 0, { duration: duration.base }) : open ? withSpring(1, spring.bloom) : withTiming(0, { duration: duration.quick, easing: easeOut });
+    dial.value = reduced ? withTiming(open ? 1 : 0, fadeTiming(duration.base)) : open ? withSpring(1, spring.bloom) : withTiming(0, { duration: duration.quick, easing: easeOut });
   }, [open, dial, reduced]);
 
   // Android's back closes the dial first.

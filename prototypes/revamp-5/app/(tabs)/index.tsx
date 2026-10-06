@@ -1,14 +1,14 @@
 import { useNavigation, useRouter, useScrollToTop } from "expo-router";
 import React, { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeInLeft, FadeInRight, useAnimatedRef } from "react-native-reanimated";
+import Animated, { FadeInLeft, FadeInRight, useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Tea } from "../../src/art/Pictures";
 import { addDays, dateOf, dayLabel, daysBetween, today, weekStart } from "../../src/lib/dates";
 import { comingUp, doneOn, notesOn, openOn, slipped } from "../../src/store/selectors";
 import { getSage, useSage, useSageStatus, useWhenEditable } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
-import { duration, easeOut } from "../../src/theme/motion";
+import { arrive, arriveSlow, duration, easeOut, reducedAtLaunch, squashSmall } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, radius, space } from "../../src/theme/tokens";
 import { Button, ButtonPair } from "../../src/ui/Button";
@@ -53,8 +53,10 @@ export default function Today() {
   const isToday = viewDay === t;
 
   // Tapping Today while on it comes back to today, as well as to the top.
+  // Coming to Today from another place keeps the day you were looking at.
   useEffect(() => {
     const unsubscribe = (navigation as unknown as { addListener: (event: "tabPress", cb: () => void) => () => void }).addListener("tabPress", () => {
+      if (!navigation.isFocused()) return;
       if (getSage().viewDay !== today()) getSage().setViewDay(today());
     });
     return unsubscribe;
@@ -95,7 +97,8 @@ export default function Today() {
     <View style={styles.empty}>
       <Tea size={64} />
       <Txt variant="subhead" tone="ink3" center>
-        {isToday ? "Nothing planned for today. Enjoy the quiet." : offset > 0 ? "Nothing planned yet." : "Nothing was planned."}
+        {/* Everything ticked off isn't "nothing planned". */}
+        {done.length ? (isToday ? "All done for today. Enjoy the quiet." : offset > 0 ? "All done." : "All done that day.") : isToday ? "Nothing planned for today. Enjoy the quiet." : offset > 0 ? "Nothing planned yet." : "Nothing was planned."}
       </Txt>
     </View>
   );
@@ -111,7 +114,7 @@ export default function Today() {
         scrollY={scrollY}
         left={
           !isToday ? (
-            <Animated.View entering={FadeIn.duration(duration.base).easing(easeOut)}>
+            <Animated.View entering={arrive}>
               <PressableScale
                 onPress={() => {
                   tap();
@@ -119,7 +122,7 @@ export default function Today() {
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Back to today"
-                scaleTo={0.92}
+                scaleTo={squashSmall}
                 style={[styles.back, { backgroundColor: colors.card }]}
               >
                 <Icon name="back" size={13} color={colors.ink} weight="bold" />
@@ -139,6 +142,7 @@ export default function Today() {
 
       <Animated.ScrollView
         ref={scroller}
+        testID="today"
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentInsetAdjustmentBehavior="never"
@@ -147,7 +151,7 @@ export default function Today() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
         <LoadProblem />
-        <Animated.View key={viewDay} entering={(forward ? FadeInRight : FadeInLeft).duration(duration.enter).easing(easeOut)}>
+        <Animated.View key={viewDay} entering={reducedAtLaunch ? arriveSlow : (forward ? FadeInRight : FadeInLeft).duration(duration.enter).easing(easeOut)}>
           {isToday ? (
             <View style={styles.cards}>
               <TodayCards />
@@ -155,7 +159,7 @@ export default function Today() {
           ) : null}
 
           <SectionTitle title="Tasks" first={!isToday} />
-          {ready ? <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} /> : <SkeletonCards cards={1} rows={3} />}
+          {ready ? <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} /> : <SkeletonCards cards={1} rows={3} label="Loading your tasks" />}
           <ButtonPair style={styles.actions}>
             <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=${viewDay}`))} />
             {late.length ? (

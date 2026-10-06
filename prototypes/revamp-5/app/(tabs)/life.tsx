@@ -1,14 +1,14 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, View, type ListRenderItem } from "react-native";
-import Animated, { FadeIn, LinearTransition, useAnimatedRef } from "react-native-reanimated";
+import Animated, { useAnimatedRef } from "react-native-reanimated";
 import type { Task } from "../../src/store/model";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sprout } from "../../src/art/Pictures";
 import { groupTasks } from "../../src/store/selectors";
 import { useSage, useSageStatus } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
-import { duration, easeOut } from "../../src/theme/motion";
+import { arriveSlow, settle } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
@@ -26,7 +26,6 @@ import type { TaskVariant } from "../../src/ui/TaskRow";
 import { TopBar } from "../../src/ui/TopBar";
 import { Txt } from "../../src/ui/Txt";
 
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
 const SECTIONS = [
   { key: "today", title: "Today" },
   { key: "week", title: "This week" },
@@ -64,7 +63,13 @@ export default function LifeCenter() {
   const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
   // The chips answer the tap at once; the list follows a frame later, quietly (useQuietFilter).
-  const { chosen, shown: area, quiet, choose } = useQuietFilter<string | null>(null);
+  const { chosen, shown: area, quiet, choose, reset } = useQuietFilter<string | null>(null);
+  // The chosen area renamed or removed (in Manage areas): back to every area,
+  // rather than a filter on a name that's gone ("Nothing waiting in …").
+  useEffect(() => {
+    if (chosen !== null && !areas.some((item) => item.name === chosen)) reset(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areas, chosen]);
   const groups = useMemo(() => groupTasks(tasks, area), [tasks, area]);
   const anySlipped = useMemo(() => groupTasks(tasks, null).slipped.length > 0, [tasks]);
   const anyOpen = groups.today.length + groups.week.length + groups.later.length + groups.undated.length > 0;
@@ -150,13 +155,13 @@ export default function LifeCenter() {
         ListHeaderComponent={
           <>
             <LoadProblem />
-            {ready ? null : <SkeletonCards cards={2} rows={3} />}
+            {ready ? null : <SkeletonCards cards={2} rows={3} label="Loading your tasks" />}
           </>
         }
         ListFooterComponent={
           <>
             {ready && !anyOpen ? (
-              <Animated.View entering={FadeIn.duration(duration.enter).easing(easeOut)} style={styles.empty}>
+              <Animated.View entering={arriveSlow} style={styles.empty}>
                 <Sprout size={104} />
                 <Txt variant="headline" center>
                   {tasks.length === 0 ? "Nothing here yet" : area ? `Nothing waiting in ${area}` : "All clear"}

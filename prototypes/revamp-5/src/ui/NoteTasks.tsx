@@ -1,13 +1,13 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useShallow } from "zustand/react/shallow";
 import type { Suggestion } from "../store/model";
 import { whenLabel } from "../store/selectors";
 import { useAiOn, useAiReady } from "../data/ai";
 import { useSage, useWhenEditable } from "../data/sage";
-import { duration, easeOut } from "../theme/motion";
+import { arrive, arriveSlow, leave, settle } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, pad, radius, space } from "../theme/tokens";
 import { useAcknowledge } from "./Acknowledgement";
@@ -20,7 +20,6 @@ import { DoneFold, TaskCard } from "./TaskCard";
 import { ThinkingDots } from "./Thinking";
 import { Txt } from "./Txt";
 
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
 
 /**
  * A note's tasks: what you've added or linked, on a card, and what "Find
@@ -73,7 +72,7 @@ export function NoteTasks({ noteId }: { noteId: string }) {
   return (
     <View>
       {looking ? (
-        <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)} style={styles.looking}>
+        <Animated.View entering={arrive} exiting={leave} style={styles.looking}>
           <ThinkingDots />
           <Txt variant="subhead" tone="ink3" center>
             Reading your note for things to do
@@ -82,11 +81,11 @@ export function NoteTasks({ noteId }: { noteId: string }) {
       ) : null}
 
       {!looking && waiting.length ? (
-        <Animated.View entering={FadeIn.duration(duration.enter)} layout={settle}>
+        <Animated.View entering={arriveSlow} layout={settle}>
           <SectionTitle title="Found in this note" icon="sparkles" first />
           <View style={styles.found}>
             {waiting.map((item) => (
-              <Animated.View key={item.key} layout={settle} entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)}>
+              <Animated.View key={item.key} layout={settle} entering={arrive} exiting={leave}>
                 <FoundCard noteId={noteId} item={item} />
               </Animated.View>
             ))}
@@ -95,7 +94,7 @@ export function NoteTasks({ noteId }: { noteId: string }) {
       ) : null}
 
       {!looking && nothing ? (
-        <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)} style={styles.nothing}>
+        <Animated.View entering={arrive} exiting={leave} style={styles.nothing}>
           <Txt variant="subhead" tone="ink3" center>
             No new tasks in this note.
           </Txt>
@@ -198,7 +197,7 @@ function FoundCard({ noteId, item }: { noteId: string; item: Suggestion }) {
           style={({ pressed }) => [styles.half, { backgroundColor: pressed && !item.added ? colors.sunken : "transparent" }]}
         >
           {item.added ? (
-            <Animated.View entering={FadeIn.duration(duration.quick)}>
+            <Animated.View entering={arrive}>
               <AddedCheck />
             </Animated.View>
           ) : (

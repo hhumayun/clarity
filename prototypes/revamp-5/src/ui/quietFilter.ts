@@ -35,6 +35,8 @@ export function useQuietFilter<T>(initial: T) {
     tick();
     setChosen(next);
   };
+  // The app changing it, not a tap (the chosen area renamed or removed): no tick.
+  const reset = (next: T) => setChosen(next);
 
-  return { chosen, shown, quiet, choose };
+  return { chosen, shown, quiet, choose, reset };
 }

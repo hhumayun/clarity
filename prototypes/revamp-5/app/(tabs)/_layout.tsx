@@ -2,6 +2,7 @@ import { Tabs, useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { Easing, type Animated } from "react-native";
 import { useReducedMotion } from "react-native-reanimated";
+import { useDayRollover } from "../../src/data/dayRollover";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { TabBar } from "../../src/ui/TabBar";
 
@@ -43,6 +44,8 @@ export default function TabsLayout() {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
   const router = useRouter();
+  // Today follows the clock past midnight.
+  useDayRollover();
 
   useEffect(() => {
     let cancelled = false;

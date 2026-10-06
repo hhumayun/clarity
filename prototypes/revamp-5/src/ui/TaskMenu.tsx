@@ -2,13 +2,13 @@ import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { dayChoices, dayLabel, type Day } from "../lib/dates";
 import { whenLabel } from "../store/selectors";
 import { useSage } from "../data/sage";
-import { duration, easeOut } from "../theme/motion";
+import { arrive, duration, fadeTiming, reducedAtLaunch } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, radius, space } from "../theme/tokens";
 import { useAcknowledge } from "./Acknowledgement";
@@ -69,18 +69,18 @@ function TaskMenu({ taskId, rect, noteId, onClosed }: Open & { onClosed: () => v
 
   const shown = useSharedValue(0);
   useEffect(() => {
-    shown.value = withTiming(1, { duration: duration.base, easing: easeOut });
+    shown.value = withTiming(1, fadeTiming(duration.base));
   }, [shown]);
   const close = (then?: () => void) => {
-    shown.value = withTiming(0, { duration: duration.quick, easing: easeOut }, (finished) => {
+    shown.value = withTiming(0, fadeTiming(duration.quick), (finished) => {
       if (finished) scheduleOnRN(onClosed);
     });
     if (then) setTimeout(then, 60);
   };
 
   const backdrop = useAnimatedStyle(() => ({ opacity: shown.value }));
-  const lift = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ scale: 0.97 + 0.03 * shown.value }] }));
-  const menu = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ scale: 0.95 + 0.05 * shown.value }] }));
+  const lift = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ scale: reducedAtLaunch ? 1 : 0.97 + 0.03 * shown.value }] }));
+  const menu = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ scale: reducedAtLaunch ? 1 : 0.95 + 0.05 * shown.value }] }));
 
   if (!task) return null;
 
@@ -139,7 +139,7 @@ function TaskMenu({ taskId, rect, noteId, onClosed }: Open & { onClosed: () => v
 
       <Animated.View style={[styles.menu, { top: menuTop, left, backgroundColor: colors.raised, boxShadow: colors.shadow, transformOrigin: "top right" }, menu]}>
         {page === "menu" ? (
-          <Animated.View key="menu" entering={swapped.current ? FadeIn.duration(duration.quick) : undefined}>
+          <Animated.View key="menu" entering={swapped.current ? arrive : undefined}>
             {rows.map((row, i) => (
               <React.Fragment key={row.label}>
                 {i > 0 ? <View style={[styles.rule, { backgroundColor: colors.hairline, marginLeft: space[4] + GLYPH + GAP }]} /> : null}
@@ -154,7 +154,7 @@ function TaskMenu({ taskId, rect, noteId, onClosed }: Open & { onClosed: () => v
             ) : null}
           </Animated.View>
         ) : (
-          <Animated.View key="date" entering={FadeIn.duration(duration.quick)} style={styles.datePage}>
+          <Animated.View key="date" entering={arrive} style={styles.datePage}>
             <Pressable onPress={() => go("menu")} accessibilityRole="button" accessibilityLabel="Back to the menu" style={styles.dateHead} hitSlop={8}>
               <Icon name="back" size={16} color={colors.ink2} weight="semibold" />
               <Txt variant="headline">Date</Txt>

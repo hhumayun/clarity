@@ -155,7 +155,7 @@ export function SheetRow({
         </View>
       ) : null}
       <View style={styles.words}>
-        <Txt variant="row" tone={danger ? "danger" : "ink"} weight={selected ? "semibold" : undefined} numberOfLines={1}>
+        <Txt variant="row" tone={danger ? "danger" : "ink"} numberOfLines={1}>
           {label}
         </Txt>
         {typeof detail === "string" ? (

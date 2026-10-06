@@ -6,7 +6,7 @@ import { useFocusHistory } from "../data/hooks";
 import type { Task } from "../store/model";
 import { clockLabel, dueMeta, shortDate, whenLabel } from "../store/selectors";
 import { useSage, useUnsent } from "../data/sage";
-import { duration, easeOut } from "../theme/motion";
+import { duration, easeOut, fadeTiming } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { pad, space } from "../theme/tokens";
 import { useAcknowledge } from "./Acknowledgement";
@@ -71,10 +71,10 @@ export const TaskRow = React.memo(function TaskRow({
   useEffect(() => {
     if (!highlight) return;
     wash.value = withSequence(
-      withTiming(1, { duration: 280, easing: easeOut }),
-      withTiming(0, { duration: 420, easing: easeOut }),
-      withTiming(1, { duration: 280, easing: easeOut }),
-      withTiming(0, { duration: 700, easing: easeOut }),
+      withTiming(1, fadeTiming(280)),
+      withTiming(0, fadeTiming(420)),
+      withTiming(1, fadeTiming(280)),
+      withTiming(0, fadeTiming(700)),
     );
   }, [highlight, wash]);
 
@@ -155,8 +155,8 @@ export const TaskRow = React.memo(function TaskRow({
             onPress={() => !swiping.current && router.push(`/task/${task.id}`)}
             onLongPress={showMenu}
             delayLongPress={380}
-            onPressIn={() => (wash.value = withTiming(1, { duration: duration.press, easing: easeOut }))}
-            onPressOut={() => (wash.value = withTiming(0, { duration: duration.base, easing: easeOut }))}
+            onPressIn={() => (wash.value = withTiming(1, fadeTiming(duration.press)))}
+            onPressOut={() => (wash.value = withTiming(0, fadeTiming(duration.base)))}
             accessibilityRole="button"
             accessibilityHint="Opens the task. Long-press for quick actions."
             accessibilityActions={[
@@ -216,7 +216,8 @@ function Struck({ text, on, animate }: { text: string; on: boolean; animate: boo
       <Txt
         variant="row"
         tone={on ? "ink3" : "ink"}
-        weight={on ? undefined : "semibold"}
+        // One face either way: a thinner one shrank the title and could rewrap it mid-tick.
+        weight="semibold"
         onTextLayout={native ? onTextLayout : undefined}
         style={on && !native ? [styles.struck, { textDecorationColor: colors.ink3 }] : undefined}
       >

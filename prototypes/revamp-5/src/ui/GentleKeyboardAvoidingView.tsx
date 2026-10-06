@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import { useKeyboardHandler, useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import Animated, { type SharedValue, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { easeOut } from "../theme/motion";
+import { easeOut, keep } from "../theme/motion";
 
 /**
  * How long the page takes to make room for the keyboard. The keyboard's own
@@ -38,7 +38,7 @@ export function GentleKeyboardAvoidingView({ style, children }: { style?: StyleP
       onStart: (event) => {
         "worklet";
         // Destination values: where the keyboard will be when it stops.
-        padding.value = withTiming(event.height, { duration: KEYBOARD_GLIDE_MS, easing: easeOut });
+        padding.value = withTiming(event.height, { duration: KEYBOARD_GLIDE_MS, easing: easeOut, reduceMotion: keep });
       },
       onInteractive: (event) => {
         "worklet";

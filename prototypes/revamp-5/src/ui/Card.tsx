@@ -1,7 +1,7 @@
 import React, { Children, Fragment, isValidElement } from "react";
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
-import { calm, duration, easeOut, spring, squash } from "../theme/motion";
+import { calm, duration, easeOut, fadeTiming, keep, spring, squash } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, pad, radius } from "../theme/tokens";
 
@@ -32,11 +32,11 @@ export function Card({
       onPress={onPress}
       onLongPress={onLongPress}
       onPressIn={(event) => {
-        scale.value = withTiming(squash, { duration: duration.press, easing: easeOut });
+        scale.value = withTiming(squash, { duration: duration.press, easing: easeOut, reduceMotion: keep });
         rest.onPressIn?.(event);
       }}
       onPressOut={(event) => {
-        scale.value = withSpring(1, reduced ? calm : spring.pop);
+        scale.value = withSpring(1, { ...(reduced ? calm : spring.pop), reduceMotion: keep });
         rest.onPressOut?.(event);
       }}
       style={[surface, press]}
@@ -78,11 +78,11 @@ export function CardRow({ children, style, ...rest }: Omit<PressableProps, "styl
     <Pressable
       {...rest}
       onPressIn={(event) => {
-        wash.value = withTiming(1, { duration: duration.press, easing: easeOut });
+        wash.value = withTiming(1, fadeTiming(duration.press));
         rest.onPressIn?.(event);
       }}
       onPressOut={(event) => {
-        wash.value = withTiming(0, { duration: duration.base, easing: easeOut });
+        wash.value = withTiming(0, fadeTiming(duration.base));
         rest.onPressOut?.(event);
       }}
     >

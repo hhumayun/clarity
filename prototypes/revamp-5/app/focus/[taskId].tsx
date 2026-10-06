@@ -5,21 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from "react-native";
-import Animated, {
-  cancelAnimation,
-  Easing,
-  FadeIn,
-  FadeOut,
-  interpolateColor,
-  useAnimatedProps,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  type SharedValue,
-} from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, interpolateColor, useAnimatedProps, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
@@ -28,7 +14,7 @@ import type { FocusLength, Outcome } from "../../src/store/model";
 import { clockLabel } from "../../src/store/selectors";
 import { useDevice } from "../../src/state/device";
 import { useSage, useDataMode } from "../../src/data/sage";
-import { calm, duration, easeInOut, easeOut, spring } from "../../src/theme/motion";
+import { arrive, arriveAfter, arriveSlow, calm, duration, easeInOut, easeOut, fadeTiming, keep, leave as fadeOut, reducedAtLaunch, spring, squashSmall, stagger } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { dark as room, edge, pad, radius, space } from "../../src/theme/tokens";
 import { Hourglass, Tea } from "../../src/art/Pictures";
@@ -43,6 +29,9 @@ import { Roll } from "../../src/ui/Roll";
 import { SavedPill } from "../../src/ui/SavedPill";
 import { Toggle } from "../../src/ui/Toggle";
 import { Txt, useType } from "../../src/ui/Txt";
+
+// How long "Saved to Notes" rests after a thought is parked.
+const SAVED_REST_MS = 1_600;
 
 /** The break's room: the dark, in either theme. */
 const ROOM = "#0D0D0E";
@@ -108,6 +97,14 @@ export default function Focus() {
   const [parking, setParking] = useState(false);
   const [thought, setThought] = useState("");
   const [parked, setParked] = useState(0);
+  // "Saved to Notes" rests a moment after a thought is parked, then goes (it stayed for the rest of the session).
+  const [savedShowing, setSavedShowing] = useState(false);
+  useEffect(() => {
+    if (!parked) return;
+    setSavedShowing(true);
+    const timer = setTimeout(() => setSavedShowing(false), SAVED_REST_MS);
+    return () => clearTimeout(timer);
+  }, [parked]);
   const [breakOver, setBreakOver] = useState(false);
   const [flood, setFlood] = useState<{ x: number; y: number } | null>(null);
 
@@ -121,7 +118,7 @@ export default function Focus() {
   const tone = useSharedValue(0);
   useEffect(() => {
     const target = phase === "break" ? 1 : 0;
-    tone.value = withTiming(target, { duration: duration.flood, easing: easeInOut });
+    tone.value = withTiming(target, { duration: duration.flood, easing: easeInOut, reduceMotion: keep });
   }, [phase, tone]);
   const backdrop = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(tone.value, [0, 1], [colors.page, ROOM]) }));
 
@@ -134,7 +131,7 @@ export default function Focus() {
       setBreakOver(false);
       setFlood(null);
       level.value = 1;
-      level.value = withTiming(0, { duration: (total.current * 1000) / speed, easing: Easing.linear });
+      level.value = withTiming(0, { duration: (total.current * 1000) / speed, easing: Easing.linear, reduceMotion: keep });
       setPhase(next);
     },
     [level, speed],
@@ -179,7 +176,7 @@ export default function Focus() {
       setRunning(false);
     } else {
       endsAt.current = Date.now() + pausedLeft.current;
-      level.value = withTiming(0, { duration: pausedLeft.current, easing: Easing.linear });
+      level.value = withTiming(0, { duration: pausedLeft.current, easing: Easing.linear, reduceMotion: keep });
       setRunning(true);
     }
   };
@@ -236,7 +233,7 @@ export default function Focus() {
       <StatusBar style={phase === "break" ? "light" : (phase === "setup" && flood !== null) || (phase === "focus" && share > 0.95) ? "light" : dark ? "light" : "dark"} />
 
       {phase === "setup" ? (
-        <Animated.View key="setup" entering={FadeIn.duration(duration.enter)} exiting={FadeOut.duration(duration.quick)} style={styles.flex}>
+        <Animated.View key="setup" entering={arriveSlow} exiting={fadeOut} style={styles.flex}>
           <ScrollView contentContainerStyle={[styles.page, { paddingTop: insets.top + space[2], paddingBottom: 124 + insets.bottom }]} keyboardShouldPersistTaps="handled">
             <View style={styles.top}>
               <IconButton icon="close" label="Close" onPress={() => router.back()} />
@@ -266,7 +263,6 @@ export default function Focus() {
                     accessibilityRole="radio"
                     aria-selected={on}
                     accessibilityLabel={`${choice.minutes} minutes, ${choice.label}`}
-                    scaleTo={0.95}
                     style={[styles.length, { backgroundColor: colors.card, borderColor: on ? colors.ink : colors.card }]}
                   >
                     <Dial minutes={choice.minutes} on={on} />
@@ -325,7 +321,7 @@ export default function Focus() {
 
       {phase === "focus" ? (
         // The flood has already filled the screen with ink, so focus arrives without a fade.
-        <Animated.View key="focus" entering={reduced ? FadeIn.duration(duration.enter) : undefined} exiting={FadeOut.duration(duration.quick)} style={styles.flex}>
+        <Animated.View key="focus" entering={reduced ? arriveSlow : undefined} exiting={fadeOut} style={styles.flex}>
           {/* The words in ink, on the canvas the level leaves behind… */}
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             <Readout ink={colors.ink} soft={colors.ink2} task={task.title} step={step} minutes={minutesLeft} until={until} running={running} top={insets.top} />
@@ -337,8 +333,8 @@ export default function Focus() {
           <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} style={styles.controlsWrap} pointerEvents="box-none">
             {parking ? (
               <Animated.View
-                entering={FadeIn.duration(duration.base)}
-                exiting={FadeOut.duration(duration.quick)}
+                entering={arrive}
+                exiting={fadeOut}
                 style={[styles.park, { backgroundColor: colors.card, boxShadow: colors.shadow, marginBottom: insets.bottom + space[2] }]}
               >
                 <TextInput
@@ -389,7 +385,7 @@ export default function Focus() {
                   onPress={pause}
                   accessibilityRole="button"
                   accessibilityLabel={running ? "Pause" : "Resume"}
-                  scaleTo={0.9}
+                  scaleTo={squashSmall}
                   style={[styles.pause, { backgroundColor: colors.ink, borderColor: DISC_EDGE }]}
                 >
                   <Icon name={running ? "pause" : "play"} size={26} color={colors.page} weight="bold" />
@@ -397,13 +393,13 @@ export default function Focus() {
                 <HoldToStop onStop={() => finish(false)} />
               </View>
             )}
-            <SavedPill key={parked} visible={parked > 0 && !parking} label="Saved to Notes" style={[styles.parkedPill, { bottom: insets.bottom + 112 }]} />
+            <SavedPill visible={savedShowing && !parking} label="Saved to Notes" style={[styles.parkedPill, { bottom: insets.bottom + 112 }]} />
           </KeyboardAvoidingView>
         </Animated.View>
       ) : null}
 
       {phase === "checkin" ? (
-        <Animated.View key="checkin" entering={FadeIn.duration(duration.flood).easing(easeOut)} exiting={FadeOut.duration(duration.quick)} style={styles.flex}>
+        <Animated.View key="checkin" entering={arriveAfter(0, duration.flood)} exiting={fadeOut} style={styles.flex}>
           <ScrollView contentContainerStyle={[styles.page, { paddingTop: insets.top + space[2], paddingBottom: insets.bottom + space[8] }]} keyboardShouldPersistTaps="handled">
             <View style={styles.top}>
               <IconButton icon="close" label="Close. Your focus time is saved." onPress={leave} />
@@ -435,7 +431,7 @@ export default function Focus() {
             </View>
 
             {outcome !== "finished" ? (
-              <Animated.View entering={FadeIn.duration(duration.enter)} style={styles.block}>
+              <Animated.View entering={arriveSlow} style={styles.block}>
                 <Txt variant="section" tone="ink3" center>
                   {outcome === "stuck" ? "Where did you get stuck?" : "Where did you leave off?"}
                 </Txt>
@@ -481,10 +477,10 @@ export default function Focus() {
       ) : null}
 
       {phase === "break" ? (
-        <Animated.View key="break" entering={FadeIn.duration(duration.flood).easing(easeOut)} style={[styles.flex, { paddingTop: insets.top + space[2], paddingBottom: insets.bottom + space[5] }]}>
+        <Animated.View key="break" entering={arriveAfter(0, duration.flood)} style={[styles.flex, { paddingTop: insets.top + space[2], paddingBottom: insets.bottom + space[5] }]}>
           <ScrollView contentContainerStyle={styles.breakContent}>
             <View style={styles.top}>
-              <PressableScale onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Close" scaleTo={0.86} hitSlop={4} style={styles.closeRoom}>
+              <PressableScale onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Close" scaleTo={squashSmall} hitSlop={4} style={styles.closeRoom}>
                 <Icon name="close" size={22} color={room.ink2} weight="medium" />
               </PressableScale>
             </View>
@@ -528,7 +524,7 @@ export default function Focus() {
                     ["far", "Look at something far away"],
                   ] as [IconName, string][]
                 ).map(([icon, label], i) => (
-                  <Animated.View key={label} entering={FadeIn.delay(280 + i * 90).duration(duration.enter).easing(easeOut)}>
+                  <Animated.View key={label} entering={arriveAfter(280 + i * stagger * 2)}>
                     {i > 0 ? <View style={[styles.roomRule, { backgroundColor: room.hairline }]} /> : null}
                     <View style={styles.roomIdea}>
                       <View style={styles.slot}>
@@ -626,9 +622,9 @@ function Dial({ minutes, on }: { minutes: number; on: boolean }) {
   const { colors, accent } = useTheme();
   const progress = useSharedValue(on ? 1 : 0);
   useEffect(() => {
-    progress.value = withTiming(on ? 1 : 0, { duration: on ? duration.base : duration.quick, easing: easeOut });
+    progress.value = withTiming(on ? 1 : 0, fadeTiming(on ? duration.base : duration.quick));
   }, [on, progress]);
-  const lit = useAnimatedStyle(() => ({ opacity: progress.value, transform: [{ scale: 0.9 + 0.1 * progress.value }] }));
+  const lit = useAnimatedStyle(() => ({ opacity: progress.value, transform: [{ scale: reducedAtLaunch ? 1 : 0.9 + 0.1 * progress.value }] }));
   const c = DIAL / 2;
   const r = c - 2;
   const wedge = slice(minutes / 25, c, r);
@@ -734,7 +730,7 @@ function Readout({
 function RoomButton({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   const { colors } = useTheme();
   return (
-    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={label} scaleTo={0.9} style={[styles.round, { backgroundColor: colors.ink, borderColor: DISC_EDGE }]}>
+    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={label} scaleTo={squashSmall} style={[styles.round, { backgroundColor: colors.ink, borderColor: DISC_EDGE }]}>
       <Icon name={icon} size={21} color={colors.page} weight="semibold" />
     </PressableScale>
   );
@@ -774,7 +770,7 @@ function HoldToStop({ onStop }: { onStop: () => void }) {
   return (
     <View style={styles.stopWrap}>
       {hint ? (
-        <Animated.View entering={FadeIn.duration(duration.quick)} exiting={FadeOut.duration(duration.quick)} pointerEvents="none" style={styles.hintWrap}>
+        <Animated.View entering={arrive} exiting={fadeOut} pointerEvents="none" style={styles.hintWrap}>
           <View style={[styles.hint, { backgroundColor: colors.ink, borderColor: DISC_EDGE }]}>
             <Txt variant="footnote" weight="bold" style={{ color: colors.page }}>
               {hint}
@@ -789,12 +785,13 @@ function HoldToStop({ onStop }: { onStop: () => void }) {
             since.current = Date.now();
             clear();
             timer.current = setTimeout(() => setHint("Keep holding"), 300);
-            fill.value = withTiming(1, { duration: HOLD_MS, easing: Easing.linear });
+            // The hold is the point, so it keeps its time under Reduce Motion (it snapped, making Hold to stop a tap).
+            fill.value = withTiming(1, { duration: HOLD_MS, easing: Easing.linear, reduceMotion: keep });
           }}
           onPressOut={() => {
             clear();
             if (fill.value >= 1) return;
-            fill.value = withSpring(0, reduced ? calm : spring.settle);
+            fill.value = withSpring(0, { ...(reduced ? calm : spring.settle), reduceMotion: keep });
             if (Date.now() - since.current < 300) {
               setHint("Hold to stop");
               timer.current = setTimeout(() => setHint(""), 1_600);
@@ -855,7 +852,7 @@ function OutcomeChoice({ kind, label, selected, onPress }: { kind: Outcome; labe
           {kind === "stuck" ? <Circle cx={size / 2} cy={size / 2} r={r} stroke={colour} strokeWidth={3} fill="none" /> : null}
         </Svg>
       </Animated.View>
-      <Txt variant="footnote" weight={selected ? "bold" : "semibold"} style={[styles.outcomeLabel, { color: selected ? colors.ink : colors.ink2 }]}>
+      <Txt variant="footnote" weight="semibold" style={[styles.outcomeLabel, { color: selected ? colors.ink : colors.ink2 }]}>
         {label}
       </Txt>
     </Pressable>

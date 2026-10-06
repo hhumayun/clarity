@@ -1,11 +1,11 @@
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Magnifier } from "../src/art/Pictures";
 import { AI_CHOICE } from "../src/data/ai";
 import { useDevice } from "../src/state/device";
-import { duration, easeOut } from "../src/theme/motion";
+import { arriveSlow } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, space } from "../src/theme/tokens";
 import { Button, ButtonPair } from "../src/ui/Button";
@@ -29,7 +29,7 @@ export default function AiChoice() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.page, paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeIn.duration(duration.enter).easing(easeOut)} style={styles.page}>
+        <Animated.View entering={arriveSlow} style={styles.page}>
           <View style={styles.picture}>
             <Magnifier size={120} />
           </View>

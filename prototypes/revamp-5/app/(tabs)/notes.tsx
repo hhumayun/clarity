@@ -1,14 +1,14 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View, type ListRenderItem } from "react-native";
-import Animated, { FadeIn, FadeOut, useAnimatedRef } from "react-native-reanimated";
+import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Notebook } from "../../src/art/Pictures";
 import type { Note } from "../../src/store/model";
 import { noteGroup } from "../../src/store/selectors";
 import { useSage, useSageStatus } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
-import { duration, easeOut } from "../../src/theme/motion";
+import { arriveSlow, leave } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, space } from "../../src/theme/tokens";
 import { Chip } from "../../src/ui/Chip";
@@ -20,8 +20,8 @@ import { SectionTitle } from "../../src/ui/SectionTitle";
 import { TopBar } from "../../src/ui/TopBar";
 import { Txt } from "../../src/ui/Txt";
 
-const enter = FadeIn.duration(duration.enter).easing(easeOut);
-const exit = FadeOut.duration(duration.quick);
+const enter = arriveSlow;
+const exit = leave;
 
 /** The list, flat: a day's heading, then its notes. */
 type Row = { kind: "group"; key: string; title: string; first: boolean } | { kind: "note"; key: string; note: Note; spaced: boolean };
@@ -50,6 +50,10 @@ export default function Notes() {
   useScrollToTop(scroller as never);
   const [filtering, setFiltering] = useState(false);
   const [area, setArea] = useState<string | null>(null);
+  // The chosen area renamed or removed: back to every area.
+  useEffect(() => {
+    if (area !== null && !areaList.some((item) => item.name === area)) setArea(null);
+  }, [areaList, area]);
 
   // Newest first, sorted once per change to the notes, not again for each area chosen.
   const sorted = useMemo(() => [...notes].sort((a, b) => (a.day === b.day ? b.time.localeCompare(a.time, undefined, { numeric: true }) : a.day < b.day ? 1 : -1)), [notes]);

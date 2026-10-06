@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { duration, easeOut, spring } from "../theme/motion";
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import { arrive, duration, easeOut, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { accentOrder, accents, edge, paperOrder, papers, radius, space, type AccentName, type PaperName } from "../theme/tokens";
 import { tick } from "./haptics";
@@ -68,7 +68,7 @@ function Swatch({ name, selected, onPress }: { name: AccentName; selected: boole
     if (selected && !reduced) {
       pop.value = withSequence(withTiming(0.82, { duration: duration.press, easing: easeOut }), withSpring(1, spring.pop));
       ring.value = 0;
-      ring.value = withTiming(1, { duration: 560, easing: easeOut });
+      ring.value = withTiming(1, { duration: duration.halo, easing: easeOut });
     }
   }, [selected, pop, ring, reduced]);
   const disc = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
@@ -79,13 +79,13 @@ function Swatch({ name, selected, onPress }: { name: AccentName; selected: boole
         <Animated.View style={[styles.halo, { borderColor: tone.solid }, halo]} />
         <Animated.View style={[styles.disc, { backgroundColor: tone.solid }, disc]}>
           {selected ? (
-            <Animated.View entering={FadeIn.duration(duration.base)}>
+            <Animated.View entering={arrive}>
               <Icon name="check" size={20} color={tone.on} weight="bold" />
             </Animated.View>
           ) : null}
         </Animated.View>
       </View>
-      <Txt variant="footnote" weight={selected ? "bold" : "semibold"} tone={selected ? "ink" : "ink2"}>
+      <Txt variant="footnote" weight="semibold" tone={selected ? "ink" : "ink2"}>
         {accents[name].label}
       </Txt>
     </Pressable>
@@ -103,7 +103,7 @@ function PaperTile({ name, selected, onPress }: { name: PaperName; selected: boo
           <View style={[styles.sampleLine, { backgroundColor: tone.ink3, width: "45%" }]} />
         </View>
       </View>
-      <Txt variant="footnote" weight={selected ? "bold" : "semibold"} tone={selected ? "ink" : "ink2"}>
+      <Txt variant="footnote" weight="semibold" tone={selected ? "ink" : "ink2"}>
         {papers[name].label}
       </Txt>
     </Pressable>

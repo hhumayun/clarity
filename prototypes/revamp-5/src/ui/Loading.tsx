@@ -13,18 +13,18 @@ import { Txt } from "./Txt";
  * will take, so nothing jumps when they arrive. They breathe slowly; under
  * Reduce Motion they rest.
  */
-export function SkeletonCards({ cards = 2, rows = 3 }: { cards?: number; rows?: number }) {
+export function SkeletonCards({ cards = 2, rows = 3, label = "Loading your notes" }: { cards?: number; rows?: number; label?: string }) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
   const glow = useSharedValue(1);
   useEffect(() => {
     if (reduced) return;
-    glow.value = withRepeat(withTiming(0.55, { duration: 900, easing: breathe }), -1, true);
+    glow.value = withRepeat(withTiming(0.55, { duration: duration.breath, easing: breathe }), -1, true);
     return () => cancelAnimation(glow);
   }, [glow, reduced]);
   const pulse = useAnimatedStyle(() => ({ opacity: glow.value }));
   return (
-    <View accessibilityLabel="Loading your notes" accessibilityRole="progressbar" style={styles.stack}>
+    <View accessibilityLabel={label} accessibilityRole="progressbar" style={styles.stack}>
       {Array.from({ length: cards }, (_, card) => (
         <Animated.View key={card} style={[styles.card, { backgroundColor: colors.card }, pulse]}>
           {Array.from({ length: rows }, (_, row) => (

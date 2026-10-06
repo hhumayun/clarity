@@ -44,7 +44,7 @@ export function Segmented<T extends string | number>({ options, value, onChange,
             >
               {option.icon ? <Icon name={option.icon} size={option.iconOnly ? 18 : 16} color={on ? colors.ink : colors.ink3} weight="semibold" fill={on && option.iconOnly} /> : null}
               {option.iconOnly ? null : (
-                <Txt variant="subhead" weight={on ? "bold" : "semibold"} numberOfLines={1} style={{ color: on ? colors.ink : colors.ink3 }}>
+                <Txt variant="subhead" weight="semibold" numberOfLines={1} style={{ color: on ? colors.ink : colors.ink3 }}>
                   {option.label}
                 </Txt>
               )}

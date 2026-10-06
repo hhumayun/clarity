@@ -4,13 +4,13 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TimeOfDay } from "../../src/art/TimeOfDay";
 import { authMessage } from "../../src/auth/errors";
 import { useAuth } from "../../src/core/providers/AuthProvider";
 import { useDevice } from "../../src/state/device";
-import { duration } from "../../src/theme/motion";
+import { arriveSlow } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, face, space } from "../../src/theme/tokens";
 import { Button, type ButtonState } from "../../src/ui/Button";
@@ -67,7 +67,7 @@ export default function Welcome() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.page, paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, space[3]) + space[2] }]}>
       <View style={styles.hero}>
-        <Animated.View entering={FadeIn.duration(duration.enter)}>
+        <Animated.View entering={arriveSlow}>
           <TimeOfDay phase={phase} size={168} />
         </Animated.View>
         <Txt accessibilityRole="header" style={[styles.name, { color: colors.ink }]}>

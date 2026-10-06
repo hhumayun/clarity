@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { useUser } from "@clerk/clerk-expo";
 import { cacheDirectory, writeAsStringAsync } from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
@@ -191,6 +192,10 @@ function Account({ email }: { email: string }) {
   const preferences = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const forget = useClearPersonalization();
+  // Learn from my writing moves as it's touched, and goes back, with a word,
+  // if the change can't be made. It used to snap back and flip only once
+  // the server answered, and say nothing offline (2026-10-06).
+  const [learning, setLearning] = useState<boolean | null>(null);
   const [exporting, setExporting] = useState(false);
   const shown = email || user?.primaryEmailAddress?.emailAddress || "Your account";
 
@@ -248,8 +253,19 @@ function Account({ email }: { email: string }) {
             icon="sparkles"
             label="Learn from my writing"
             detail="Better word help, from phrases you've liked."
-            value={preferences.data?.usePersonalization ?? true}
-            onChange={(value) => updatePreferences.mutate({ usePersonalization: value })}
+            value={learning ?? preferences.data?.usePersonalization ?? true}
+            // Not yet known: nothing to change, and no guess that flips by itself.
+            disabled={!preferences.data && learning === null}
+            onChange={(value) => {
+              setLearning(value);
+              updatePreferences.mutate(
+                { usePersonalization: value },
+                {
+                  onError: () => acknowledge(onlineManager.isOnline() ? "Couldn't change that just now" : "Changing this needs a connection", "cloudOff"),
+                  onSettled: () => setLearning(null),
+                },
+              );
+            }}
           />
         ) : null}
       </CardGroup>
@@ -325,7 +341,7 @@ function Caption({ children, first }: { children: string; first?: boolean }) {
   );
 }
 
-function ToggleRow({ icon, label, detail, value, onChange }: { icon: IconName; label: string; detail?: string; value: boolean; onChange: (value: boolean) => void }) {
+function ToggleRow({ icon, label, detail, value, onChange, disabled }: { icon: IconName; label: string; detail?: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   const { colors } = useTheme();
   return (
     <View style={styles.row}>
@@ -338,7 +354,7 @@ function ToggleRow({ icon, label, detail, value, onChange }: { icon: IconName; l
           </Txt>
         ) : null}
       </View>
-      <Toggle value={value} onValueChange={onChange} accessibilityLabel={label} />
+      <Toggle value={value} onValueChange={onChange} accessibilityLabel={label} disabled={disabled} />
     </View>
   );
 }
