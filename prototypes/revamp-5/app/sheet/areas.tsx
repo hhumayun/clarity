@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
-import { useStore } from "../../src/store/store";
+import { useSage } from "../../src/data/sage";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, space } from "../../src/theme/tokens";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
@@ -16,11 +16,11 @@ export default function AreasSheet() {
   const router = useRouter();
   const { colors, accent } = useTheme();
   const acknowledge = useAcknowledge();
-  const areas = useStore((state) => state.areas);
-  const tasks = useStore((state) => state.tasks);
-  const addArea = useStore((state) => state.addArea);
-  const renameArea = useStore((state) => state.renameArea);
-  const deleteArea = useStore((state) => state.deleteArea);
+  const areas = useSage((state) => state.areas);
+  const tasks = useSage((state) => state.tasks);
+  const addArea = useSage((state) => state.addArea);
+  const renameArea = useSage((state) => state.renameArea);
+  const deleteArea = useSage((state) => state.deleteArea);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [fresh, setFresh] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);

@@ -11,7 +11,8 @@ import { useAuth } from "../src/core/providers/AuthProvider";
 import { usePendingCount } from "../src/core/sync/SyncProvider";
 import { useDevice } from "../src/state/device";
 import type { FocusLength } from "../src/store/model";
-import { useStore } from "../src/store/store";
+import { canSave } from "../src/data/AccountSource";
+import { useDataMode, useSage } from "../src/data/sage";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, pad, space, type Phase } from "../src/theme/tokens";
 import { useAcknowledge } from "../src/ui/Acknowledgement";
@@ -41,7 +42,8 @@ export default function Settings() {
   const { authState } = useAuth();
   const prefs = useDevice((state) => state.prefs);
   const setPref = useDevice((state) => state.setPref);
-  const reset = useStore((state) => state.reset);
+  const reset = useSage((state) => state.reset);
+  const demo = useDataMode((state) => state.mode) === "demo";
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
@@ -135,22 +137,25 @@ export default function Settings() {
             <Icon name="forward" size={14} color={colors.ink3} weight="semibold" />
           </CardRow>
         </CardGroup>
-        <View style={styles.actions}>
-          <AskInPlace
-            label="Reset sample data"
-            icon="undo"
-            steps={[{ question: "Bring back the sample notes and tasks? Your changes to them are cleared.", confirm: "Reset", icon: "undo" }]}
-            danger
-            onConfirm={() => {
-              doneHaptic();
-              reset();
-              acknowledge("Sample data is back", "undo");
-            }}
-          />
-        </View>
+        {/* The samples' reset only exists while looking at the samples. */}
+        {demo ? (
+          <View style={styles.actions}>
+            <AskInPlace
+              label="Reset sample data"
+              icon="undo"
+              steps={[{ question: "Bring back the sample notes and tasks? Your changes to them are cleared.", confirm: "Reset", icon: "undo" }]}
+              danger
+              onConfirm={() => {
+                doneHaptic();
+                reset();
+                acknowledge("Sample data is back", "undo");
+              }}
+            />
+          </View>
+        ) : null}
 
         <Txt variant="footnote" tone="ink3" center style={styles.about}>
-          Clarity is a calm place to write, plan and focus. This is revamp 5, “Sage”. Accounts are real; the notes and tasks are samples until your own arrive in a later step.
+          Clarity is a calm place to write, plan and focus. This is revamp 5, “Sage”. Signed in, it shows your account's notes and tasks; looking around, the samples.
         </Txt>
       </ScrollView>
     </View>
@@ -201,9 +206,14 @@ function Account({ email }: { email: string }) {
       <CardGroup>
         <View style={styles.row}>
           <Icon name="person" size={20} color={colors.ink2} weight="medium" />
-          <Txt variant="row" numberOfLines={1} style={styles.words}>
-            {shown}
-          </Txt>
+          <View style={styles.words}>
+            <Txt variant="row" numberOfLines={1}>
+              {shown}
+            </Txt>
+            <Txt variant="footnote" tone="ink3">
+              {canSave(shown) ? "A test account: changes are saved." : "Read-only in revamp 5 until testing is done."}
+            </Txt>
+          </View>
         </View>
         <CardRow onPress={() => void exportNotes()} accessibilityRole="button" accessibilityLabel="Export my notes" style={styles.row}>
           <Icon name="share" size={20} color={colors.ink2} weight="medium" />

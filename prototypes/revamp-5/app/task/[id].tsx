@@ -4,10 +4,10 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { addDays, dayLabel, durationLabel, today } from "../../src/lib/dates";
-import { useFocusHistory, useTask } from "../../src/store/hooks";
+import { useFocusHistory, useTask } from "../../src/data/hooks";
 import type { FocusHistory, Note, Task } from "../../src/store/model";
 import { clockLabel, noteGroup, reminderLabel, repeatLabels, shortDate, sinceLabel } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { useSage } from "../../src/data/sage";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
@@ -44,10 +44,10 @@ export default function TaskScreen() {
   const acknowledge = useAcknowledge();
   const task = useTask(id);
   const history = useFocusHistory(id);
-  const notes = useStore((state) => state.notes);
-  const updateTask = useStore((state) => state.updateTask);
-  const setDone = useStore((state) => state.setDone);
-  const deleteTask = useStore((state) => state.deleteTask);
+  const notes = useSage((state) => state.notes);
+  const updateTask = useSage((state) => state.updateTask);
+  const setDone = useSage((state) => state.setDone);
+  const deleteTask = useSage((state) => state.deleteTask);
   const titleType = useType("title2");
   const bodyType = useType("callout");
   const [asking, setAsking] = useState(false);

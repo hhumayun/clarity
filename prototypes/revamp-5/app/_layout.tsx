@@ -27,6 +27,7 @@ import { ToastProvider } from "../src/core/providers/ToastProvider";
 import { startNetworkWatch } from "../src/core/sync/network";
 import { CACHE_VERSION, keepOnPhone, OFFLINE_MAX_AGE_MS, queryPersister, saveOfflineCopyNow } from "../src/core/sync/persist";
 import { SyncProvider } from "../src/core/sync/SyncProvider";
+import { AccountSource } from "../src/data/AccountSource";
 import { useDevice } from "../src/state/device";
 import { duration, easeOut } from "../src/theme/motion";
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider";
@@ -125,7 +126,8 @@ const PATIENCE_MS = 8_000;
  * welcome and the steps of signing in. Signed in for the first time on this
  * phone: the first-run pages. Otherwise the app itself, which until real
  * data arrives shows the sample notes (and is all there is in demo). Doors
- * swap by guard, so Back can never return through one.
+ * swap by guard, so Back can never return through one. Signed in, the app
+ * shows your account's data (AccountSource); the samples are demo only.
  */
 function Navigator() {
   const { colors, dark } = useTheme();
@@ -152,6 +154,8 @@ function Navigator() {
   return (
     <>
       <StatusBar style={dark ? "light" : "dark"} />
+      {/* Signed in, the app shows your account's notes; signed out, only ever the samples. */}
+      {signedIn ? <AccountSource /> : null}
       {/* Mounted only once the session is known, so a link the app was opened with (a note, a reminder's task) is kept rather than bounced by a guard that hadn't decided yet. */}
       {ready ? (
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.page } }}>

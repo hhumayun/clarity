@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { dayChoices, today, type Day } from "../src/lib/dates";
 import { parseTask } from "../src/lib/parseTask";
 import { whenLabel } from "../src/store/selectors";
-import { useStore } from "../src/store/store";
+import { useSage } from "../src/data/sage";
 import { duration, easeOut, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, radius, space } from "../src/theme/tokens";
@@ -35,12 +35,12 @@ export default function QuickAdd() {
   const body = useType("body");
   const small = useType("footnote");
   const acknowledge = useAcknowledge();
-  const areas = useStore((state) => state.areas);
-  const tasks = useStore((state) => state.tasks);
-  const notes = useStore((state) => state.notes);
-  const addTask = useStore((state) => state.addTask);
-  const addArea = useStore((state) => state.addArea);
-  const viewDay = useStore((state) => state.viewDay);
+  const areas = useSage((state) => state.areas);
+  const tasks = useSage((state) => state.tasks);
+  const notes = useSage((state) => state.notes);
+  const addTask = useSage((state) => state.addTask);
+  const addArea = useSage((state) => state.addArea);
+  const viewDay = useSage((state) => state.viewDay);
 
   const defaultDay: Day | null = params.day && params.day !== "none" ? params.day : null;
   const defaultArea = useMemo(() => {
@@ -57,6 +57,10 @@ export default function QuickAdd() {
 
   const [text, setText] = useState("");
   const [area, setArea] = useState<string | null>(defaultArea);
+  // Your account's areas can arrive just after this opens: take up the default once it's known.
+  useEffect(() => {
+    if (area === null && defaultArea) setArea(defaultArea);
+  }, [area, defaultArea]);
   const [panel, setPanel] = useState<"none" | "areas" | "date">("none");
   // A day picked by hand wins over the words; a typed time still applies.
   const [manual, setManual] = useState<{ day: Day | null; time: number | null } | null>(null);

@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { dayChoices, today, type Day } from "../../src/lib/dates";
-import { useTask } from "../../src/store/hooks";
-import { useStore } from "../../src/store/store";
+import { useTask } from "../../src/data/hooks";
+import { useSage } from "../../src/data/sage";
 import { tick } from "../../src/ui/haptics";
 import { InlineCalendar } from "../../src/ui/Calendar";
 import { ChoiceChips, SheetFrame } from "../../src/ui/Sheet";
@@ -12,9 +12,9 @@ export default function DateSheet() {
   const { task: taskId, mode } = useLocalSearchParams<{ task?: string; mode?: string }>();
   const router = useRouter();
   const task = useTask(taskId);
-  const moveTask = useStore((state) => state.moveTask);
-  const viewDay = useStore((state) => state.viewDay);
-  const setViewDay = useStore((state) => state.setViewDay);
+  const moveTask = useSage((state) => state.moveTask);
+  const viewDay = useSage((state) => state.viewDay);
+  const setViewDay = useSage((state) => state.setViewDay);
 
   if (mode === "day") {
     const go = (day: Day) => {

@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import type { Task } from "../store/model";
-import { useStore } from "../store/store";
+import { useSage } from "../data/sage";
 import { duration, easeOut, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, pad, radius, space } from "../theme/tokens";
@@ -45,7 +45,7 @@ export function TaskCard({
   empty?: React.ReactNode;
 }) {
   const { colors } = useTheme();
-  const lastAdded = useStore((state) => state.lastAdded);
+  const lastAdded = useSage((state) => state.lastAdded);
   if (tasks.length === 0 && !empty) return null;
   return (
     <Animated.View layout={settle} style={[styles.card, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>

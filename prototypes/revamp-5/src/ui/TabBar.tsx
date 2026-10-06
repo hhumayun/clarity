@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useStore } from "../store/store";
+import { useSage, useWhenEditable } from "../data/sage";
 import { duration, easeOut, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius } from "../theme/tokens";
@@ -45,7 +45,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const reduced = useReducedMotion();
-  const viewDay = useStore((s) => s.viewDay);
+  const viewDay = useSage((s) => s.viewDay);
   const [open, setOpen] = useState(false);
   const dial = useSharedValue(0);
   const bottom = Math.max(insets.bottom, 10);
@@ -89,10 +89,11 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const plus = useAnimatedStyle(() => ({ transform: [{ rotate: `${dial.value * 135}deg` }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: interpolate(dial.value, [0, 1], [0, 1], "clamp") }));
 
+  const whenEditable = useWhenEditable();
   const choose = (to: string) => {
     tick();
     setOpen(false);
-    setTimeout(() => router.push(to), reduced ? 0 : 90);
+    whenEditable(() => setTimeout(() => router.push(to), reduced ? 0 : 90));
   };
 
   return (

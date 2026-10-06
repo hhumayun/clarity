@@ -5,7 +5,8 @@ import Animated, { FadeIn, LinearTransition, useAnimatedRef } from "react-native
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sprout } from "../../src/art/Pictures";
 import { groupTasks } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { useSage, useSageStatus } from "../../src/data/sage";
+import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
@@ -41,11 +42,13 @@ export default function LifeCenter() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const acknowledge = useAcknowledge();
-  const tasks = useStore((state) => state.tasks);
-  const areas = useStore((state) => state.areas);
-  const clearCompleted = useStore((state) => state.clearCompleted);
+  const tasks = useSage((state) => state.tasks);
+  const areas = useSage((state) => state.areas);
+  const clearCompleted = useSage((state) => state.clearCompleted);
   const { onScroll, scrollY } = useScrollY();
   const scroller = useAnimatedRef<Animated.ScrollView>();
+  const { ready } = useSageStatus();
+  const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
   const [area, setArea] = useState<string | null>(null);
   const groups = useMemo(() => groupTasks(tasks, area), [tasks, area]);
@@ -80,8 +83,11 @@ export default function LifeCenter() {
         scrollEventThrottle={16}
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
+        refreshControl={pull}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120, paddingTop: space[4] }}
       >
+        <LoadProblem />
+        {ready ? null : <SkeletonCards cards={2} rows={3} />}
         {anySlipped ? (
           <Card style={styles.slipped}>
             <View style={[styles.slippedIcon, { backgroundColor: colors.warmSoft }]}>
@@ -105,7 +111,7 @@ export default function LifeCenter() {
             </Animated.View>
           ) : null,
         )}
-        {!anyOpen ? (
+        {ready && !anyOpen ? (
           <Animated.View entering={FadeIn.duration(duration.enter).easing(easeOut)} style={styles.empty}>
             <Sprout size={104} />
             <Txt variant="headline" center>

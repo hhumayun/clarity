@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { useTask } from "../../src/store/hooks";
+import { useTask } from "../../src/data/hooks";
 import { noteGroup, noteTime } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { useSage } from "../../src/data/sage";
 import { tick } from "../../src/ui/haptics";
 import { SearchField } from "../../src/ui/SearchField";
 import { SheetFrame, SheetList, SheetRow } from "../../src/ui/Sheet";
@@ -13,9 +13,9 @@ export default function LinkNoteSheet() {
   const { task: taskId } = useLocalSearchParams<{ task: string }>();
   const router = useRouter();
   const task = useTask(taskId);
-  const notes = useStore((state) => state.notes);
-  const linkNote = useStore((state) => state.linkNote);
-  const unlinkNote = useStore((state) => state.unlinkNote);
+  const notes = useSage((state) => state.notes);
+  const linkNote = useSage((state) => state.linkNote);
+  const unlinkNote = useSage((state) => state.unlinkNote);
   const [query, setQuery] = useState("");
   if (!task) return <SheetFrame title="Link a note" description="This task could not be found." />;
   const q = query.trim().toLowerCase();

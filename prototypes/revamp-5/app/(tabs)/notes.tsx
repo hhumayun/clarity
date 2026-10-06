@@ -5,7 +5,8 @@ import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Notebook } from "../../src/art/Pictures";
 import { noteGroup } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { useSage, useSageStatus } from "../../src/data/sage";
+import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, space } from "../../src/theme/tokens";
@@ -33,10 +34,12 @@ export default function Notes() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const notes = useStore((state) => state.notes);
-  const areaList = useStore((state) => state.areas);
+  const notes = useSage((state) => state.notes);
+  const areaList = useSage((state) => state.areas);
   const { onScroll, scrollY } = useScrollY();
   const scroller = useAnimatedRef<Animated.ScrollView>();
+  const { ready } = useSageStatus();
+  const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
   const [filtering, setFiltering] = useState(false);
   const [area, setArea] = useState<string | null>(null);
@@ -76,8 +79,15 @@ export default function Notes() {
         scrollEventThrottle={16}
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
+        refreshControl={pull}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
+        <LoadProblem />
+        {ready ? null : (
+          <View style={styles.loading}>
+            <SkeletonCards cards={3} rows={2} />
+          </View>
+        )}
         <Animated.View layout={settle}>
           {groups.map((group, g) => (
             <Animated.View key={group} layout={settle} entering={enter} exiting={exit}>
@@ -95,7 +105,7 @@ export default function Notes() {
           ))}
         </Animated.View>
 
-        {shown.length === 0 ? (
+        {ready && shown.length === 0 ? (
           <Animated.View entering={enter} style={styles.empty}>
             <Notebook size={84} />
             <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
@@ -109,6 +119,7 @@ export default function Notes() {
 }
 
 const styles = StyleSheet.create({
+  loading: { paddingTop: space[4] },
   screen: { flex: 1 },
   chips: { gap: space[2], paddingHorizontal: edge, paddingBottom: space[3] },
   cards: { gap: space[3] },

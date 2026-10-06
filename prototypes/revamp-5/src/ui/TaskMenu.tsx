@@ -7,7 +7,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { dayChoices, dayLabel, type Day } from "../lib/dates";
 import { whenLabel } from "../store/selectors";
-import { useStore } from "../store/store";
+import { useSage } from "../data/sage";
 import { duration, easeOut } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, radius, space } from "../theme/tokens";
@@ -57,9 +57,9 @@ function TaskMenu({ taskId, rect, noteId, onClosed }: Open & { onClosed: () => v
   const insets = useSafeAreaInsets();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const acknowledge = useAcknowledge();
-  const task = useStore((state) => state.tasks.find((item) => item.id === taskId));
-  const moveTask = useStore((state) => state.moveTask);
-  const unlinkNote = useStore((state) => state.unlinkNote);
+  const task = useSage((state) => state.tasks.find((item) => item.id === taskId));
+  const moveTask = useSage((state) => state.moveTask);
+  const unlinkNote = useSage((state) => state.unlinkNote);
   const [page, setPage] = useState<"menu" | "date">("menu");
   const swapped = useRef(false);
   const go = (next: "menu" | "date") => {

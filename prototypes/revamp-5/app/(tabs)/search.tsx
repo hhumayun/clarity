@@ -5,7 +5,8 @@ import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Magnifier } from "../../src/art/Pictures";
 import { byPlan } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { useSage, useSageStatus } from "../../src/data/sage";
+import { LoadProblem, SkeletonCards } from "../../src/ui/Loading";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, radius, space } from "../../src/theme/tokens";
@@ -33,11 +34,12 @@ export default function Search() {
   const { colors, accent } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const notes = useStore((state) => state.notes);
-  const tasks = useStore((state) => state.tasks);
-  const areas = useStore((state) => state.areas);
+  const notes = useSage((state) => state.notes);
+  const tasks = useSage((state) => state.tasks);
+  const areas = useSage((state) => state.areas);
   const { onScroll, scrollY } = useScrollY();
   const scroller = useAnimatedRef<Animated.ScrollView>();
+  const { ready } = useSageStatus();
   useScrollToTop(scroller as never);
   const inputType = useType("callout");
   const [query, setQuery] = useState("");
@@ -94,6 +96,7 @@ export default function Search() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
+        <LoadProblem />
         <View style={styles.areas}>
           {areas.map(({ name }) => (
             <Chip
@@ -120,6 +123,7 @@ export default function Search() {
           </Animated.View>
         ) : (
           <Animated.View layout={settle}>
+            {ready ? null : <SkeletonCards cards={1} rows={2} />}
             {foundNotes.length ? (
               <Animated.View layout={settle} entering={enter} exiting={exit}>
                 <SectionTitle title="Notes" first />
@@ -136,7 +140,7 @@ export default function Search() {
                 <TaskCard tasks={foundTasks.slice(0, 12)} />
               </Animated.View>
             ) : null}
-            {!foundNotes.length && !foundTasks.length ? (
+            {ready && !foundNotes.length && !foundTasks.length ? (
               <Animated.View entering={enter} style={styles.none}>
                 <Txt variant="subhead" tone="ink3" center>
                   {q ? `Nothing mentions “${query.trim()}”${area ? ` in ${area}` : ""}.` : `Nothing in ${area} yet.`}

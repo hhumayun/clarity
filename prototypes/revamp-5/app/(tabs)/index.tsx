@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Tea } from "../../src/art/Pictures";
 import { addDays, dateOf, dayLabel, daysBetween, today, weekStart } from "../../src/lib/dates";
 import { comingUp, doneOn, notesOn, openOn, slipped } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { getSage, useSage, useSageStatus, useWhenEditable } from "../../src/data/sage";
+import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, radius, space } from "../../src/theme/tokens";
@@ -37,11 +38,14 @@ export default function Today() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const whenEditable = useWhenEditable();
+  const { ready } = useSageStatus();
+  const pull = usePullToRefresh();
   const navigation = useNavigation();
-  const tasks = useStore((state) => state.tasks);
-  const notes = useStore((state) => state.notes);
-  const viewDay = useStore((state) => state.viewDay);
-  const setViewDay = useStore((state) => state.setViewDay);
+  const tasks = useSage((state) => state.tasks);
+  const notes = useSage((state) => state.notes);
+  const viewDay = useSage((state) => state.viewDay);
+  const setViewDay = useSage((state) => state.setViewDay);
   const { onScroll, scrollY } = useScrollY();
   const scroller = useAnimatedRef<Animated.ScrollView>();
   useScrollToTop(scroller as never);
@@ -51,7 +55,7 @@ export default function Today() {
   // Tapping Today while on it comes back to today, as well as to the top.
   useEffect(() => {
     const unsubscribe = (navigation as unknown as { addListener: (event: "tabPress", cb: () => void) => () => void }).addListener("tabPress", () => {
-      if (useStore.getState().viewDay !== today()) useStore.getState().setViewDay(today());
+      if (getSage().viewDay !== today()) getSage().setViewDay(today());
     });
     return unsubscribe;
   }, [navigation]);
@@ -139,8 +143,10 @@ export default function Today() {
         scrollEventThrottle={16}
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
+        refreshControl={pull}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
+        <LoadProblem />
         <Animated.View key={viewDay} entering={(forward ? FadeInRight : FadeInLeft).duration(duration.enter).easing(easeOut)}>
           {isToday ? (
             <View style={styles.cards}>
@@ -149,16 +155,16 @@ export default function Today() {
           ) : null}
 
           <SectionTitle title="Tasks" first={!isToday} />
-          <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} />
+          {ready ? <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} /> : <SkeletonCards cards={1} rows={3} />}
           <ButtonPair style={styles.actions}>
-            <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => router.push(`/quick-add?day=${viewDay}`)} />
+            <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=${viewDay}`))} />
             {late.length ? (
               <Button label="Catch up" icon="rotate" variant="secondary" size="md" flex onPress={() => router.push("/catch-up")} accessibilityLabel="Catch up on what slipped" />
             ) : (
               <Button label="All tasks" icon="life" variant="secondary" size="md" flex onPress={() => router.navigate("/life")} />
             )}
           </ButtonPair>
-          <DoneFold tasks={done} />
+          {ready ? <DoneFold tasks={done} /> : null}
 
           {dayNotes.length ? (
             <>

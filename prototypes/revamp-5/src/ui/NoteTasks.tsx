@@ -5,7 +5,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanim
 import { useShallow } from "zustand/react/shallow";
 import type { Suggestion } from "../store/model";
 import { whenLabel } from "../store/selectors";
-import { useStore } from "../store/store";
+import { useSage, useWhenEditable } from "../data/sage";
 import { duration, easeOut } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, pad, radius, space } from "../theme/tokens";
@@ -30,11 +30,12 @@ const settle = LinearTransition.duration(duration.enter).easing(easeOut);
  */
 export function NoteTasks({ noteId }: { noteId: string }) {
   const router = useRouter();
+  const whenEditable = useWhenEditable();
   const acknowledge = useAcknowledge();
-  const tasks = useStore(useShallow((state) => state.tasks.filter((task) => task.noteIds.includes(noteId))));
-  const found = useStore((state) => state.suggestions[noteId]);
-  const searched = useStore((state) => state.searched[noteId]);
-  const findTasks = useStore((state) => state.findTasks);
+  const tasks = useSage(useShallow((state) => state.tasks.filter((task) => task.noteIds.includes(noteId))));
+  const found = useSage((state) => state.suggestions[noteId]);
+  const searched = useSage((state) => state.searched[noteId]);
+  const findTasks = useSage((state) => state.findTasks);
   const [looking, setLooking] = useState(false);
   const [nothing, setNothing] = useState(false);
 
@@ -103,7 +104,7 @@ export function NoteTasks({ noteId }: { noteId: string }) {
         }
       />
       <ButtonPair style={styles.actions}>
-        <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => router.push(`/quick-add?day=none&note=${noteId}`)} />
+        <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=none&note=${noteId}`))} />
         <Button label={looking ? "Reading" : "Find tasks"} icon="sparkles" variant="secondary" size="md" flex state={looking ? "busy" : "idle"} onPress={look} accessibilityLabel="Find tasks in this note" />
       </ButtonPair>
       <Pressable onPress={() => router.push(`/sheet/link-task?note=${noteId}`)} accessibilityRole="button" accessibilityLabel="Link an existing task" hitSlop={8} style={styles.link}>
@@ -129,8 +130,8 @@ function LinkGlyph() {
 /** One found task as a card with two halves underneath, after Rosebud's goal suggestions. */
 function FoundCard({ noteId, item }: { noteId: string; item: Suggestion }) {
   const { colors, accent } = useTheme();
-  const addSuggestion = useStore((state) => state.addSuggestion);
-  const skipSuggestion = useStore((state) => state.skipSuggestion);
+  const addSuggestion = useSage((state) => state.addSuggestion);
+  const skipSuggestion = useSage((state) => state.skipSuggestion);
   return (
     <View style={[styles.card, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>
       <View style={styles.cardBody}>

@@ -2,7 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNote } from "../src/store/hooks";
+import { useNote } from "../src/data/hooks";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { space } from "../src/theme/tokens";
 import { NoteTasks } from "../src/ui/NoteTasks";

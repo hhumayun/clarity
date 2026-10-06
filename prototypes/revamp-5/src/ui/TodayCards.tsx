@@ -7,7 +7,7 @@ import { greetings, questions } from "../data/prompts";
 import { today } from "../lib/dates";
 import { noteTime, openOn } from "../store/selectors";
 import { useDevice } from "../state/device";
-import { useStore } from "../store/store";
+import { useSage, useWhenEditable } from "../data/sage";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, radius, space } from "../theme/tokens";
 import { Card } from "./Card";
@@ -29,15 +29,16 @@ import { Txt } from "./Txt";
 export function TodayCards() {
   const router = useRouter();
   const { phase, colors } = useTheme();
-  const tasks = useStore((state) => state.tasks);
-  const notes = useStore((state) => state.notes);
-  const pages = useStore((state) => state.pages);
+  const tasks = useSage((state) => state.tasks);
+  const notes = useSage((state) => state.notes);
+  const pages = useSage((state) => state.pages);
   const focusLength = useDevice((state) => state.prefs.focusLength);
-  const focusToday = useStore((state) => state.focusToday);
+  const focusToday = useSage((state) => state.focusToday);
   const t = today();
   const pageId = pages[t];
   const page = pageId ? notes.find((note) => note.id === pageId) : undefined;
   const next = openOn(tasks, t)[0];
+  const whenEditable = useWhenEditable();
   const question = questions[phase][0];
 
   return (
@@ -48,14 +49,16 @@ export function TodayCards() {
         written={page ? noteTime(page.time) : null}
         onPress={() => {
           tap();
-          router.push(page ? `/note/${page.id}` : `/note/new?prompt=${encodeURIComponent(question)}&page=1`);
+          if (page) router.push(`/note/${page.id}`);
+          else whenEditable(() => router.push(`/note/new?prompt=${encodeURIComponent(question)}&page=1`));
         }}
       />
       <Card
         inset={false}
         onPress={() => {
           tap();
-          router.push(next ? `/focus/${next.id}` : `/quick-add?day=${t}`);
+          if (next) router.push(`/focus/${next.id}`);
+          else whenEditable(() => router.push(`/quick-add?day=${t}`));
         }}
         accessibilityRole="button"
         accessibilityLabel={next ? `Focus on ${next.title}, ${focusLength} minutes` : "Nothing to focus on. Add a task"}

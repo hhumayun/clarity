@@ -2,10 +2,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { dateOf, dayChoices, dayLabel, type Day } from "../../src/lib/dates";
-import { useTask } from "../../src/store/hooks";
+import { useTask } from "../../src/data/hooks";
 import type { Repeat } from "../../src/store/model";
 import { clockLabel, repeatLabels } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { useSage } from "../../src/data/sage";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { space } from "../../src/theme/tokens";
 import { Icon } from "../../src/ui/Icon";
@@ -22,7 +22,7 @@ export default function ReminderSheet() {
   const router = useRouter();
   const { colors } = useTheme();
   const task = useTask(taskId);
-  const updateTask = useStore((state) => state.updateTask);
+  const updateTask = useSage((state) => state.updateTask);
   const [day, setDay] = useState<Day | null>(task?.day ?? null);
   const hasTime = task?.time != null;
   const presets = hasTime

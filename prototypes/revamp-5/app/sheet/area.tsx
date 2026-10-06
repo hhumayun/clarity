@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { useNote, useTask } from "../../src/store/hooks";
-import { useStore } from "../../src/store/store";
+import { useNote, useTask } from "../../src/data/hooks";
+import { useSage } from "../../src/data/sage";
 import { tick } from "../../src/ui/haptics";
 import { SheetButtons, SheetFrame, SheetList, SheetRow, TextField } from "../../src/ui/Sheet";
 
@@ -11,12 +11,12 @@ export default function AreaSheet() {
   const router = useRouter();
   const task = useTask(taskId);
   const note = useNote(noteId);
-  const areas = useStore((state) => state.areas);
-  const updateTask = useStore((state) => state.updateTask);
-  const setNoteArea = useStore((state) => state.setNoteArea);
-  const addArea = useStore((state) => state.addArea);
-  const draftArea = useStore((state) => state.draftArea);
-  const setDraftArea = useStore((state) => state.setDraftArea);
+  const areas = useSage((state) => state.areas);
+  const updateTask = useSage((state) => state.updateTask);
+  const setNoteArea = useSage((state) => state.setNoteArea);
+  const addArea = useSage((state) => state.addArea);
+  const draftArea = useSage((state) => state.draftArea);
+  const setDraftArea = useSage((state) => state.setDraftArea);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const isDraft = draft === "1";

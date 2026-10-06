@@ -5,10 +5,10 @@ import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-re
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { deeper, deeperFallback, questions } from "../../src/data/prompts";
 import { longDay, today } from "../../src/lib/dates";
-import { useNote } from "../../src/store/hooks";
+import { useNote } from "../../src/data/hooks";
 import type { Block } from "../../src/store/model";
 import { noteTime } from "../../src/store/selectors";
-import { useStore } from "../../src/store/store";
+import { useSage } from "../../src/data/sage";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
@@ -51,9 +51,9 @@ export default function NoteScreen() {
   const acknowledge = useAcknowledge();
   const note = useNote(id === "new" ? undefined : id);
   const isNew = !note;
-  const addNote = useStore((state) => state.addNote);
-  const draftArea = useStore((state) => state.draftArea);
-  const setDraftArea = useStore((state) => state.setDraftArea);
+  const addNote = useSage((state) => state.addNote);
+  const draftArea = useSage((state) => state.draftArea);
+  const setDraftArea = useSage((state) => state.setDraftArea);
   const titleType = useType("title1");
   const bodyType = useType("body");
   const scroller = useRef<ScrollView>(null);

@@ -34,6 +34,13 @@ The facts here were checked against the code on 2026-10-05.
 - **Phase 2 is done** (2026-10-06): deployment e04e7540, a clean export of the branch at 116bf55, deployed with your OK.
   - The same 16 checks passed against the live server.
   - The real accounts were untouched: 87 notes, 78 tasks and 8 areas, with no last-changed time moved.
+- **Phase 3 is done** (2026-10-06): your own data on Sage's screens.
+  - Every screen reads through one switch (`src/data/sage.ts`): the sample store in demo, or your account's data when signed in (`src/data/account.ts`, filled by `AccountSource` from the main app's hooks).
+  - While loading, card-shaped placeholders show. If nothing can be fetched, a calm message offers Try again. Pull to refresh works.
+  - **Saving works on test accounts only,** through the main app's offline layer: tasks (add, tick, edit, move, delete, link), areas, notes from Today's question and the + dial, focus sessions and parked thoughts.
+  - **Any other account is read-only in revamp 5 until phase 4's checks pass.** A new note or task doesn't even open there, so nothing typed can be lost.
+  - Checked in the web build against the live server, as the test account: 15 checks, including a tick and a new task reaching the server. The account was left empty. Demo mode still passes 27/27 and sends nothing.
+  - Still to come: moved-from days in Catch up and offline edit times (phase 4), editing notes (phase 5), Find tasks (phase 6).
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---

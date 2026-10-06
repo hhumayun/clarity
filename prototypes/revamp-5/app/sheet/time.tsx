@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { addDays, today } from "../../src/lib/dates";
-import { useTask } from "../../src/store/hooks";
-import { useStore } from "../../src/store/store";
+import { useTask } from "../../src/data/hooks";
+import { useSage } from "../../src/data/sage";
 import { TimeSpinner } from "../../src/ui/Calendar";
 import { SheetButtons, SheetFrame } from "../../src/ui/Sheet";
 
@@ -11,7 +11,7 @@ export default function TimeSheet() {
   const { task: taskId } = useLocalSearchParams<{ task: string }>();
   const router = useRouter();
   const task = useTask(taskId);
-  const updateTask = useStore((state) => state.updateTask);
+  const updateTask = useSage((state) => state.updateTask);
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const [minutes, setMinutes] = useState(() => {

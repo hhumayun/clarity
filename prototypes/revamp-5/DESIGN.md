@@ -48,6 +48,12 @@ Phases 0 and 1 of `docs/backend-plan.md`. The main app's sign-in, offline and da
 - **Kept on the phone:** your colour, paper, appearance, focus defaults, demo mode and whether first run has been seen now live in `src/state/device.ts`, saved with AsyncStorage. Before, they reset on every reload.
 - **Errors in sentences:** Clerk's codes become plain words ("That code didn't match. Check the email and try again."), said under the field they belong to.
 
+**Your own data (phase 3, 2026-10-06):**
+- Signed in, every screen shows your account's notes, tasks and areas, in exactly the same design. Looking around, only the samples.
+- **While loading:** placeholders the shape of the cards breathe in their place, so nothing jumps when the cards arrive. An empty list still shows its picture, but only once the list has really arrived.
+- **If the lists can't be fetched** and nothing is kept on the phone, a calm card says so with Try again. Pull down to refresh on Today, Notes and Life Center.
+- **Accounts that can't save yet** (anything but a test account, until phase 4's checks): a change says "Read-only for now: nothing changed" in the capsule, and no screen claims "Saved" after it. A new note or task doesn't open at all, so nothing typed is lost. Settings says which kind of account you're in.
+
 Signing up on the **web build** shows Cloudflare's "Verify you are human" check, which Clerk requires there. It never appears in the phone app.
 
 ## The brief

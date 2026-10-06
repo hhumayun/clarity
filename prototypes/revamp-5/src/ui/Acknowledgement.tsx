@@ -10,6 +10,16 @@ const REST_MS = 1_600;
 type Acknowledge = (label: string, icon?: IconName) => void;
 const AcknowledgeContext = createContext<Acknowledge>(() => {});
 
+let heldUntil = 0;
+
+/**
+ * Hold other acknowledgements back for a moment: after a change that wasn't
+ * saved has said so, a screen's own "Saved" or "Added" must not cover it.
+ */
+export function holdAcknowledgements(ms: number) {
+  heldUntil = Date.now() + ms;
+}
+
 /**
  * Acknowledgements that outlive the screen that made them. "Done" leaves a
  * note at once, and what was kept is said on the screen you land on, by a
@@ -25,6 +35,7 @@ export function AcknowledgementProvider({ children }: { children: React.ReactNod
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const acknowledge = useCallback<Acknowledge>((next, nextIcon = "check") => {
+    if (Date.now() < heldUntil) return;
     if (timer.current) clearTimeout(timer.current);
     setLabel(next);
     setIcon(nextIcon);

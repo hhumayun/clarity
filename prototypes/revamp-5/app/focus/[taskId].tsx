@@ -21,11 +21,11 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
-import { useFocusHistory, useTask } from "../../src/store/hooks";
+import { useFocusHistory, useTask } from "../../src/data/hooks";
 import type { FocusLength, Outcome } from "../../src/store/model";
 import { clockLabel } from "../../src/store/selectors";
 import { useDevice } from "../../src/state/device";
-import { useStore } from "../../src/store/store";
+import { useSage } from "../../src/data/sage";
 import { calm, duration, easeInOut, easeOut, spring } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { dark as room, edge, pad, radius, space } from "../../src/theme/tokens";
@@ -85,8 +85,8 @@ export default function Focus() {
   const history = useFocusHistory(taskId);
   const prefs = useDevice((state) => state.prefs);
   const setPref = useDevice((state) => state.setPref);
-  const recordFocus = useStore((state) => state.recordFocus);
-  const parkThought = useStore((state) => state.parkThought);
+  const recordFocus = useSage((state) => state.recordFocus);
+  const parkThought = useSage((state) => state.parkThought);
   const speed = prefs.fastTimers ? 30 : 1;
 
   const [phase, setPhase] = useState<Phase>("setup");
