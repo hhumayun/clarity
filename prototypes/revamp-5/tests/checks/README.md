@@ -29,12 +29,13 @@ mkdir -p /tmp/clarity-revamp-5          # some write their output here
 | `interact.js` | 27 demo checks across the screens, including a scan for counts; demo sends nothing |
 | `shots.js <light\|dark> [names]` | screenshots into `clarity-design-research/revamp-5/shots` (never commit them) |
 | `editor-flow.mjs` | 18 note-page checks: open, edit and reopen, the tools, Today's question, Next question |
+| `words-flow.mjs` | 14 checks of word help: no strip while writing, a strip after a pause at a sentence's end, a tap puts the words in, nothing mid-sentence; Go deeper's questions; sends nothing |
 | `repeat-flow.mjs` | 12 checks: repeats and reminders are separate, "Just this time", ticking a task off |
 | `smoke.mjs` | the app opens; Today, Notes and Life show; how long each switch takes |
 | `lazy-check.mjs` | whether a first visit to a tab fetches code (it doesn't) |
 | `tab-profile.mjs` | tab-switch timings with the samples grown to a real account's size, optionally with a CPU profile; heavy, needs memory |
 | `life-growth.mjs` | Life's first draw against the number of tasks (written, never run) |
-| `auth.js`, `auth_shots.js`, `firstrun_shots.js` | sign-in and first-run screens |
+| `auth.js`, `auth_shots.js` | sign-in screens |
 
 ## Live server checks (as the test account)
 
@@ -43,7 +44,8 @@ mkdir -p /tmp/clarity-revamp-5          # some write their output here
 | `account-check.mjs` | 15 checks of Sage on your data's screens |
 | `offline-check.mjs` | 19 offline checks: airplane mode, a restart with the server blocked, area remap |
 | `editor-account.mjs` | 16 note checks: one create and one save on leaving, rich text stored as a document, reopened with it, deleted from its menu, nothing else touched |
-| `ai-account.mjs` | 28 checks of AI help: asked about once after skipping the opening screens; off, nothing goes to an AI endpoint (a note left, its tasks, a task's page, Focus); on, Find tasks, a quiet title and one index on leaving an untitled note, how it's going, first steps; off again, nothing |
+| `ai-account.mjs` | 40 checks of AI help: asked about once after skipping the opening screens; off, nothing goes to an AI endpoint (writing, a note left, its tasks, a task's page, Focus); on, how it's going, first steps, a quiet title and one index on leaving an untitled note, Find tasks, word help (one ask per pause, a tap puts the words in), Go deeper asking only when another question is wanted; off again, nothing |
+| `firstrun-ai.mjs` | 11 checks of the opening screens' AI page on a new phone: what it says, Turn on AI help and Not now each kept in Settings; writes nothing |
 | `remind-check.mjs` | 6 checks: "just this time" kept by the server; AI answering through zero-retention endpoints |
 | `API=live api-check.mjs` | 16 checks of the API changes (migration 014's) |
 | `clean-test-account.mjs`, `peek-test-account.mjs` | remove "Sage check" items; look at what's there |

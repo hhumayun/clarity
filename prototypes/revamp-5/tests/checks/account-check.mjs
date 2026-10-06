@@ -80,6 +80,9 @@ try {
   // First run, once per browser: skip it.
   await page.waitForFunction(() => /Write freely|Today/.test(document.body.innerText), null, { timeout: 30000 });
   if (/Write freely/.test(await text())) await press("Skip");
+  // Then AI help, asked about once (2026-10-06): off for these checks.
+  await page.waitForFunction(() => /Gentle help|Today/.test(document.body.innerText), null, { timeout: 30000 });
+  if (/Gentle help/.test(await text())) await press("Not now");
   await page.waitForFunction(() => /Tasks/.test(document.body.innerText), null, { timeout: 30000 });
   await page.waitForTimeout(1500);
   await shot("today_empty");
@@ -134,9 +137,11 @@ try {
   check("Notes lists the account's notes", /kitchen shelves/i.test(await text()));
 
   await page.getByRole("button", { name: /kitchen shelves/ }).first().click();
-  await page.waitForTimeout(2000);
+  // Its words are in the editor's frame.
+  await page.waitForFunction(() => document.querySelector('iframe[title="Note"]')?.contentDocument?.querySelector(".ProseMirror"), null, { timeout: 30000 });
+  await page.waitForTimeout(1500);
   await shot("note");
-  const note = await text();
+  const note = await page.evaluate(() => document.querySelector('iframe[title="Note"]')?.contentDocument?.querySelector(".ProseMirror")?.innerText ?? "");
   check("a note opens with its words and checklist", /Measure the wall first/.test(note) && /Buy brackets/.test(note) && /The oak looked best/.test(note));
 
   await page.getByRole("button", { name: "Back" }).first().click();

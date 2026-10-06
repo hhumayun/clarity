@@ -9,12 +9,14 @@ import { deeper, deeperFallback, questions } from "../../src/data/prompts";
 import { useNote } from "../../src/data/hooks";
 import { useDataMode, useSage } from "../../src/data/sage";
 import { useQuietSyncNotices } from "../../src/data/quiet";
+import { useAiReady } from "../../src/data/ai";
 import { blocksOf } from "../../src/data/adapt";
 import type { NoteEditorHandle } from "../../src/editor/bridge";
 import { useEditorLook } from "../../src/editor/look";
 import { NoteEditorView } from "../../src/editor/NoteEditorView";
 import type { EditorCommand, EditorFormats } from "../../src/editor/protocol";
 import { questionPage, useAccountNoteSession, useDemoNoteSession, type NoteParams, type NoteSession } from "../../src/editor/useNoteSession";
+import { useDeeperQuestions, useWritingHelp, type WordIdea } from "../../src/editor/useWritingHelp";
 import { longDay, today } from "../../src/lib/dates";
 import { noteTime } from "../../src/store/selectors";
 import type { Block } from "../../src/store/model";
@@ -31,7 +33,9 @@ import { Icon, type IconName } from "../../src/ui/Icon";
 import { IconButton } from "../../src/ui/IconButton";
 import { PressableScale } from "../../src/ui/PressableScale";
 import { Roll } from "../../src/ui/Roll";
+import { ThinkingDots } from "../../src/ui/Thinking";
 import { Txt, useType } from "../../src/ui/Txt";
+import { WordStrip } from "../../src/ui/WordStrip";
 
 /** The tools while writing: every one the main app has, in its order. */
 const TOOLS: { name: EditorCommand; icon: IconName; label: string; on?: (formats: EditorFormats) => boolean }[] = [
@@ -128,6 +132,15 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
+  // Word help and the AI's questions, with AI help on (see useWritingHelp).
+  const demo = useDataMode((state) => state.mode) === "demo";
+  const aiReady = useAiReady();
+  const help = useWritingHelp({ noteId: session.noteId, title: session.title, seed: session.seed.markdown, writing: focused, demo, aiReady });
+  const helpRef = useRef(help);
+  helpRef.current = help;
+  // The words as the editor last sent them.
+  const textRef = useRef<string | null>(null);
+
   // The note couldn't be found (deleted elsewhere, or never on this phone).
   useEffect(() => {
     if (!session.missing) return;
@@ -166,15 +179,27 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
   }, []);
 
   const onChange = useCallback((markdown: string, doc: unknown) => {
+    textRef.current = markdown;
     sessionRef.current.change(markdown, doc);
+    helpRef.current.onText(markdown);
     // The last words, sent as the app went to the background: saved now too.
     if (AppState.currentState !== "active") sessionRef.current.saveNow();
   }, []);
 
+  // The AI's questions about what's been written, if it has any; otherwise Sage's own for the time of day.
   const nextQuestion = () => {
-    const pool = [...questions[phase], ...deeperFallback];
     const seen = asked.list();
+    const fromAi = help.questions.find((question) => !seen.includes(question));
+    if (fromAi) return fromAi;
+    const pool = [...questions[phase], ...deeperFallback];
     return pool.find((question) => !seen.includes(question)) ?? pool[seen.length % pool.length];
+  };
+
+  const takeWords = (word: WordIdea) => {
+    const fitted = help.take(word);
+    if (!fitted) return;
+    tick();
+    editor.current?.run("insertText", JSON.stringify(fitted));
   };
 
   const finish = () => {
@@ -250,6 +275,14 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
     deleteNote(session.noteId);
     router.back();
     acknowledge("Deleted");
+  };
+
+  // Go deeper asks about the note as it stood when it first showed on this
+  // visit: once per visit, not again after each small edit.
+  const deeperRef = useRef<string | null>(null);
+  const deeperText = () => {
+    if (deeperRef.current === null) deeperRef.current = textRef.current ?? session.seed.markdown;
+    return deeperRef.current;
   };
 
   const meta = (note ? `${longDay(note.day)} · ${noteTime(note.time)}` : longDay(today())).toUpperCase();
@@ -345,6 +378,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
                 seed={session.seed}
                 onChange={onChange}
                 onFormats={setFormats}
+                onCursor={help.onCursor}
                 onFocusChange={(next) => {
                   setFocused(next);
                   if (next) setMenu(false);
@@ -368,6 +402,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
           {!shown && !failed ? <WordsLoading /> : null}
         </View>
 
+        {focused && help.strip ? <WordStrip words={help.strip} onTake={takeWords} /> : null}
         {focused ? (
           <View style={[styles.toolbar, { borderTopColor: colors.hairline }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.tools}>
@@ -411,6 +446,10 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
             {!isNew && session.noteId && shown ? (
               <GoDeeper
                 noteId={session.noteId}
+                title={session.title}
+                markdown={deeperText()}
+                visit={help.questions}
+                asked={asked.list()}
                 onAdd={(question) => {
                   asked.add(question);
                   editor.current?.run("insertQuestion", JSON.stringify({ text: question, atEnd: true }));
@@ -464,28 +503,51 @@ function QuestionTool({ icon, label, onPress }: { icon: IconName; label: string;
 /**
  * "Go deeper": a question about the note, which can join it at the end, as
  * a quote with room for the answer under it. "Not now" puts it away for this
- * visit.
+ * visit. With AI help on: the AI's questions about what was just written, if
+ * word help asked while writing (no extra ask); otherwise Sage's own first,
+ * and the AI is asked about the whole note only when another question is
+ * wanted (once per version of the note), so opening a note to read costs
+ * nothing.
  */
-function GoDeeper({ noteId, onAdd }: { noteId: string; onAdd: (question: string) => void }) {
+function GoDeeper({ noteId, title, markdown, visit, asked, onAdd }: { noteId: string; title: string; markdown: string; visit: string[]; asked: string[]; onAdd: (question: string) => void }) {
   const { colors } = useTheme();
-  const pool = deeper[noteId] ?? deeperFallback;
+  const demo = useDataMode((state) => state.mode) === "demo";
+  const aiReady = useAiReady();
+  const promptType = useType("prompt");
   const [n, setN] = useState(0);
   const [open, setOpen] = useState(true);
+  const [askAi, setAskAi] = useState(false);
+  const canAsk = !demo && aiReady && visit.length === 0;
+  const fromNote = useDeeperQuestions({ noteId, title, markdown, enabled: canAsk && askAi });
   if (!open) return null;
-  const question = pool[n % pool.length];
+  const own = demo ? (deeper[noteId] ?? deeperFallback) : deeperFallback;
+  const ai = visit.length ? visit : (fromNote ?? null);
+  const fresh = (ai ?? own).filter((question) => !asked.includes(question));
+  const pool = fresh.length ? fresh : own;
+  // The AI couldn't answer: Sage's next question, not the one already seen.
+  const offset = askAi && !ai ? 1 : 0;
+  // Asking: the card stays, reading, at its usual size.
+  const question = askAi && fromNote === undefined ? null : pool[(n + offset) % pool.length];
+  const more = question !== null && (pool.length > 1 || (canAsk && !askAi));
+  const another = () => {
+    tick();
+    if (canAsk && !askAi && !ai) {
+      setAskAi(true);
+      setN(0);
+      return;
+    }
+    setN((v) => v + 1);
+  };
   return (
-    <Animated.View exiting={FadeOut.duration(duration.quick)} style={[styles.deeper, { backgroundColor: colors.sunken }]}>
+    <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)} style={[styles.deeper, { backgroundColor: colors.sunken }]}>
       <View style={styles.deeperHead}>
         <Icon name="idea" size={16} color={colors.ink3} weight="semibold" />
         <Txt variant="footnote" tone="ink3" weight="semibold" style={styles.flex}>
           Go deeper
         </Txt>
-        {pool.length > 1 ? (
+        {more ? (
           <Pressable
-            onPress={() => {
-              tick();
-              setN((v) => v + 1);
-            }}
+            onPress={another}
             accessibilityRole="button"
             accessibilityLabel="Another question"
             hitSlop={10}
@@ -494,7 +556,9 @@ function GoDeeper({ noteId, onAdd }: { noteId: string; onAdd: (question: string)
           </Pressable>
         ) : null}
       </View>
-      <Roll value={question} variant="prompt" color={colors.ink} />
+      <View style={[styles.deeperQuestion, { minHeight: promptType.lineHeight * 2 }]}>
+        {question === null ? <ThinkingDots /> : <Roll value={question} variant="prompt" color={colors.ink} />}
+      </View>
       <ButtonPair style={styles.deeperButtons}>
         <Button label="Not now" variant="outline" size="sm" flex onPress={() => setOpen(false)} />
         <Button
@@ -503,7 +567,9 @@ function GoDeeper({ noteId, onAdd }: { noteId: string; onAdd: (question: string)
           variant="soft"
           size="sm"
           flex
+          disabled={question === null}
           onPress={() => {
+            if (question === null) return;
             tick();
             onAdd(question);
             setOpen(false);
@@ -592,6 +658,7 @@ const styles = StyleSheet.create({
   deeper: { borderRadius: radius.card, borderCurve: "continuous", padding: pad, gap: space[2] },
   deeperHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   deeperButtons: { marginTop: space[1] },
+  deeperQuestion: { justifyContent: "center" },
   loading: { position: "absolute", top: 6, left: edge + 4, right: edge + 4, gap: 12 },
   loadingLine: { height: 14, borderRadius: 7 },
   readOnly: { paddingHorizontal: edge + 4, paddingTop: space[1], paddingBottom: space[12], gap: space[4] },

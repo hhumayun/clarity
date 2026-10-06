@@ -38,6 +38,12 @@ page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => { if (/\[editor\]/.test(m.text())) console.log("  console:", m.text().slice(0, 300)); });
 const press = (name) => page.getByRole("button", { name, exact: true }).first().click({ timeout: 30000 });
 const btn = (name) => page.getByRole("button", { name, exact: false }).first();
+// A tool, then a moment before typing on, as a hand would. In the web build a click takes focus
+// from the editor's frame until the page takes it back (on the phone the editor keeps it).
+const tool = async (name) => {
+  await btn(name).click();
+  await page.waitForTimeout(200);
+};
 const editorFrame = () => page.frames().filter((frame) => frame.url() === "about:srcdoc" && !frame.isDetached()).at(-1);
 const waitEditor = async () => {
   await page.waitForFunction(() => document.querySelector('iframe[title="Note"]')?.contentDocument?.querySelector(".ProseMirror"), null, { timeout: 30000 });
@@ -72,6 +78,9 @@ try {
 
   await page.waitForFunction(() => /Write freely|Today|Tasks/.test(document.body.innerText), null, { timeout: 30000 });
   if (/Write freely/.test(await page.evaluate(() => document.body.innerText))) await press("Skip");
+  // Then AI help, asked about once (2026-10-06): off for these checks.
+  await page.waitForFunction(() => /Gentle help|Today|Tasks/.test(document.body.innerText), null, { timeout: 30000 });
+  if (/Gentle help/.test(await page.evaluate(() => document.body.innerText))) await press("Not now");
   await page.waitForTimeout(1500);
 
   // 1. A new note: title, a checklist and bold words, saved through the outbox.
@@ -82,24 +91,24 @@ try {
   await page.getByLabel("Title").fill(TITLE);
   await frame.locator(".ProseMirror").click();
   await page.waitForTimeout(300);
-  await btn("Checklist").click();
+  await tool("Checklist");
   await page.keyboard.type("milk", { delay: 10 });
   await page.keyboard.press("Enter");
   await page.keyboard.type("eggs", { delay: 10 });
-  await btn("Indent").click();
+  await tool("Indent");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Some ", { delay: 10 });
-  await btn("Bold").click();
+  await tool("Bold");
   await page.keyboard.type("strong", { delay: 10 });
-  await btn("Bold").click();
+  await tool("Bold");
   await page.keyboard.type(" words.", { delay: 10 });
   await page.keyboard.press("Enter");
-  await btn("Bulleted list").click();
+  await tool("Bulleted list");
   await page.keyboard.type("moved in", { delay: 10 });
   // The first item: the whole list moves in, which only the rich text keeps.
-  await btn("Indent").click();
+  await tool("Indent");
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}/account-new.png` });
   // While writing: the note is made once its first words settle, and nothing more is sent.
@@ -113,7 +122,12 @@ try {
   await btn("Done").click();
   await page.waitForTimeout(3000);
 
-  ok("leaving sends the words once", writes.filter((write) => write.path === "/_api/notes/update" && madeId && write.body.includes(madeId)).length === 1);
+  // Made as its words first settled: whatever came after it goes once, on leaving (nothing, if
+  // the writing never paused before the end).
+  const madeWith = madeBody ? superjson.parse(madeBody).content : null;
+  const leaveSaves = writes.filter((write) => write.path === "/_api/notes/update" && madeId && write.body.includes(madeId)).length;
+  const finalWords = "- [ ] milk\n  - [ ] eggs\n\nSome **strong** words.\n\n- moved in";
+  ok("leaving sends what came after it was made, once", madeWith === finalWords ? leaveSaves === 0 : leaveSaves === 1, `${leaveSaves} saves; made with ${JSON.stringify(madeWith)}`);
   let saved = await ours();
   ok("the note reached the server, once", saved.length === 1, `${saved.length} found`);
   const id = saved[0]?.id;

@@ -90,6 +90,9 @@ try {
 
   await page.waitForFunction(() => /Write freely|Tasks/.test(document.body.innerText), null, { timeout: 30000 });
   if (/Write freely/.test(await text())) await press("Skip");
+  // Then AI help, asked about once (2026-10-06): off for these checks.
+  await page.waitForFunction(() => /Gentle help|Tasks/.test(document.body.innerText), null, { timeout: 30000 });
+  if (/Gentle help/.test(await text())) await press("Not now");
   // Seeded: the lists may come now, and the app fetches them fresh.
   listsOpen = true;
   await page.reload({ waitUntil: "load" });
@@ -130,10 +133,13 @@ try {
   check("a task added offline shows at once", /Sage check: added offline/.test(await text()));
 
   await page.getByRole("button", { name: /Today's page|What can you set down|Still up|What would make|Good (morning|afternoon|evening)/ }).first().click();
+  // Today's page opens in the editor with the cursor under its question.
+  await page.waitForFunction(() => document.querySelector('iframe[title="Note"]')?.contentDocument?.querySelector(".ProseMirror blockquote"), null, { timeout: 30000 });
+  await page.waitForTimeout(1200);
+  await page.keyboard.type("Sage check: written on a plane.", { delay: 5 });
   await page.waitForTimeout(1500);
-  const answer = page.getByLabel(/^Answer: /).first();
-  await answer.fill("Sage check: written on a plane.");
-  await page.waitForTimeout(300);
+  await page.getByRole("button", { name: "Put the keyboard away" }).first().click().catch(() => {});
+  await page.waitForTimeout(400);
   await press("Done");
   await page.waitForTimeout(1500);
   await shot("today_offline");

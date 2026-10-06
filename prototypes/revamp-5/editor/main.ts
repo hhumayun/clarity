@@ -245,6 +245,12 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", () => flushChange(editor));
 
+// Less room for the words (the keyboard rising, word help's strip coming in
+// above it): the line being written stays in sight.
+window.addEventListener("resize", () => {
+  if (editor.isFocused) editor.commands.scrollIntoView();
+});
+
 let cursorTimer: ReturnType<typeof setTimeout> | null = null;
 let lastCursor = "";
 function cursorOf(current: Editor): EditorCursor {

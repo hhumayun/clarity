@@ -43,6 +43,10 @@ page.on("pageerror", (e) => errors.push(e.message));
 const press = (name) => page.getByRole("button", { name, exact: true }).first().click({ timeout: 30000 });
 const btn = (name) => page.getByRole("button", { name, exact: false }).first();
 const text = () => page.evaluate(() => document.body.innerText);
+const words = async () => (await page.frames().filter((frame) => frame.url() === "about:srcdoc" && !frame.isDetached()).at(-1)?.evaluate(() => document.querySelector(".ProseMirror")?.innerText ?? "")) ?? "";
+const chips = () => page.getByRole("button", { name: /^Add “/ });
+const asks = (from) => calls.slice(from).filter((call) => call.path === "/_api/suggestions/generate").length;
+const OWN_FIRST = "What would you tell a friend who wrote this?";
 const aiCalls = (from = 0) => calls.slice(from).filter((call) => AI_PATHS.includes(call.path));
 const waitFor = async (check, ms = 20000) => {
   const until = Date.now() + ms;
@@ -112,7 +116,9 @@ try {
   let frame = await waitEditor();
   await frame.locator(".ProseMirror").click();
   await page.keyboard.type(WORDS, { delay: 5 });
-  await page.waitForTimeout(2500);
+  // Long enough a pause that word help would have asked, were it on.
+  await page.waitForTimeout(4500);
+  ok("off: no word help after a pause", (await chips().count()) === 0);
   await btn("Put the keyboard away").click();
   await page.waitForTimeout(400);
   await press("Done");
@@ -221,6 +227,55 @@ try {
   const extract = calls.slice(from).filter((call) => call.path === "/_api/tasks/extract");
   ok("on: read once, not again and again", extract.length === 1, `${extract.length} reads`);
 
+  // Word help: a pause after some words brings one ask and a strip; a tap puts the words in.
+  const prefs = (await api("GET", "/_api/preferences")).data;
+  await openAt("/notes");
+  await btn("New note or task").click();
+  await page.waitForTimeout(600);
+  await btn("New note").click();
+  frame = await waitEditor();
+  await frame.locator(".ProseMirror").click();
+  from = calls.length;
+  await page.keyboard.type("Sage check: this morning I walked to the market with Sam and we", { delay: 15 });
+  await page.waitForTimeout(1200);
+  ok("on: nothing is asked while writing", asks(from) === 0);
+  ok("on: a pause brings one ask for word help", await waitFor(async () => asks(from) === 1, 10000));
+  ok("on: …and a strip of words", await waitFor(async () => (await chips().count()) > 0, 25000));
+  await page.screenshot({ path: `${OUT}/on-strip.png` });
+  const offeredWords = await chips().evaluateAll((list) => list.map((chip) => chip.getAttribute("aria-label")));
+  console.log("  offered:", JSON.stringify(offeredWords));
+  const taken = (await chips().first().getAttribute("aria-label"))?.replace(/^Add “|”$/g, "") ?? "";
+  await chips().first().click();
+  await page.waitForTimeout(1000);
+  ok("on: a tap puts the words in", (await words()).toLowerCase().includes(taken.toLowerCase()), JSON.stringify(await words()));
+  if (prefs?.usePersonalization !== false) ok("on: words taken are noted, for Learn from my writing", await waitFor(async () => calls.slice(from).some((call) => call.path === "/_api/suggestions/event" && call.body.includes("accepted"))));
+  await page.keyboard.type(" and then bought some bread for later", { delay: 15 });
+  await page.waitForTimeout(4500);
+  ok("on: no second ask so soon after", asks(from) === 1, `${asks(from)} asks`);
+  await btn("Put the keyboard away").click();
+  await page.waitForTimeout(400);
+  await press("Done");
+  await page.waitForTimeout(3000);
+
+  // Go deeper on a note opened to read: Sage's own question and no ask; another question asks, once.
+  await openAt("/notes");
+  from = calls.length;
+  await page.getByRole("button", { name: new RegExp(ours[0]?.title ?? "Sage check") }).first().click();
+  await waitEditor();
+  await page.waitForTimeout(2500);
+  ok("on: opening a note to read asks nothing of the AI", aiCalls(from).length === 0, aiCalls(from).map((call) => call.path).join(", "));
+  ok("on: Go deeper offers Sage's own question first", (await text()).includes(OWN_FIRST));
+  await btn("Another question").click();
+  ok("on: another question asks the AI about the note, once", await waitFor(async () => asks(from) === 1, 10000));
+  ok("on: …and the AI's question comes", await waitFor(async () => /Go deeper/.test(await text()) && !(await text()).includes(OWN_FIRST) && (await btn("Another question").isVisible().catch(() => false)), 25000));
+  await page.screenshot({ path: `${OUT}/on-deeper.png` });
+  await btn("Another question").click();
+  await page.waitForTimeout(1200);
+  ok("on: the next question comes without asking again", asks(from) === 1, `${asks(from)} asks`);
+  await btn("Back").click();
+  await page.waitForTimeout(2500);
+  ok("on: leaving a note unchanged asks nothing more", aiCalls(from).length === 1, aiCalls(from).map((call) => call.path).join(", "));
+
   // Off again: back to nothing sent.
   await openAt("/settings");
   await page.getByRole("switch", { name: "AI help" }).click();
@@ -233,8 +288,8 @@ try {
   frame = await waitEditor();
   await frame.locator(".ProseMirror").click();
   await page.keyboard.press("Control+End");
-  await page.keyboard.type(" Off again.", { delay: 5 });
-  await page.waitForTimeout(1200);
+  await page.keyboard.type(" Off again, and writing on for long enough to be asked about.", { delay: 5 });
+  await page.waitForTimeout(4500);
   await btn("Put the keyboard away").click();
   await page.waitForTimeout(400);
   await press("Done");

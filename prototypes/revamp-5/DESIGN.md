@@ -83,6 +83,15 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 - **On a repeating task, the reminder sheet asks "Every time" or "Just this time".** The row then reads, for example, "At the time, this time". Ticked off, the task comes back without a reminder that was for this time only.
 - **"No reminder" takes the reminder only;** "Don't repeat" takes the repeat only.
 
+## AI help (2026-10-06)
+
+- **Asked once, plainly.** The opening screens' second page, "Gentle help", says what AI help does and that what it reads goes to AI companies that don't keep it or train on it: Not now, or Turn on AI help. Skip the opening screens and the same page comes on its own once. Settings has an "AI help" switch; "Learn from my writing" only shows while it's on.
+- **Off means nothing is sent.** Sage's own questions, summary and first steps stand in, and a note's tasks say Find tasks needs AI help, with the way to Settings.
+- **Word help:** after a pause in writing, a quiet strip above the tools: up to five pale pills, ways to finish the sentence (they start with "…") and then ways to start the next, after a small sparkle. A tap puts the words in at the cursor, cased and spaced for where they land; typing on lets them go. It asks only after a pause and a few new words, and not more than every 20 seconds.
+- **The AI's questions:** Next question on a question page, and Go deeper, use the AI's questions about what was just written. Go deeper on a note opened to read starts with Sage's own; "another question" then asks the AI about the note, the card reading with three dots at its usual size until it comes.
+- **On its own, quietly:** Find tasks the first time a note's tasks open; "How it's going" on a task; first steps in Focus; an untitled note is given a title as it's left.
+- **Failures are quiet.** Word help and questions simply don't come; How it's going and first steps fall back to Sage's own. Only Find tasks, which was asked for, says it couldn't read the note.
+
 ## The brief
 
 The user asked for:

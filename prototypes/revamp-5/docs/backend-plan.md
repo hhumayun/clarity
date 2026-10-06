@@ -447,7 +447,7 @@ Phase 8's findings should settle it. Either way the backend needs nothing beyond
 - The server sends what it needs to read (the note, the words before the cursor, a task's notes) to an AI model through OpenRouter.
   - Production sets no model of its own, so it uses the code's default: DeepSeek V4.1 Flash, picked for speed, with DeepSeek V4 Flash as the fallback.
   - It's paid from one OpenRouter account, with no limit per person.
-- In Sage nothing calls the AI yet. Questions, "How it's going" and first steps are Sage's own text, and Find tasks says it comes later.
+- In Sage nothing called the AI before phase 6. Questions, "How it's going" and first steps were Sage's own text, and Find tasks said it comes later.
 
 **Decided:**
 1. **Privacy: only companies that keep nothing.**
@@ -467,6 +467,15 @@ Phase 8's findings should settle it. Either way the backend needs nothing beyond
    - titles given quietly when you leave an untitled note, with nothing offered while you write.
 7. **Learn from my writing** stays on by default (it only matters with AI help on).
 8. **Spending:** no limit per person for now; revisit before anyone else uses the app.
+
+**Built (phase 6, 2026-10-06), and where it differs:**
+- The choice, the switch, Find tasks, How it's going, first steps, quiet titles and indexing on leaving, word help and the AI's questions are in (`src/data/ai.ts`, `src/editor/useWritingHelp.ts`, `src/editor/wordFit.ts`, `src/ui/WordStrip.tsx`).
+- **Fewer AI calls than the main app:**
+  - word help asks after a 2.5 s pause, at least 30 new characters since its last ask and 20 s between asks (the main app: 10 characters, any time);
+  - each ask brings the questions too, so Next question and Go deeper add none;
+  - Go deeper on a note opened only to read starts with Sage's own question and asks the AI only when another is wanted, once per version of the note. That differs from decision 5 above, to keep opening a note free;
+  - indexing runs once on leaving a changed note, not after each pause.
+- **Learn from my writing:** Sage records words taken from the strip only while it's on. The server stores such records whatever the setting, so a server-side check would make that sure for every client (not deployed).
 
 ### Later
 9. **The main app is left as it is for now.** That covers edit times from its outbox, saving its offline copy sooner, and building its editor page into the app.

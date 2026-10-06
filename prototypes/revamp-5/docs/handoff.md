@@ -1,6 +1,6 @@
 # Handoff: where revamp 5 stands, and what's next (2026-10-06)
 
-Written as this session ended (the dev machine is getting more memory). Read this first. Then read `docs/backend-plan.md` (phases, decisions in section 9) and `docs/editor-plan.md`.
+First written as a session ended on 2026-10-06 (the dev machine was getting more memory), and brought up to date after phase 6 the same day. Read this first. Then read `docs/backend-plan.md` (phases, decisions in section 9) and `docs/editor-plan.md`.
 
 ## Where everything is
 
@@ -35,14 +35,17 @@ Written as this session ended (the dev machine is getting more memory). Read thi
   - **Task rows** watch only their own note's title, not the whole notes list, and `TaskRow` is memoised.
   - **Tried and reverted:** `freezeOnBlur` on the tabs. Coming back to a frozen tab redraws all of it, and returning got much slower.
 
+- **Phase 6, AI help, is built** (f927c7a and the commit after it). See "Phase 6" below for what's in and what's left.
+
 ## Waiting on the user
 
-- **A phone test of everything above.** They haven't tried the editor, the feedback changes or the tab changes on the phone yet.
-- **Restart Metro and the tunnel first** (both are stopped; see "Running it"). The tunnel gives a **new** Expo link.
+- **A phone test of everything above:** the editor, the feedback changes, the tab changes, and now AI help. They haven't tried any of it on the phone yet.
+  - Their phone has been through the opening screens, so Sage asks about AI help once ("Gentle help") the next time it opens.
+- **Check Metro and the tunnel are running** (see "Running it"). A new tunnel gives a **new** Expo link.
 
 ## Next, in order
 
-### 1. Tab switching: done (2026-10-07), waiting on the phone test
+### 1. Tab switching: done (2026-10-06), waiting on the phone test
 
 - **Life** is drawn as it scrolls: each task is a slice of its section's card (`TaskSlice`), with a clipped, taller card under each slice so the shadow runs on with no seam.
   - At phone speed (Chrome 4×) with 80 tasks, Life took 4.6 s to appear; now about 2 s, whatever the number of tasks.
@@ -88,9 +91,22 @@ The notes below are from before this work, kept for the record:
   - **Native tabs** (`expo-router/unstable-native-tabs`, stable in SDK 58): they can't hold the centre "+", so stay on the JS tabs.
   - Contact sheets are in `clarity-design-research/revamp-5/tabs/` (don't commit them).
 
-### 2. Phase 6: AI (decided on 2026-10-06; not started)
+### 2. Phase 6: AI (decided and built on 2026-10-06)
 
-The decisions are in `docs/backend-plan.md`, section 9. In short:
+**Built** (checks: `tests/checks/ai-account.mjs` 40, `firstrun-ai.mjs` 11, `words-flow.mjs` 14, `src/editor/wordFit.test.ts` 19):
+- **The choice:** `ai` in `src/state/device.ts` (null = not asked); `src/data/ai.ts` (`useAiOn`, `useAiReady`, `aiOn()`, the wording); the opening screens' "help" page; `app/ai-choice.tsx`, asked once behind a `Stack.Protected` guard in `app/_layout.tsx`; the Settings switch, with Learn from my writing only while it's on.
+- **Find tasks** for accounts in `src/data/AccountSource.tsx` (`tasks/extract`, `tasks/add`, `tasks/dismiss_suggestion`), the first time a note's tasks open, with AI help on.
+- **How it's going** (`tasks/summary`) on the task page and **first steps** (`tasks/first_steps`) in Focus, with Sage's own as the fallback.
+- **Titles and indexing** once on leaving a changed note (`afterLeaving` in `src/editor/useNoteSession.ts`), after its words reach the server.
+- **Word help and the AI's questions** (`src/editor/useWritingHelp.ts`, `wordFit.ts`, `src/ui/WordStrip.tsx`): one `suggestions/generate` ask per pause gives the strip and the questions; Go deeper asks about a whole note only when another question is wanted. The editor page keeps the cursor in sight when its room changes.
+- The thresholds (`ASK_AFTER_PAUSE_MS`, `ASK_AFTER_NEW_CHARS`, `ASK_GAP_MS`) are a first try: tune them with the user on the phone.
+
+**Left:**
+- The phone test: the strip's feel above the keyboard, and whether it comes too often or too seldom.
+- A server-side check that suggestion events are stored only with Learn from my writing on (Sage already sends them only then). Needs a deploy, so the user's OK.
+- Every check passed on 2026-10-06 after this work. The older account checks now answer the AI page with "Not now"; `account-check` and `offline-check` read a note's words from the editor's frame.
+
+The decisions were these (`docs/backend-plan.md`, section 9):
 - AI only through companies that keep nothing (done on the server);
 - ask on the opening screens, with an "AI help" switch in Settings;
 - word suggestions as a quiet strip above the keyboard (to experiment with);
@@ -99,7 +115,7 @@ The decisions are in `docs/backend-plan.md`, section 9. In short:
 - titles given quietly on leaving an untitled note;
 - Learn from my writing on by default; no per-person spending limit for now.
 
-A plan:
+The plan it was built from:
 1. **The choice.**
    - A device setting in `src/state/device.ts`: `ai: "on" | "off" | null`, where null means not asked yet.
    - A first-run page between "Gentle help" and "Yours alone". It says plainly that AI help sends what it reads to AI companies that don't keep it or train on it, and offers Turn on / Not now.
@@ -144,7 +160,7 @@ A plan:
 - **Memory:** Metro is about 400 MB. With less memory, pause it (kill it by port) for `npx tsc --noEmit -p .`.
   - Never `pkill -f` a pattern that also matches your own shell command.
   - Headless Chrome crashes when memory is short, so the browser checks move around by taps.
-- **Unit tests:** `for t in src/store/boundary.test.ts src/data/outbox.test.ts src/editor/noteCopies.test.ts src/data/reminders.test.ts src/lib/parseTask.test.ts; do /opt/node24/bin/node --import ./scripts/ts-resolve.mjs $t; done`
+- **Unit tests:** `for t in src/store/boundary.test.ts src/data/outbox.test.ts src/editor/noteCopies.test.ts src/editor/wordFit.test.ts src/data/reminders.test.ts src/lib/parseTask.test.ts; do /opt/node24/bin/node --import ./scripts/ts-resolve.mjs $t; done`
 - **The editor page:** `npm run editor` after changing `editor/`, then `tests/editor/editor.test.js` (see its README).
 - **Checks:** `tests/checks/README.md` (setup, the test account, which scripts touch the live server).
 - **Deploying the server (only with the user's OK):**
