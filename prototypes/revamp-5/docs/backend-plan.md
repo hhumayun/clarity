@@ -30,7 +30,10 @@ The facts here were checked against the code on 2026-10-05.
 - **Migration 014 was applied** on 2026-10-06, with your OK.
   - Every table's row count was the same before and after (87 notes, 78 tasks, 8 areas), and no note's or task's last-changed time moved.
   - The 33 done tasks took their last change as their done time.
-- **16 checks of the new API passed** against a local copy of the server, as the test account only, which was left as it was. The deploy is next, and waits for your OK.
+- **16 checks of the new API passed** against a local copy of the server, as the test account only, which was left as it was.
+- **Phase 2 is done** (2026-10-06): deployment e04e7540, a clean export of the branch at 116bf55, deployed with your OK.
+  - The same 16 checks passed against the live server.
+  - The real accounts were untouched: 87 notes, 78 tasks and 8 areas, with no last-changed time moved.
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---
