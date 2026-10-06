@@ -9,7 +9,7 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - To commit: `rsync -a --delete --exclude node_modules --exclude .metro-cache --exclude dist --exclude .expo --exclude .gitignore --exclude README.md --exclude '.env*' /root/projects/clarity-revamp-5/ /root/projects/clarity-revamp-5-branch/prototypes/revamp-5/`. That skips every README.md, so copy `tests/*/README.md` across by hand. Then commit in the worktree.
   - Never switch branches in `/root/projects/clarity`: the user's Clarity Dev build runs from `dev-build-editor-lab` there.
 - **Server:** the same branch (root `endpoints/`, `helpers/`, `migrations/`).
-  - Production is deployment **130b109e**, revamp-5 at 2fed946.
+  - Production is deployment **5474299f** (2026-10-06 12:06 UTC), revamp-5 at 23a5d22: 130b109e's server plus suggestion events kept only with Learn from my writing on.
   - Migrations **001–016** are applied to production.
 - **Never commit:** design research (Appllama, Mobbin and Rosebud images in `/root/projects/clarity-design-research`), `.env*` files (keep them outside project folders), or backups (`/root/.config/clarity-backups`).
 
@@ -29,6 +29,7 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - AI only through zero-retention endpoints (`provider.zdr: true`);
   - rich text stored encoded once, with old copies read back (migration 015 unwrapped the 11 stored ones);
   - `remind_once`.
+- **Server, deployed with the user's OK** (5474299f, 23a5d22): with Learn from my writing off, `suggestions/event` keeps nothing and answers `{ recorded: false }`. Checked live: `tests/checks/event-check.mjs`, then `event-rows.mjs` (read-only) found no row; `ai-account.mjs` 40/40 sees words kept with it on; `api-check.mjs` 16/16.
 - **Tab-switch speed, partly done** (committed with this note):
   - **Notes** is a virtualised list (`Animated.FlatList`, only the cards on screen) with no per-card animations. With 88 notes, the first open went from 10.1 s to about 1.1 s at normal speed in the web build.
   - **The check circle** (`CircleCheck`) draws a still version until a finger is on it or it changes. Lists draw dozens.
@@ -103,7 +104,6 @@ The notes below are from before this work, kept for the record:
 
 **Left:**
 - The phone test: the strip's feel above the keyboard, and whether it comes too often or too seldom.
-- A server-side check that suggestion events are stored only with Learn from my writing on (Sage already sends them only then). Needs a deploy, so the user's OK.
 - Every check passed on 2026-10-06 after this work. The older account checks now answer the AI page with "Not now"; `account-check` and `offline-check` read a note's words from the editor's frame.
 
 The decisions were these (`docs/backend-plan.md`, section 9):

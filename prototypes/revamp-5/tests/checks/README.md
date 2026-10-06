@@ -48,6 +48,7 @@ mkdir -p /tmp/clarity-revamp-5          # some write their output here
 | `firstrun-ai.mjs` | 11 checks of the opening screens' AI page on a new phone: what it says, Turn on AI help and Not now each kept in Settings; writes nothing |
 | `remind-check.mjs` | 6 checks: "just this time" kept by the server; AI answering through zero-retention endpoints |
 | `API=live api-check.mjs` | 16 checks of the API changes (migration 014's) |
+| `event-check.mjs` | 4 checks: with Learn from my writing off, a suggestion event is answered "not recorded"; the setting is put back as it was |
 | `clean-test-account.mjs`, `peek-test-account.mjs` | remove "Sage check" items; look at what's there |
 
 ## Database (production, through `railway run`)
@@ -59,3 +60,4 @@ mkdir -p /tmp/clarity-revamp-5          # some write their output here
 | `apply-014.mjs`, `apply-015-016.mjs` | the migrations as they were applied (all applied by 2026-10-06), one step per run, with `--check` |
 | `doc-encoding-check.mjs` | how jsonb writes land, on a temporary table |
 | `zdr-check.mjs` | OpenRouter with zero data retention: provider and speed |
+| `event-rows.mjs` | the test account's "Sage check" suggestion events (event-check's), read-only |

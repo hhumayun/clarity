@@ -33,8 +33,11 @@ const calls = [];
 await context.route(`${LIVE}/_api/**`, async (route) => {
   const request = route.request();
   if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
-  calls.push({ path: new URL(request.url()).pathname, method: request.method(), body: request.postData() ?? "", at: Date.now() });
+  const call = { path: new URL(request.url()).pathname, method: request.method(), body: request.postData() ?? "", at: Date.now(), reply: "" };
+  calls.push(call);
   const response = await route.fetch();
+  // What the server said about a suggestion event: whether it kept it.
+  if (call.path === "/_api/suggestions/event") call.reply = await response.text();
   return route.fulfill({ response, headers: { ...response.headers(), ...cors } });
 });
 const page = await context.newPage();
@@ -248,7 +251,7 @@ try {
   await chips().first().click();
   await page.waitForTimeout(1000);
   ok("on: a tap puts the words in", (await words()).toLowerCase().includes(taken.toLowerCase()), JSON.stringify(await words()));
-  if (prefs?.usePersonalization !== false) ok("on: words taken are noted, for Learn from my writing", await waitFor(async () => calls.slice(from).some((call) => call.path === "/_api/suggestions/event" && call.body.includes("accepted"))));
+  if (prefs?.usePersonalization !== false) ok("on: words taken are kept, for Learn from my writing", await waitFor(async () => calls.slice(from).some((call) => call.path === "/_api/suggestions/event" && call.body.includes("accepted") && call.reply.includes('"recorded":true'))));
   await page.keyboard.type(" and then bought some bread for later", { delay: 15 });
   await page.waitForTimeout(4500);
   ok("on: no second ask so soon after", asks(from) === 1, `${asks(from)} asks`);

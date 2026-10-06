@@ -475,7 +475,7 @@ Phase 8's findings should settle it. Either way the backend needs nothing beyond
   - each ask brings the questions too, so Next question and Go deeper add none;
   - Go deeper on a note opened only to read starts with Sage's own question and asks the AI only when another is wanted, once per version of the note. That differs from decision 5 above, to keep opening a note free;
   - indexing runs once on leaving a changed note, not after each pause.
-- **Learn from my writing:** Sage records words taken from the strip only while it's on. The server stores such records whatever the setting, so a server-side check would make that sure for every client (not deployed).
+- **Learn from my writing:** Sage records words taken from the strip only while it's on, and since deployment 5474299f the server keeps no such record while it's off, whichever app sends it.
 
 ### Later
 9. **The main app is left as it is for now.** That covers edit times from its outbox, saving its offline copy sooner, and building its editor page into the app.
