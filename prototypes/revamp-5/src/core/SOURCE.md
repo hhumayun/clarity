@@ -48,4 +48,14 @@ When a file here has to change, note it below the table with the reason. Bring l
 
 ## Local changes
 
-None yet.
+Each one only adds, and is marked "(revamp 5)" in the code. They follow the API changes of migration 014 (docs/backend-plan.md, section 5).
+
+- `types.ts`: `TaskRecord` gains `completedAt` and `movedFrom`, and a note's `source` may be `"page"` (on `NoteRecord` and `LinkedNote`).
+- `lib/reminderRules.ts`: `TaskChange` gains `movedFrom`.
+- `sync/outbox.ts`:
+  - `task.update` carries `movedFrom` and `changedAt`; `note.update` carries `changedAt`; `note.create` may be a `"page"`.
+  - `changedAt` is bookkeeping: it never stops an edit folding into an unsent create, and a create doesn't take it.
+  - Folded edits keep the later time. Tested by `src/data/outbox.test.ts`.
+- `api/tasks.ts` and `api/notes.ts`: the update bodies take `changedAt` (and tasks take `movedFrom`); note creates may be a `"page"`.
+- `hooks/useTasks.ts`: an update is stamped with `changedAt`, and the phone's copy shows `completedAt` and `movedFrom` at once.
+- `hooks/useNotes.ts`: a note update is stamped with `changedAt`; a create may be a `"page"`.

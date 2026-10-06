@@ -7,7 +7,7 @@ import { addDays, dayLabel, durationLabel, today } from "../../src/lib/dates";
 import { useFocusHistory, useTask } from "../../src/data/hooks";
 import type { FocusHistory, Note, Task } from "../../src/store/model";
 import { clockLabel, noteGroup, reminderLabel, repeatLabels, shortDate, sinceLabel } from "../../src/store/selectors";
-import { useSage } from "../../src/data/sage";
+import { useSage, useUnsent } from "../../src/data/sage";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
@@ -38,6 +38,7 @@ const settle = LinearTransition.duration(duration.enter).easing(easeOut);
  */
 export default function TaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const unsent = useUnsent(`task:${id}`);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, accent } = useTheme();
@@ -94,7 +95,7 @@ export default function TaskScreen() {
   ];
 
   const leftOff = history?.leftOff && history.outcome !== "finished" ? history : null;
-  const provenance = [foundIn ? `Found in “${foundIn.title}”` : null, `Added ${shortDate(task.createdAt)}`, task.movedFrom ? `moved from ${shortDate(task.movedFrom)}` : null].filter(Boolean).join(" · ");
+  const provenance = [foundIn ? `Found in “${foundIn.title}”` : null, `Added ${shortDate(task.createdAt)}`, task.movedFrom ? `moved from ${shortDate(task.movedFrom)}` : null, unsent ? "saved on this phone" : null].filter(Boolean).join(" · ");
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>

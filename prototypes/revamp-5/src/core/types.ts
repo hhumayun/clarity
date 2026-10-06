@@ -20,8 +20,8 @@ export type NoteRecord = {
   /** The rich text as the editor keeps it (Tiptap JSON). Missing or null for notes without it. */
   doc?: unknown;
   archived: boolean;
-  /** null for a note written in the editor; "focus" for a thought parked during focus time. */
-  source: "focus" | null;
+  /** null for a note written in the editor; "focus" for a thought parked during focus time; "page" for a day's page (revamp 5). */
+  source: "focus" | "page" | null;
   /** The projects ("areas") this note is tagged with. */
   projectIds: string[];
   createdAt: Date;
@@ -51,6 +51,10 @@ export type TaskRecord = {
    */
   noteIds?: string[];
   completeBy: Date | null;
+  /** When it was done; null while it isn't. Missing from servers before migration 014 (revamp 5). */
+  completedAt?: Date | null;
+  /** The day it was planned for before a move pushed it on. Missing before migration 014 (revamp 5). */
+  movedFrom?: Date | null;
   /** Its time on its day, "HH:MM" on the phone's clock; null for any time that day. */
   dueTime?: string | null;
   /**
@@ -134,7 +138,7 @@ export type LinkedNote = {
   id: string;
   title: string;
   preview: string;
-  source: "focus" | null;
+  source: "focus" | "page" | null;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -236,6 +236,8 @@ export type TaskChange = {
   remindBefore?: number | null;
   remindRepeat?: ReminderRepeat | null;
   status?: TaskStatus;
+  /** The day it was planned for before this move (revamp 5); null clears it. */
+  movedFrom?: Date | null;
 };
 
 /**

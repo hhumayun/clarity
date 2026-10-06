@@ -8,7 +8,7 @@ import { longDay, today } from "../../src/lib/dates";
 import { useNote } from "../../src/data/hooks";
 import type { Block } from "../../src/store/model";
 import { noteTime } from "../../src/store/selectors";
-import { useSage } from "../../src/data/sage";
+import { useSage, useUnsent } from "../../src/data/sage";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
@@ -109,7 +109,8 @@ export default function NoteScreen() {
     setSegments((list) => list.map((segment, i) => (i === 0 ? { ...segment, question: nextQuestion() } : segment)));
   };
 
-  const meta = (note ? `${longDay(note.day)} · ${noteTime(note.time)}` : longDay(today())).toUpperCase();
+  const unsent = useUnsent(`note:${id}`);
+  const meta = (note ? `${longDay(note.day)} · ${noteTime(note.time)}${unsent ? " · Saved on this phone" : ""}` : longDay(today())).toUpperCase();
   const guided = isNew && segments.some((segment) => segment.question);
 
   return (

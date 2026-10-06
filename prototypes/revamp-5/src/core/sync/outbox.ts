@@ -17,14 +17,15 @@ export type Op =
         title: string;
         content: string;
         doc?: unknown;
-        source?: "focus";
+        source?: "focus" | "page";
         taskId?: string;
         projectIds?: string[];
       };
     }
   | {
       kind: "note.update";
-      body: { id: string; title?: string; content?: string; doc?: unknown; archived?: boolean; projectIds?: string[] };
+      /** `changedAt`: when the change was made here, so a change sent later keeps its time (revamp 5). */
+      body: { id: string; title?: string; content?: string; doc?: unknown; archived?: boolean; projectIds?: string[]; changedAt?: Date };
     }
   | { kind: "note.delete"; body: { id: string } }
   | {
@@ -55,6 +56,10 @@ export type Op =
         remindBefore?: number | null;
         remindRepeat?: ReminderRepeatValue | null;
         status?: TaskStatusValue;
+        /** The day it was planned for before a move pushed it on (revamp 5). */
+        movedFrom?: Date | null;
+        /** When the change was made here (revamp 5). */
+        changedAt?: Date;
       };
     }
   | { kind: "task.delete"; body: { id: string } }
@@ -168,7 +173,8 @@ export function addToQueue(queue: Entry[], op: Op, seq: number, sending: number 
   const subject = subjectOf(op);
 
   if (isUpdate(op) && subject) {
-    const fields = Object.keys(op.body).filter((key) => key !== "id");
+    // When it was made is bookkeeping, not a field: it never stops a fold (revamp 5).
+    const fields = Object.keys(op.body).filter((key) => key !== "id" && key !== "changedAt");
     const hasReferences = fields.some((key) => REFERENCE_FIELDS.has(key));
     for (let i = queue.length - 1; i >= 0; i--) {
       const candidate = queue[i];
@@ -183,7 +189,10 @@ export function addToQueue(queue: Entry[], op: Op, seq: number, sending: number 
         const allowed = CREATE_FIELDS[candidate.op.kind];
         if (!fields.every((key) => allowed?.has(key))) break;
       }
-      const merged = { ...candidate, op: { ...candidate.op, body: { ...candidate.op.body, ...op.body } } as Op };
+      // Folded together, the later change's time wins; a create keeps its own and takes none (revamp 5).
+      const body: Record<string, unknown> = { ...candidate.op.body, ...op.body };
+      if (isCreate(candidate.op)) delete body.changedAt;
+      const merged = { ...candidate, op: { ...candidate.op, body } as Op };
       return [...queue.slice(0, i), merged, ...queue.slice(i + 1)];
     }
     return [...queue, entry];

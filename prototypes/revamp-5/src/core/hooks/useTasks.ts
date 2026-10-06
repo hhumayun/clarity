@@ -169,7 +169,9 @@ export function useTasks(noteId?: string, enabled = true) {
   const update = useMutation({
     mutationFn: async (asked: TaskChange) => {
       const before = findCachedTask(queryClient, asked.id);
-      const { change: body, rolledTo } = withReminders(asked, before);
+      const { change, rolledTo } = withReminders(asked, before);
+      // Stamped with when it was made, so a change sent later keeps its time (revamp 5).
+      const body = { ...change, changedAt: new Date() };
       outbox.enqueue({ kind: "task.update", body });
       if (rolledTo) {
         const time = body.dueTime !== undefined ? body.dueTime : before?.dueTime;
@@ -189,13 +191,16 @@ export function useTasks(noteId?: string, enabled = true) {
                 ...(body.dueTime !== undefined ? { dueTime: body.dueTime } : {}),
                 ...(body.remindBefore !== undefined ? { remindBefore: body.remindBefore } : {}),
                 ...(body.remindRepeat !== undefined ? { remindRepeat: body.remindRepeat } : {}),
+                // Done keeps the moment it first became done; reopening clears it (revamp 5).
+                ...(body.status !== undefined ? { completedAt: body.status === "done" ? (task.status === "done" ? (task.completedAt ?? body.changedAt) : body.changedAt) : null } : {}),
+                ...(body.movedFrom !== undefined ? { movedFrom: body.movedFrom } : {}),
                 ...(body.projectId !== undefined
                   ? {
                       projectId: body.projectId,
                       projectName: projects.find((p) => p.id === body.projectId)?.name ?? task.projectName,
                     }
                   : {}),
-                updatedAt: new Date(),
+                updatedAt: body.changedAt,
               }
             : task,
         ),

@@ -73,6 +73,9 @@ import EyeOff from "lucide-react-native/icons/eye-off";
 import Lock from "lucide-react-native/icons/lock";
 import LogOut from "lucide-react-native/icons/log-out";
 import Mail from "lucide-react-native/icons/mail";
+import CloudUpload from "lucide-react-native/icons/cloud-upload";
+import CloudOff from "lucide-react-native/icons/cloud-off";
+import CloudCheck from "lucide-react-native/icons/cloud-check";
 import CircleDot from "lucide-react-native/icons/circle-dot";
 import React from "react";
 
@@ -152,6 +155,9 @@ const icons = {
   lock: ["lock", Lock],
   mail: ["envelope", Mail],
   eyeOff: ["eye.slash", EyeOff],
+  cloudUp: ["icloud.and.arrow.up", CloudUpload],
+  cloudOff: ["icloud.slash", CloudOff],
+  cloudCheck: ["checkmark.icloud", CloudCheck],
 } as const;
 
 /** SF Symbols with a filled form, for a chosen tab or a set state. Elsewhere the line just thickens. */

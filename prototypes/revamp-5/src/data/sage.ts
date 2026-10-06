@@ -1,6 +1,9 @@
+import { onlineManager } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useStore } from "../store/store";
+import { useIsPending } from "../core/sync/SyncProvider";
 import { declined, useAccountStore } from "./account";
 import type { SageState, SageStatus } from "./types";
 
@@ -52,4 +55,22 @@ export function useSageStatus(): SageStatus {
 export function useWhenEditable(): (go: () => void) => void {
   const { editable } = useSageStatus();
   return (go) => (editable ? go() : declined("Read-only for now: writing is off"));
+}
+
+/**
+ * Whether something ("task:<id>", "note:<id>") still has a change waiting to
+ * reach the server: it shows a small cloud. Never in demo, where nothing is sent.
+ */
+export function useUnsent(subject: string): boolean {
+  const account = useDataMode((state) => state.mode) === "account";
+  return useIsPending(account ? subject : null);
+}
+
+/** Whether the phone has a connection, as the outbox sees it. */
+export function useOnline(): boolean {
+  return useSyncExternalStore(
+    (changed) => onlineManager.subscribe(changed),
+    () => onlineManager.isOnline(),
+    () => true,
+  );
 }

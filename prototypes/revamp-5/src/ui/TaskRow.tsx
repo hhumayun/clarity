@@ -5,7 +5,7 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay
 import { useFocusHistory } from "../data/hooks";
 import type { Task } from "../store/model";
 import { clockLabel, dueMeta, shortDate, whenLabel } from "../store/selectors";
-import { useSage } from "../data/sage";
+import { useSage, useUnsent } from "../data/sage";
 import { duration, easeOut } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { pad, space } from "../theme/tokens";
@@ -107,6 +107,7 @@ export function TaskRow({
     row.current?.measureInWindow((x, y, width, height) => openMenu({ taskId: task.id, rect: { x, y, width, height }, noteId }));
   };
 
+  const unsent = useUnsent(`task:${task.id}`);
   // The meta line: small icons first, words only where an icon can't say it.
   const meta: React.ReactNode[] = [];
   const add = (key: string, icon: IconName | null, text: string | null, tone: Tone = "ink3", lead?: React.ReactNode) =>
@@ -137,6 +138,12 @@ export function TaskRow({
       add("note", "doc", first?.title ?? "From your note", "ink2");
     }
   }
+  if (unsent)
+    meta.push(
+      <View key="unsent" style={styles.piece} accessible accessibilityLabel="Not sent yet">
+        <Icon name="cloudUp" size={13} color={colors.ink3} weight="medium" />
+      </View>,
+    );
   const leftOff = variant === "today" && history?.leftOff && history.outcome !== "finished" ? history.leftOff : null;
 
   return (

@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { Note } from "../store/model";
+import { useUnsent } from "../data/sage";
 import { noteTime } from "../store/selectors";
 import { useTheme } from "../theme/ThemeProvider";
 import { face, pad, space } from "../theme/tokens";
@@ -18,6 +19,7 @@ import { Txt } from "./Txt";
 export function NoteCard({ note, onPress, showArea = true, match, lines = 3 }: { note: Note; onPress?: () => void; showArea?: boolean; match?: string; lines?: number }) {
   const { colors } = useTheme();
   const parked = note.source === "focus";
+  const unsent = useUnsent(`note:${note.id}`);
   return (
     <Card
       onPress={onPress}
@@ -50,6 +52,11 @@ export function NoteCard({ note, onPress, showArea = true, match, lines = 3 }: {
           </View>
         ) : null}
         <View style={styles.flex} />
+        {unsent ? (
+          <View accessible accessibilityLabel="Not sent yet">
+            <Icon name="cloudUp" size={13} color={colors.ink3} weight="medium" />
+          </View>
+        ) : null}
         <Txt variant="footnote" tone="ink3">
           {noteTime(note.time)}
         </Txt>

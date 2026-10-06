@@ -12,8 +12,8 @@ import type { Area, Block, FocusHistory, Note, Task } from "../store/model";
  * values (a day, minutes) to what the server takes for saving.
  */
 
-/** Fields the server sends since migration 014, which the main app's types don't list yet. */
-type LiveTask = TaskRecord & { completedAt?: Date | string | null; movedFrom?: Date | string | null };
+/** A task as it may come back from the phone's copy, where a date can still be a string. */
+type LiveTask = Omit<TaskRecord, "completedAt" | "movedFrom"> & { completedAt?: Date | string | null; movedFrom?: Date | string | null };
 
 const asDate = (value: Date | string) => (value instanceof Date ? value : new Date(value));
 

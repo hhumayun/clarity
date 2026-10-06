@@ -46,6 +46,9 @@ startNetworkWatch();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
+/** The longest delay a timer can take (2^31 - 1 ms); longer ones fire at once. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 // The web build only: browsers ring a focused text field; the caret in the accent is enough.
 if (process.env.EXPO_OS === "web" && typeof document !== "undefined") {
   const style = document.createElement("style");
@@ -57,8 +60,15 @@ if (process.env.EXPO_OS === "web" && typeof document !== "undefined") {
 export const unstable_settings = { anchor: "(tabs)" };
 
 export default function RootLayout() {
-  // Data is kept long enough to be written to the phone and read back offline.
-  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: OFFLINE_MAX_AGE_MS } } }));
+  // Data is kept long enough to be written to the phone and read back offline,
+  // but no longer than a timer can count: past 2^31 - 1 ms (about 24.8 days) a
+  // timer fires at once, which threw away everything restored from the phone
+  // the moment it arrived. The copy on the phone still expires after 30 days.
+  // A change is made on the phone at once and queued in the outbox, which
+  // waits for a connection by itself: so a mutation must never wait for one.
+  // (React Query's default pauses mutations offline, which would hold every
+  // change, on screen too, until the connection came back.)
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: Math.min(OFFLINE_MAX_AGE_MS, MAX_TIMER_MS) }, mutations: { networkMode: "always" } } }));
   const [loaded] = useFonts({
     NunitoSans_400Regular,
     NunitoSans_400Regular_Italic,

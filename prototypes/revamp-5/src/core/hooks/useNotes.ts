@@ -215,7 +215,7 @@ export const useCreateNote = () => {
     mutationFn: async (body: {
       title?: string;
       content?: string;
-      source?: "focus";
+      source?: "focus" | "page";
       taskId?: string;
       projectIds?: string[];
     }) => {
@@ -272,11 +272,13 @@ export const useUpdateNote = () => {
       archived?: boolean;
       projectIds?: string[];
     }) => {
-      outbox.enqueue({ kind: "note.update", body });
+      // Stamped with when it was made, so a change sent later keeps its time (revamp 5).
+      const changedAt = new Date();
+      outbox.enqueue({ kind: "note.update", body: { ...body, changedAt } });
       const current = findCachedNote(queryClient, body.id);
       if (!current) return { note: null };
       const { id: _id, ...changes } = body;
-      const note: NoteRecord = { ...current, ...changes, updatedAt: new Date() };
+      const note: NoteRecord = { ...current, ...changes, updatedAt: changedAt };
       upsertNoteInLists(queryClient, note);
       return { note };
     },

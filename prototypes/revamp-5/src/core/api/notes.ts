@@ -118,7 +118,7 @@ export async function postNoteCreate(
     content?: string;
     /** The rich text as the editor keeps it; `content` is its Markdown. */
     doc?: unknown;
-    source?: "focus";
+    source?: "focus" | "page";
     /** For a thought parked during focus time: the task being worked on. */
     taskId?: string;
     projectIds?: string[];
@@ -143,6 +143,8 @@ export async function postNoteUpdate(
     doc?: unknown;
     archived?: boolean;
     projectIds?: string[];
+    /** When the change was made on the phone; the server keeps it, never later than now (revamp 5). */
+    changedAt?: Date;
   },
   init?: RequestInit,
 ): Promise<{ note: NoteRecord }> {

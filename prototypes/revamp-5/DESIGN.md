@@ -54,6 +54,11 @@ Phases 0 and 1 of `docs/backend-plan.md`. The main app's sign-in, offline and da
 - **If the lists can't be fetched** and nothing is kept on the phone, a calm card says so with Try again. Pull down to refresh on Today, Notes and Life Center.
 - **Accounts that can't save yet** (anything but a test account, until phase 4's checks): a change says "Read-only for now: nothing changed" in the capsule, and no screen claims "Saved" after it. A new note or task doesn't open at all, so nothing typed is lost. Settings says which kind of account you're in.
 
+**Offline (phase 4, 2026-10-06), said quietly and never counted:**
+- **Going offline:** the capsule says "Offline. Changes will sync." Changes keep showing at once.
+- **Anything not yet sent** carries a small cloud: a task row by its details, a note card by its time. A note or task page says "Saved on this phone".
+- **Back online:** once the last change is through, the capsule says "All changes saved". If nothing was waiting, it says nothing.
+
 Signing up on the **web build** shows Cloudflare's "Verify you are human" check, which Clerk requires there. It never appears in the phone app.
 
 ## The brief

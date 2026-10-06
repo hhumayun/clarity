@@ -1,4 +1,8 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { saveOfflineCopyNow } from "../core/sync/persist";
+import { outbox } from "../core/sync/store";
+import { usePendingCount } from "../core/sync/SyncProvider";
 import { useFocusSummary, useRecordFocus } from "../core/hooks/useFocus";
 import { useCreateNote, useNotes, useUpdateNote } from "../core/hooks/useNotes";
 import { useTasks } from "../core/hooks/useTasks";
@@ -7,7 +11,7 @@ import { useAuth } from "../core/providers/AuthProvider";
 import { holdAcknowledgements, useAcknowledge } from "../ui/Acknowledgement";
 import { byName, hhmm, noonOf, noteContent, pagesOf, toArea, toFocus, toNote, toTask } from "./adapt";
 import { declined, emptyAccount, setAccountNotifier, useAccountStore, type AccountState } from "./account";
-import { useDataMode } from "./sage";
+import { useDataMode, useOnline } from "./sage";
 
 /**
  * Only test accounts (Clerk's +clerk_test addresses) save from revamp 5 for
@@ -42,6 +46,7 @@ export function AccountSource() {
   const editable = canSave(email);
   const acknowledge = useAcknowledge();
 
+  const queryClient = useQueryClient();
   const tasks = useTasks();
   const notes = useNotes(ALL_NOTES);
   const focus = useFocusSummary();
@@ -56,6 +61,21 @@ export function AccountSource() {
       useAccountStore.setState({ ...emptyAccount(), refresh: async () => {} });
     };
   }, []);
+
+  // A change is safe in the outbox the moment it's made, but the phone's copy
+  // of the lists is only written every 30 seconds. Write it within a second of
+  // any change, so a restart before then still shows what was on screen.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = outbox.subscribe(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void saveOfflineCopyNow(queryClient), 800);
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+  }, [queryClient]);
 
   // A declined change is said in the capsule, and the "Saved" or "Added" a
   // screen might say straight after is held back, so nothing claims a save.
@@ -138,7 +158,12 @@ export function AccountSource() {
         latest.current.tasks.update.mutate({ id, status: done ? "done" : "todo" });
         return null;
       },
-      moveTask: (id, day) => latest.current.tasks.update.mutate({ id, completeBy: day ? noonOf(day) : null }),
+      // Catch up records the day it was first planned for, once; any later move keeps that day.
+      moveTask: (id, day, options) => {
+        const task = latest.current.taskRecords?.find((item) => item.id === id);
+        const movedFrom = options?.record && task?.completeBy && !task.movedFrom ? { movedFrom: task.completeBy } : {};
+        latest.current.tasks.update.mutate({ id, completeBy: day ? noonOf(day) : null, ...movedFrom });
+      },
       deleteTask: (id) => latest.current.tasks.remove.mutate({ id }),
       clearCompleted: (area) => {
         const targetId = area ? projectId(area) : undefined;
@@ -181,8 +206,7 @@ export function AccountSource() {
           title: title.trim(),
           content: noteContent({ body, segments }),
           projectIds: id ? [id] : [],
-          // The server takes "page" since migration 014; the main app's types only know "focus".
-          ...(page ? { source: "page" as unknown as "focus" } : {}),
+          ...(page ? { source: "page" as const } : {}),
         });
         return "";
       },
@@ -210,6 +234,37 @@ export function AccountSource() {
       skipSuggestion: () => declined(later),
     });
   }, []);
+
+  return <ConnectionNotices />;
+}
+
+/**
+ * The connection, said quietly and without counts. Going offline: "Offline.
+ * Changes will sync." Back online, once whatever was waiting has gone: "All
+ * changes saved". Nothing at all when nothing was waiting.
+ */
+function ConnectionNotices() {
+  const acknowledge = useAcknowledge();
+  const online = useOnline();
+  const pending = usePendingCount();
+  const offlineSaid = useRef(false);
+  const waiting = useRef(false);
+
+  useEffect(() => {
+    if (!online && !offlineSaid.current) {
+      offlineSaid.current = true;
+      acknowledge("Offline. Changes will sync.", "cloudOff", 3200);
+    }
+    if (online) offlineSaid.current = false;
+  }, [online, acknowledge]);
+
+  useEffect(() => {
+    if (!online && pending > 0) waiting.current = true;
+    if (online && waiting.current && pending === 0) {
+      waiting.current = false;
+      acknowledge("All changes saved", "cloudCheck");
+    }
+  }, [online, pending, acknowledge]);
 
   return null;
 }

@@ -60,6 +60,10 @@ export async function postTaskUpdate(
     remindBefore?: number | null;
     remindRepeat?: ReminderRepeat | null;
     status?: TaskStatus;
+    /** The day it was planned for before a move (revamp 5). */
+    movedFrom?: Date | null;
+    /** When the change was made on the phone; the server keeps it, never later than now (revamp 5). */
+    changedAt?: Date;
   },
   init?: RequestInit,
 ): Promise<{ task: TaskRecord }> {

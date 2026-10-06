@@ -41,6 +41,16 @@ The facts here were checked against the code on 2026-10-05.
   - **Any other account is read-only in revamp 5 until phase 4's checks pass.** A new note or task doesn't even open there, so nothing typed can be lost.
   - Checked in the web build against the live server, as the test account: 15 checks, including a tick and a new task reaching the server. The account was left empty. Demo mode still passes 27/27 and sends nothing.
   - Still to come: moved-from days in Catch up and offline edit times (phase 4), editing notes (phase 5), Find tasks (phase 6).
+- **Phase 4's checks pass in the web build** (2026-10-06): 19 offline checks against the live server, as the test account.
+  - In airplane mode, a tick, a Catch up move, a new task and today's page all show at once with a small cloud. On reconnecting, each arrives once, keeping the time it was made, and the move keeps its moved-from day.
+  - Reopening the app with no server keeps everything, which arrives once the server is back.
+  - An area made offline that the server already has merges into it.
+  - Changes now carry `changedAt`, and moves carry `movedFrom` (the core's local changes are listed in `src/core/SOURCE.md`).
+  - **Three bugs found and fixed on the way:**
+    1. React Query paused every change offline, on screen too, until the connection came back. The main app has the same setting, which probably explains its "stamped with the time they sync" write-up.
+    2. Data restored from the phone was thrown away at once, because its keep-time (30 days) was longer than a timer can count.
+    3. The phone's copy of the lists lagged up to 30 seconds behind changes.
+  - **Still to do:** try airplane mode on the phone, then open saving to your own account, with your OK, after exporting a backup and counting rows. Editing, archiving and deleting notes come with the editor (phase 5).
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---

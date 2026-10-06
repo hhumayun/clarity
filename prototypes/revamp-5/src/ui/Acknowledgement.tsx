@@ -7,7 +7,7 @@ import { SavedPill } from "./SavedPill";
 /** How long an acknowledgement rests before it goes. */
 const REST_MS = 1_600;
 
-type Acknowledge = (label: string, icon?: IconName) => void;
+type Acknowledge = (label: string, icon?: IconName, restMs?: number) => void;
 const AcknowledgeContext = createContext<Acknowledge>(() => {});
 
 let heldUntil = 0;
@@ -34,14 +34,14 @@ export function AcknowledgementProvider({ children }: { children: React.ReactNod
   const [count, setCount] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const acknowledge = useCallback<Acknowledge>((next, nextIcon = "check") => {
+  const acknowledge = useCallback<Acknowledge>((next, nextIcon = "check", rest = REST_MS) => {
     if (Date.now() < heldUntil) return;
     if (timer.current) clearTimeout(timer.current);
     setLabel(next);
     setIcon(nextIcon);
     setVisible(true);
     setCount((n) => n + 1);
-    timer.current = setTimeout(() => setVisible(false), REST_MS);
+    timer.current = setTimeout(() => setVisible(false), rest);
   }, []);
 
   useEffect(
