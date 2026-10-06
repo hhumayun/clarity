@@ -45,7 +45,7 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
      - `useDOMImperativeHandle` carries the commands, and Expo's docs say to "expect the behavior to be flakey and possibly phased out".
      - The start-up wrapper was needed for the note's first text.
    - **Local changes,** listed in `src/core/SOURCE.md`:
-     - **Questions as quotes.** `insertQuestion` adds a quote, not a plain paragraph (decision 1). Sage draws quotes as questions in your colour, and the main app reads them as quotes too.
+     - **Questions as quotes.** `insertQuestion` adds a quote, not a plain paragraph. Sage draws quotes as questions in your colour, and the main app reads them as quotes too.
      - **Sage's look,** in the page's own styles: quotes as questions, round checklist ticks like the task check, links in your colour, Nunito Sans.
      - **Debug logging off.** The editor's `TRACE` logging is switched off.
    - **Building it:** the page's source lives in `editor/`, with its own small build (Vite and vite-plugin-singlefile). `npm run editor` rebuilds `src/editor/page.ts`. That file is committed, so Metro and app builds need no extra step.
@@ -65,13 +65,12 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
   - Checklist rows tick with a round check like the task check.
   - Links take your colour. Headings are bold.
 - **The tools row,** riding on the keyboard (react-native-keyboard-controller, which Expo Go includes):
-  - **Aa** opens text styles: bold, italic, strike, heading, quote;
-  - checklist, list, link, indent and outdent;
-  - a keyboard-down button.
-  - Each tool shows when it's on, from the formats the page reports. The image and microphone tools wait until the main app has photos and dictation.
+  - every button the main app has, in its order, in a row that scrolls sideways: checklist, bulleted list, numbered list, indent, outdent, bold, italic, strikethrough, heading, quote and link;
+  - then word suggestions (with AI help on, from phase 6) and a button that puts the keyboard away;
+  - each tool shows when it's on, from the formats the page reports.
 - **Writing to Today's question:** the card opens a new page with its question as the first quote and the cursor under it. "Next question" adds another quote and moves the cursor under it. The page is saved as a `"page"` note.
 - **Go deeper,** at the end of a note, inserts its question as a quote, at the end.
-- **Where the questions come from:** Sage's own questions by time of day (`src/data/prompts.ts`), as now. Sage already writes them into notes as quotes (`> question`). Whether the AI writes some of them is an AI decision (`docs/backend-plan.md`, section 9).
+- **Where the questions come from:** Sage's own questions by time of day (`src/data/prompts.ts`), as now. Sage already writes them into notes as quotes (`> question`). From phase 6, with AI help on, Go deeper and Next question come from the AI, reading the note; Today's question stays Sage's own (`docs/backend-plan.md`, section 9).
 - **Tasks and Done:**
   - Done flushes, saves and leaves.
   - Tasks opens the note's tasks (Find tasks follows in phase 6).
@@ -138,13 +137,12 @@ The backend plan sizes this phase L. The page and the checks are the largest par
 
 ## 8. Decisions
 
-**Decided (2026-10-06):** the editor's page is built into the app.
+**Decided on 2026-10-06:**
+- the editor's page is built into the app;
+- questions inside notes stay as Sage shows them: quotes in your colour;
+- the tools row has every button the main app has.
 
-**Still open:**
-1. **Questions inside notes:** as quotes in your colour (recommended; Sage already writes them as `> question`), or as plain paragraphs like the main app.
-2. **The tools row:** Aa (styles), checklist, list, link and indent (recommended), or the main app's full row of buttons.
-
-Word help and the AI's questions are now among the AI decisions in `docs/backend-plan.md`, section 9. With the page built in, no preview build is needed to check offline behaviour; phase 8 still checks speed on a release build.
+The AI decisions, including word help, are in `docs/backend-plan.md`, section 9. With the page built in, no preview build is needed to check offline behaviour; phase 8 still checks speed on a release build.
 
 ## 9. Other options considered (2026-10-06)
 
