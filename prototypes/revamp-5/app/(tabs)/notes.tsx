@@ -1,9 +1,10 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from "react-native-reanimated";
+import React, { useCallback, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, View, type ListRenderItem } from "react-native";
+import Animated, { FadeIn, FadeOut, useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Notebook } from "../../src/art/Pictures";
+import type { Note } from "../../src/store/model";
 import { noteGroup } from "../../src/store/selectors";
 import { useSage, useSageStatus } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
@@ -19,9 +20,11 @@ import { SectionTitle } from "../../src/ui/SectionTitle";
 import { TopBar } from "../../src/ui/TopBar";
 import { Txt } from "../../src/ui/Txt";
 
-const settle = LinearTransition.duration(duration.enter).easing(easeOut);
 const enter = FadeIn.duration(duration.enter).easing(easeOut);
 const exit = FadeOut.duration(duration.quick);
+
+/** The list, flat: a day's heading, then its notes. */
+type Row = { kind: "group"; key: string; title: string; first: boolean } | { kind: "note"; key: string; note: Note; spaced: boolean };
 
 /**
  * Every note, newest first, the way Rosebud keeps its history: a quiet
@@ -29,6 +32,10 @@ const exit = FadeOut.duration(duration.quick);
  * note on its own card. The area
  * filter is one icon that unfolds a row of chips under the bar and folds
  * it away again. Nothing here counts anything.
+ *
+ * Only the cards on screen are drawn (a list that draws as it scrolls), and
+ * none of them animates in: with a real account's notes, drawing and
+ * animating every card made opening this tab take seconds.
  */
 export default function Notes() {
   const { colors } = useTheme();
@@ -37,16 +44,40 @@ export default function Notes() {
   const notes = useSage((state) => state.notes);
   const areaList = useSage((state) => state.areas);
   const { onScroll, scrollY } = useScrollY();
-  const scroller = useAnimatedRef<Animated.ScrollView>();
+  const scroller = useAnimatedRef<Animated.FlatList<Row>>();
   const { ready } = useSageStatus();
   const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
   const [filtering, setFiltering] = useState(false);
   const [area, setArea] = useState<string | null>(null);
 
-  const sorted = [...notes].sort((a, b) => (a.day === b.day ? b.time.localeCompare(a.time, undefined, { numeric: true }) : a.day < b.day ? 1 : -1));
-  const shown = sorted.filter((note) => !area || note.area === area);
-  const groups = [...new Set(shown.map((note) => noteGroup(note.day)))];
+  // Newest first; each day's heading once, before its notes.
+  const rows = useMemo(() => {
+    const sorted = [...notes].sort((a, b) => (a.day === b.day ? b.time.localeCompare(a.time, undefined, { numeric: true }) : a.day < b.day ? 1 : -1));
+    const list: Row[] = [];
+    let group: string | null = null;
+    for (const note of sorted) {
+      if (area && note.area !== area) continue;
+      const title = noteGroup(note.day);
+      const fresh = title !== group;
+      if (fresh) list.push({ kind: "group", key: `group:${title}`, title, first: group === null });
+      list.push({ kind: "note", key: note.id, note, spaced: !fresh });
+      group = title;
+    }
+    return list;
+  }, [notes, area]);
+
+  const renderRow = useCallback<ListRenderItem<Row>>(
+    ({ item }) =>
+      item.kind === "group" ? (
+        <SectionTitle title={item.title} first={item.first} align="left" />
+      ) : (
+        <View style={item.spaced ? styles.spaced : null}>
+          <NoteCard note={item.note} showArea={!area} onPress={() => router.push(`/note/${item.note.id}`)} />
+        </View>
+      ),
+    [area, router],
+  );
 
   const toggleFilter = () => {
     tap();
@@ -73,47 +104,42 @@ export default function Notes() {
         ) : null}
       </TopBar>
 
-      <Animated.ScrollView
+      <Animated.FlatList
         ref={scroller}
+        data={rows}
+        keyExtractor={(row) => row.key}
+        renderItem={renderRow}
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         refreshControl={pull}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
-      >
-        <LoadProblem />
-        {ready ? null : (
-          <View style={styles.loading}>
-            <SkeletonCards cards={3} rows={2} />
-          </View>
-        )}
-        <Animated.View layout={settle}>
-          {groups.map((group, g) => (
-            <Animated.View key={group} layout={settle} entering={enter} exiting={exit}>
-              <SectionTitle title={group} first={g === 0} align="left" />
-              <View style={styles.cards}>
-                {shown
-                  .filter((note) => noteGroup(note.day) === group)
-                  .map((note) => (
-                    <Animated.View key={note.id} layout={settle} entering={enter} exiting={exit}>
-                      <NoteCard note={note} showArea={!area} onPress={() => router.push(`/note/${note.id}`)} />
-                    </Animated.View>
-                  ))}
+        // A screenful first, then the rest as it comes into view.
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={9}
+        ListHeaderComponent={
+          <>
+            <LoadProblem />
+            {ready ? null : (
+              <View style={styles.loading}>
+                <SkeletonCards cards={3} rows={2} />
               </View>
+            )}
+          </>
+        }
+        ListEmptyComponent={
+          ready ? (
+            <Animated.View entering={enter} style={styles.empty}>
+              <Notebook size={84} />
+              <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
+                {area ? `Nothing is tagged ${area} yet.` : "Your notes will gather here, newest first."}
+              </Txt>
             </Animated.View>
-          ))}
-        </Animated.View>
-
-        {ready && shown.length === 0 ? (
-          <Animated.View entering={enter} style={styles.empty}>
-            <Notebook size={84} />
-            <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
-              {area ? `Nothing is tagged ${area} yet.` : "Your notes will gather here, newest first."}
-            </Txt>
-          </Animated.View>
-        ) : null}
-      </Animated.ScrollView>
+          ) : null
+        }
+      />
     </View>
   );
 }
@@ -122,7 +148,7 @@ const styles = StyleSheet.create({
   loading: { paddingTop: space[4] },
   screen: { flex: 1 },
   chips: { gap: space[2], paddingHorizontal: edge, paddingBottom: space[3] },
-  cards: { gap: space[3] },
+  spaced: { paddingTop: space[3] },
   empty: { alignItems: "center", paddingTop: space[12], gap: space[4] },
   emptyText: { maxWidth: 260 },
 });

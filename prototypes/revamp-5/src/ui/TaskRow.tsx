@@ -30,7 +30,7 @@ export type TaskVariant = "today" | "list" | "day" | "note";
  * Swipe left to focus on it. Tap the words to open it; long-press for the
  * quick menu. Its area is a grey word, nothing more.
  */
-export function TaskRow({
+export const TaskRow = React.memo(function TaskRow({
   task,
   variant = "list",
   showArea = true,
@@ -49,7 +49,8 @@ export function TaskRow({
   const router = useRouter();
   const reduced = useReducedMotion();
   const history = useFocusHistory(task.id);
-  const notes = useSage((state) => state.notes);
+  // Only the title of the note it came from: the whole list would redraw every row whenever any note changed.
+  const fromNote = useSage((state) => (task.noteIds.length ? (state.notes.find((note) => note.id === task.noteIds[0])?.title ?? null) : null));
   const setDone = useSage((state) => state.setDone);
   const acknowledge = useAcknowledge();
   const openMenu = useTaskMenu();
@@ -134,8 +135,7 @@ export function TaskRow({
     if (task.remind !== null) add("remind", "bell", null);
     if (task.repeat) add("repeat", "repeat", null);
     if ((variant === "list" || variant === "today") && task.noteIds.length > 0) {
-      const first = notes.find((note) => note.id === task.noteIds[0]);
-      add("note", "doc", first?.title ?? "From your note", "ink2");
+      add("note", "doc", fromNote ?? "From your note", "ink2");
     }
   }
   if (unsent)
@@ -196,7 +196,7 @@ export function TaskRow({
       </View>
     </SwipeRow>
   );
-}
+});
 
 /**
  * A task's title that can be struck through as it's ticked: on the phone a

@@ -70,6 +70,7 @@ The facts here were checked against the code on 2026-10-05.
     - 6 task checks, with "just this time" kept and an AI title idea answered.
 
     The test account was left with only your items.
+- **Tab-switch speed, partly fixed (2026-10-06):** Notes is a virtualised list without per-card animations (88 notes: from 10.1 s to about 1.1 s in the web build); check circles are still until touched; task rows watch only their own note's title. Life with many tasks is still slow. **The next steps and phase 6's plan are in `docs/handoff.md`.**
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---

@@ -1,0 +1,58 @@
+# Sage's checks
+
+These were run from `/tmp/clarity-revamp-5` until 2026-10-06; they live here now so a reboot can't take them.
+
+## Setup, once per machine
+
+```
+cd tests/checks && npm install          # playwright-core 1.63.0
+mkdir -p /tmp/clarity-revamp-5          # some write their output here
+```
+
+- Chrome: `/opt/google/chrome/chrome`. Each script launches it itself.
+- Some scripts import `superjson` and `postgres` from `/root/projects/clarity/node_modules`, the main checkout.
+- `PLAYWRIGHT_CORE=/path/to/playwright-core` overrides where Playwright comes from.
+- **The test account:** `clarity-sage+clerk_test@example.com`, a Clerk test address whose code is always 424242. Scripts read it from `SAGE_TEST_EMAIL`:
+
+  ```
+  set -a && . /root/.config/clarity-sage-test.env && set +a
+  ```
+
+- Account checks write only clearly named "Sage check" items and remove them. **The test account also holds the user's own items** (area "Good boy", three "Dr Lee" tasks, one note); never delete those. If a run crashes mid-way, run `clean-test-account.mjs`.
+- The live server doesn't accept requests from the web build's origin (`localhost:8087`), so the account checks pass the app's API calls through Playwright with CORS headers added.
+- Database scripts need production's environment: run them through `railway run --service clarity-notes --environment production node <script>` from `/root/projects/clarity`, the linked directory. They are read-only unless named `apply-*` or `backup-*`.
+
+## Web build checks (Metro on 8087 running, demo mode unless noted)
+
+| Script | What it checks |
+|---|---|
+| `interact.js` | 27 demo checks across the screens, including a scan for counts; demo sends nothing |
+| `shots.js <light\|dark> [names]` | screenshots into `clarity-design-research/revamp-5/shots` (never commit them) |
+| `editor-flow.mjs` | 18 note-page checks: open, edit and reopen, the tools, Today's question, Next question |
+| `repeat-flow.mjs` | 12 checks: repeats and reminders are separate, "Just this time", ticking a task off |
+| `smoke.mjs` | the app opens; Today, Notes and Life show; how long each switch takes |
+| `lazy-check.mjs` | whether a first visit to a tab fetches code (it doesn't) |
+| `tab-profile.mjs` | tab-switch timings with the samples grown to a real account's size, optionally with a CPU profile; heavy, needs memory |
+| `life-growth.mjs` | Life's first draw against the number of tasks (written, never run) |
+| `auth.js`, `auth_shots.js`, `firstrun_shots.js` | sign-in and first-run screens |
+
+## Live server checks (as the test account)
+
+| Script | What it checks |
+|---|---|
+| `account-check.mjs` | 15 checks of Sage on your data's screens |
+| `offline-check.mjs` | 19 offline checks: airplane mode, a restart with the server blocked, area remap |
+| `editor-account.mjs` | 16 note checks: one create and one save on leaving, rich text stored as a document, reopened with it, deleted from its menu, nothing else touched |
+| `remind-check.mjs` | 6 checks: "just this time" kept by the server; AI answering through zero-retention endpoints |
+| `API=live api-check.mjs` | 16 checks of the API changes (migration 014's) |
+| `clean-test-account.mjs`, `peek-test-account.mjs` | remove "Sage check" items; look at what's there |
+
+## Database (production, through `railway run`)
+
+| Script | What it does |
+|---|---|
+| `db-counts.mjs`, `db-counts-real.mjs`, `db-doc-types.mjs` | read-only counts, before and after a change |
+| `backup-real-accounts.mjs` | real accounts' rows to an owner-only file in `/root/.config/clarity-backups` |
+| `apply-014.mjs`, `apply-015-016.mjs` | the migrations as they were applied (all applied by 2026-10-06), one step per run, with `--check` |
+| `doc-encoding-check.mjs` | how jsonb writes land, on a temporary table |
+| `zdr-check.mjs` | OpenRouter with zero data retention: provider and speed |

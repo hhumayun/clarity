@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
   useAnimatedProps,
@@ -26,13 +26,45 @@ const CHECK_LENGTH = 17;
  * on a change, never on first sight. `pressed` shows the finger is on it.
  */
 export function CircleCheck({ on, pressed = false, size = 28 }: { on: boolean; pressed?: boolean; size?: number }) {
+  // Still until a finger is on it or it changes: a list draws dozens of these,
+  // and the moving one is several layers and two drawings each. It takes over
+  // in the same frame, starting from what the still one showed.
+  const shown = useRef(on);
+  const [live, setLive] = useState(false);
+  const goLive = live || pressed || on !== shown.current;
+  useEffect(() => {
+    if (goLive && !live) setLive(true);
+  }, [goLive, live]);
+  if (!goLive) return <StillCheck on={on} size={size} />;
+  return <MovingCheck on={on} pressed={pressed} size={size} from={shown.current} />;
+}
+
+/** The check at rest: a ring with a faint check, or the accent with a white one. */
+function StillCheck({ on, size }: { on: boolean; size: number }) {
+  const { colors, accent } = useTheme();
+  const r = size / 2;
+  return (
+    <View style={{ width: size, height: size }}>
+      <View style={[StyleSheet.absoluteFill, { borderRadius: r }, on ? { backgroundColor: accent.solid } : { borderWidth: 1.75, borderColor: colors.ink2 }]} />
+      <Svg width={size} height={size} viewBox="0 0 28 28" style={StyleSheet.absoluteFill}>
+        {on ? (
+          <Path d={CHECK} stroke={accent.on} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        ) : (
+          <Path d={CHECK} stroke={colors.ink3} strokeOpacity={0.55} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        )}
+      </Svg>
+    </View>
+  );
+}
+
+function MovingCheck({ on, pressed, size, from }: { on: boolean; pressed: boolean; size: number; from: boolean }) {
   const { colors, accent } = useTheme();
   const reduced = useReducedMotion();
-  const fill = useSharedValue(on ? 1 : 0);
+  const fill = useSharedValue(from ? 1 : 0);
   const pop = useSharedValue(1);
   const halo = useSharedValue(0);
   const down = useSharedValue(0);
-  const before = useRef(on);
+  const before = useRef(from);
 
   useEffect(() => {
     down.value = withTiming(pressed ? 1 : 0, { duration: pressed ? duration.press : duration.base, easing: easeOut });

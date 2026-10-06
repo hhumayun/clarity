@@ -3,7 +3,11 @@ import React from "react";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { TabBar } from "../../src/ui/TabBar";
 
-/** Four places and the + between them: Today and Notes, then Life and Search. */
+/**
+ * Four places and the + between them: Today and Notes, then Life and Search.
+ * Places stay as they were when you leave them; none is frozen out of sight
+ * (freezeOnBlur), since coming back to a frozen one redraws all of it.
+ */
 export default function TabsLayout() {
   const { colors } = useTheme();
   return (

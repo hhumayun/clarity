@@ -1,0 +1,28 @@
+// Read-only look at the TEST account's tasks (aborts unless signed in as the +clerk_test address).
+import { createRequire } from "node:module";
+import superjson from "/root/projects/clarity/node_modules/superjson/dist/index.js";
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PLAYWRIGHT_CORE || "playwright-core");
+const LIVE = "https://clarity-notes-production.up.railway.app";
+const EMAIL = process.env.SAGE_TEST_EMAIL;
+if (!EMAIL?.includes("+clerk_test@")) throw new Error("not the test account");
+const browser = await chromium.launch({ executablePath: "/opt/google/chrome/chrome", args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"] });
+const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
+await context.route(`${LIVE}/_api/**`, (route) => route.fulfill({ status: 503, body: "{}" }));
+const page = await context.newPage();
+const press = (name) => page.getByRole("button", { name, exact: true }).last().click({ timeout: 30000 });
+await page.goto("http://localhost:8087/", { waitUntil: "load", timeout: 180000 });
+await press("Continue with email");
+await page.getByLabel("Email", { exact: true }).fill(EMAIL);
+await press("Continue");
+await press("Email me a code instead");
+await page.getByLabel("The code from the email", { exact: true }).fill("424242");
+await page.waitForFunction(() => window.Clerk?.session?.id, null, { timeout: 30000 });
+const token = await page.evaluate(() => window.Clerk.session.getToken());
+const get = async (path) => superjson.parse(await (await fetch(`${LIVE}${path}`, { headers: { Authorization: `Bearer ${token}` } })).text());
+const session = await get("/_api/auth/session");
+if (session.user?.email !== EMAIL) throw new Error("not the test account: stopping");
+const { tasks, projects } = await get("/_api/tasks/list");
+for (const t of tasks) console.log(`task "${t.text}" in ${t.projectName}, ${t.status}, created ${new Date(t.createdAt).toISOString()}, day ${t.completeBy ? new Date(t.completeBy).toDateString() : "none"}`);
+console.log(`areas: ${projects.map((p) => p.name).join(", ") || "none"}; tasks: ${tasks.length}`);
+await browser.close();

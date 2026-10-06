@@ -1,0 +1,8 @@
+{
+  "name": "sage-checks",
+  "private": true,
+  "description": "Browser and server checks for revamp 5 (Sage). See README.md.",
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
