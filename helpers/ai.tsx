@@ -147,7 +147,11 @@ function postToOpenRouter(
       //   sort: "throughput"  4.0s median — ranks on tok/s, which a short
       //                       answer never amortises, so it is the wrong key
       //   sort: "latency"     0.83s median
-      provider: { sort: "latency" },
+      // Only endpoints that keep nothing: zero data retention, so what a note
+      // says is neither stored nor used for training. On 2026-10-06 OpenRouter
+      // listed many for DeepSeek V4.1 Flash (Together, Fireworks,
+      // DigitalOcean, CoreWeave, Parasail, Modal, ...), so speed holds.
+      provider: { sort: "latency", zdr: true },
     }),
   });
 }
