@@ -1,29 +1,23 @@
 import { Tabs, useRouter } from "expo-router";
 import React, { useEffect } from "react";
-import { Easing, type Animated } from "react-native";
-import { useReducedMotion } from "react-native-reanimated";
 import { useDayRollover } from "../../src/data/dayRollover";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { TabBar } from "../../src/ui/TabBar";
 
-/**
- * Moving between places: a short fade-through on the page only (the bar just
- * changes which place is chosen). The old page is gone in the first third,
- * the new one fades in over the rest, from very nearly its full size, as
- * iOS's own tab bar has done since iOS 18. Nothing slides; with Reduce Motion
- * the switch is instant. The tab bar's own JS animation (React Native's
- * Animated, on the native driver) runs it.
+/*
+ * Moving between places: the navigator itself switches at once (no
+ * animation), and the new page fades in over the page colour, from the tab
+ * bar (TabBar's veil). Nothing slides.
+ *
+ * The navigator's own fade (on 2026-10-06 until the same day's evening) left
+ * Life or Notes blank now and then: expo-router 57 ships its own copy of
+ * React Navigation's tab view, which decides whether each page is attached
+ * from the fade's animated value on the native driver, and a switch can
+ * leave the chosen page detached, showing only the tab bar. React Navigation
+ * fixed this in July 2026 (bottom-tabs 7.18.8); expo-router hasn't yet
+ * (expo/expo#49681). With no animation the navigator never takes that path.
+ * Bring the navigator's fade back only once expo-router has the fix.
  */
-const fadeThrough = {
-  animation: "fade" as const, // anything but "none", or the timing below is ignored
-  transitionSpec: { animation: "timing" as const, config: { duration: 200, easing: Easing.out(Easing.quad) } },
-  sceneStyleInterpolator: ({ current }: { current: { progress: Animated.AnimatedInterpolation<number> } }) => ({
-    sceneStyle: {
-      opacity: current.progress.interpolate({ inputRange: [-1, -0.35, 0, 0.35, 1], outputRange: [0, 0, 1, 0, 0] }),
-      transform: [{ scale: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [0.985, 1, 0.985] }) }],
-    },
-  }),
-};
 
 // Drawn ahead, once the app has a quiet moment, one at a time: a place's first
 // visit is then as quick as any other.
@@ -42,7 +36,6 @@ const whenIdle = (run: () => void) => {
  */
 export default function TabsLayout() {
   const { colors } = useTheme();
-  const reduced = useReducedMotion();
   const router = useRouter();
   // Today follows the clock past midnight.
   useDayRollover();
@@ -70,7 +63,7 @@ export default function TabsLayout() {
       tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        ...(reduced ? { animation: "none" as const } : fadeThrough),
+        animation: "none",
         sceneStyle: { backgroundColor: colors.page },
       }}
     >

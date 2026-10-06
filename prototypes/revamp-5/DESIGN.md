@@ -74,7 +74,7 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 
 ## Moving between places (2026-10-06)
 
-- **A short fade-through, on the page only.** The old page is gone in the first third, then the new one fades in from very nearly its full size (200 ms). It's how iOS's own tab bar has moved since iOS 18. Nothing slides, and the bar only changes which place is chosen. With Reduce Motion, the switch is instant.
+- **The new page fades in, on the page only.** A tap on a tab covers the old page in the page colour at once, and that veil lifts over 220 ms once the new page is drawn under it. Nothing slides, and the bar only changes which place is chosen. (Until the evening of 2026-10-06 the tab navigator did a fade-through itself. In expo-router 57 that left Life or Notes blank now and then, expo/expo#49681, so the navigator no longer animates.)
 - **Every place is drawn ahead** once the app has a quiet moment, one at a time, so even a first visit opens at once.
 - **Long lists draw as they scroll.** Notes builds only the cards on screen; Life draws each task as a slice of its section's card, and the slices still read as one card with its shadow and corners.
 - **Choosing an area (2026-10-06)** ticks, and the chip shows it at once. The list then changes in one step with nothing animating: no rows fading out, none sliding into place. Leaving and closing-the-gap animations are kept for ticking a task off. Done's little bump is kept for a task arriving, not for a filter showing more of them.

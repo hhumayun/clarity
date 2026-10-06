@@ -42,6 +42,11 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
     - Search's 12-result cap ("Show more", no count);
     - a failed font leaving the splash up.
   - **Checks:** `tests/checks/phase1-check.mjs` (18). Run against 830895a, it catches six of these bugs. The delete flash only shows during the phone's slide.
+- **Fixed before phase 2: Life and Notes sometimes opening blank** (the user saw it on the phone).
+  - **Cause:** expo-router 57's copy of the tab view derives each page's attachment from the navigator's fade on the native driver, so a switch can leave the chosen page detached (expo/expo#49681). React Navigation fixed this in bottom-tabs 7.18.8 (July 2026); expo-router hadn't by 57.0.24.
+  - **Fix:** the navigator no longer animates (`animation: "none"` in `app/(tabs)/_layout.tsx`). TabBar's veil, in the page colour, covers on a tap and lifts once the new page is drawn, so the new page still fades in.
+  - **The browser can't show the bug** (it runs those animations in JavaScript and doesn't detach pages). `tests/checks/tab-open.mjs` (150 taps) guards the switching, and `tab-feel.mjs` now measures the veil.
+  - Bring the navigator's fade back only once expo-router has the fix.
 - **Next:** phase 2, swaps (the area filters with `useFilterSwap` and a travelling ring, Today's day change, Search, skeletons).
 
 ## What's done

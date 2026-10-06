@@ -1,5 +1,6 @@
 // Tab switches after the app has had a quiet moment (demo mode): the other tabs are drawn
-// ahead (preloaded), so even a first visit should be quick, and the incoming page fades in.
+// ahead (preloaded), so even a first visit should be quick, and the incoming page fades in
+// (since 2026-10-06 evening, from the tab bar's veil lifting; the navigator doesn't animate).
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_CORE || "playwright-core");
@@ -20,21 +21,22 @@ ok("the other tabs were drawn ahead", await page.evaluate(() => document.body.in
 for (const [tab, marker] of [["Notes", "Slow morning"], ["Life", "Book the dentist"], ["Search", "Find anything you wrote"], ["Today", "Walk at lunch, no podcast"]]) {
   const t = Date.now();
   await page.getByRole("tab", { name: tab }).first().click();
-  // While it switches: the lowest opacity seen on the incoming page's containers.
-  const lowest = await page.evaluate(async (m) => {
+  // While it switches: how much of the incoming page shows, at its lowest (1 − the veil's opacity).
+  const lowest = await page.evaluate(async () => {
     let min = 1;
     for (let i = 0; i < 8; i++) {
       await new Promise((r) => setTimeout(r, 25));
-      const holder = [...document.querySelectorAll("div")].find((d) => d.childElementCount === 0 && d.textContent === m && d.getBoundingClientRect().width > 0);
-      for (let el = holder; el; el = el.parentElement) min = Math.min(min, Number(getComputedStyle(el).opacity));
+      const veil = document.querySelector('[data-testid="tab-veil"]');
+      if (veil) min = Math.min(min, 1 - Number(getComputedStyle(veil).opacity));
     }
     return min;
-  }, marker);
+  });
   // On screen: some copy of the marker with every container around it fully shown.
   await page.waitForFunction((m) => [...document.querySelectorAll("div")].some((d) => {
     if (d.childElementCount !== 0 || d.textContent !== m || d.getBoundingClientRect().width === 0) return false;
     for (let el = d; el; el = el.parentElement) if (Number(getComputedStyle(el).opacity) < 0.99) return false;
-    return true;
+    const veil = document.querySelector('[data-testid="tab-veil"]');
+    return !veil || Number(getComputedStyle(veil).opacity) < 0.01;
   }), marker, { timeout: 30000 }).catch(async () => {
     console.log("  copies of", JSON.stringify(marker), await page.evaluate((m) => [...document.querySelectorAll("div")].filter((d) => d.textContent === m).map((d) => `${d.childElementCount} children, width ${Math.round(d.getBoundingClientRect().width)}`).slice(0, 6).join("; "), marker));
   });

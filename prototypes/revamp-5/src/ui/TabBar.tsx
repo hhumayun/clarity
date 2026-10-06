@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import type { BottomTabBarProps } from "expo-router/js-tabs";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   interpolate,
@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSage, useWhenEditable } from "../data/sage";
-import { duration, easeOut, fadeTiming, spring } from "../theme/motion";
+import { duration, easeOut, fadeTiming, keep, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius } from "../theme/tokens";
 import { tap, tick } from "./haptics";
@@ -31,6 +31,8 @@ const BAR = 54;
 const FAB = 58;
 /** Room above the bar for the dial's choices: touches only land inside a parent, so the + column reaches up this far. */
 const REACH = 104;
+// One frame at 60 fps: the new page is drawn under the veil before it lifts.
+const FRAME_MS = 16;
 
 /**
  * Rosebud's bar, adapted: a flat white bar across the bottom with four
@@ -49,6 +51,20 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const [open, setOpen] = useState(false);
   const dial = useSharedValue(0);
   const bottom = Math.max(insets.bottom, 10);
+
+  // Arriving at another place: a veil in the page colour covers the old page
+  // at once, and fades away once the new page is drawn under it, so the new
+  // one fades in. (The navigator doesn't animate: see the tabs layout.) A tap
+  // during the fade covers again, and the latest place fades in.
+  const veil = useSharedValue(0);
+  const veiled = useRef(false);
+  useEffect(() => {
+    if (!veiled.current) return;
+    veiled.current = false;
+    // The new page is committed with this render; it's drawn by the next frame.
+    veil.value = withDelay(FRAME_MS, withTiming(0, fadeTiming(duration.base)));
+  }, [state.index, veil]);
+  const veilStyle = useAnimatedStyle(() => ({ opacity: veil.value }));
 
   useEffect(() => {
     dial.value = reduced ? withTiming(open ? 1 : 0, fadeTiming(duration.base)) : open ? withSpring(1, spring.bloom) : withTiming(0, { duration: duration.quick, easing: easeOut });
@@ -79,6 +95,8 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
           if (!selected && !event.defaultPrevented) {
             tick();
+            veil.value = withTiming(1, { duration: 0, reduceMotion: keep });
+            veiled.current = true;
             navigation.navigate(route.name);
           }
         }}
@@ -98,6 +116,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      <Animated.View testID="tab-veil" pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.page }, veilStyle]} />
       {/* Always there, so it can fade out as the dial folds; it only takes touches while open. */}
       <Animated.View pointerEvents={open ? "auto" : "none"} style={[StyleSheet.absoluteFill, scrim]}>
         <Pressable onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" accessibilityElementsHidden={!open} importantForAccessibility={open ? "auto" : "no-hide-descendants"} style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} />
