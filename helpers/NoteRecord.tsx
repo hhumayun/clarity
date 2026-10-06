@@ -33,3 +33,19 @@ export const NOTE_RECORD_COLUMNS = [
 export const NOTE_LIST_COLUMNS = NOTE_RECORD_COLUMNS.filter(
   (column): column is Exclude<(typeof NOTE_RECORD_COLUMNS)[number], "doc"> => column !== "doc",
 );
+
+/**
+ * A note's rich text as it's read back. Until 2026-10-06 the write encoded it
+ * twice, so every copy stored before then is a JSON string holding the
+ * document (migration 015 unwraps them in place). Such a copy is read back
+ * into the document it holds; anything unreadable counts as no rich text,
+ * and the note's Markdown stands.
+ */
+export function readableDoc<T extends { doc?: unknown }>(row: T): T {
+  if (typeof row.doc !== "string") return row;
+  try {
+    return { ...row, doc: JSON.parse(row.doc) };
+  } catch {
+    return { ...row, doc: null };
+  }
+}

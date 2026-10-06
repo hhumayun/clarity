@@ -3,7 +3,7 @@ import { db } from "../../helpers/db";
 import { selectTaskRecords } from "../../helpers/taskRecords";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
-import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
+import { NOTE_RECORD_COLUMNS, readableDoc } from "../../helpers/NoteRecord";
 import { attachProjectIds } from "../../helpers/noteProjects";
 import type { OutputType } from "./export_GET.schema";
 
@@ -43,7 +43,7 @@ export async function handle(request: Request) {
         .execute(),
     ]);
 
-    const notes = await attachProjectIds(db, noteRows, user.id);
+    const notes = await attachProjectIds(db, noteRows.map(readableDoc), user.id);
 
     return new Response(
       superjson.stringify({

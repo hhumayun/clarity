@@ -2,7 +2,7 @@ import superjson from "superjson";
 import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
-import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
+import { NOTE_RECORD_COLUMNS, readableDoc } from "../../helpers/NoteRecord";
 import { attachProjectIds } from "../../helpers/noteProjects";
 import { schema, type OutputType } from "./get_GET.schema";
 
@@ -26,7 +26,7 @@ export async function handle(request: Request) {
       );
     }
 
-    const [note] = await attachProjectIds(db, [row], user.id);
+    const [note] = await attachProjectIds(db, [readableDoc(row)], user.id);
     return new Response(superjson.stringify({ note } satisfies OutputType));
   } catch (error) {
     return endpointError(error);

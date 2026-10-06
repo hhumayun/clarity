@@ -4,7 +4,7 @@ import { notInFuture } from "../../helpers/clientIds";
 import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
-import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
+import { NOTE_RECORD_COLUMNS, readableDoc } from "../../helpers/NoteRecord";
 import { attachProjectIds, replaceNoteProjects } from "../../helpers/noteProjects";
 import { removeNoteEntities } from "../../helpers/noteEntityIndex";
 import { schema, type OutputType } from "./update_POST.schema";
@@ -29,7 +29,7 @@ export async function handle(request: Request) {
       input.doc !== undefined
         ? input.doc === null
           ? null
-          : sql<string>`${JSON.stringify(input.doc)}::jsonb`
+          : sql<string>`${JSON.stringify(input.doc)}::text::jsonb`
         : input.content !== undefined
           ? null
           : undefined;
@@ -61,7 +61,7 @@ export async function handle(request: Request) {
     if (input.archived === true) {
       await removeNoteEntities(row.id);
     }
-    const [note] = await attachProjectIds(db, [row], user.id);
+    const [note] = await attachProjectIds(db, [readableDoc(row)], user.id);
 
     return new Response(superjson.stringify({ note } satisfies OutputType));
   } catch (error) {

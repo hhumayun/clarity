@@ -5,7 +5,7 @@ import { linkNoteTask } from "../../helpers/taskRecords";
 import { notInFuture } from "../../helpers/clientIds";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
-import { NOTE_RECORD_COLUMNS } from "../../helpers/NoteRecord";
+import { NOTE_RECORD_COLUMNS, readableDoc } from "../../helpers/NoteRecord";
 import { attachProjectIds, replaceNoteProjects } from "../../helpers/noteProjects";
 import { schema, type OutputType } from "./create_POST.schema";
 
@@ -27,7 +27,7 @@ export async function handle(request: Request) {
           userId: user.id,
           title: input.title,
           content: input.content,
-          doc: input.doc ? sql<string>`${JSON.stringify(input.doc)}::jsonb` : null,
+          doc: input.doc ? sql<string>`${JSON.stringify(input.doc)}::text::jsonb` : null,
           source: input.source ?? null,
           taskId: input.taskId ?? null,
           createdAt: at,
@@ -55,7 +55,7 @@ export async function handle(request: Request) {
       return created;
     });
     if (!row) return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
-    const [note] = await attachProjectIds(db, [row], user.id);
+    const [note] = await attachProjectIds(db, [readableDoc(row)], user.id);
 
     return new Response(superjson.stringify({ note } satisfies OutputType));
   } catch (error) {
