@@ -27,6 +27,10 @@ The facts here were checked against the code on 2026-10-05.
 - **Phase 2 code is written** (2026-10-05). The four changes in section 5 and `migrations/014_task_times_pages_suggestions.sql` are on the branch, and the server type-checks.
   - Next, each with your OK: apply migration 014, test on a local server, then deploy.
   - The web build can only test against a local server, because the live one doesn't accept requests from `localhost:8087`. The phone app isn't affected.
+- **Migration 014 was applied** on 2026-10-06, with your OK.
+  - Every table's row count was the same before and after (87 notes, 78 tasks, 8 areas), and no note's or task's last-changed time moved.
+  - The 33 done tasks took their last change as their done time.
+- **16 checks of the new API passed** against a local copy of the server, as the test account only, which was left as it was. The deploy is next, and waits for your OK.
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---
@@ -78,13 +82,31 @@ The facts here were checked against the code on 2026-10-05.
 2. **An adapter between the API and Sage's screens.**
    - Sage's components read a small view model: a task's `area`, `day`, `time`, `remind`, `repeat` and `done`; a note's `excerpt`, `day`, `time` and `area`.
    - `src/model/` maps the API's records to that shape and back, so most screens change only where they read data, not how they draw it.
-3. **Keep the sample data as Demo mode.**
-   - The current store becomes `src/demo/`, behind a switch in Settings (and the default when signed out).
+3. **Keep the sample data as Demo mode, and only when signed out.**
+   - "Look around first" on the welcome opens it. Signed in, the app only ever shows your account's data; there's no switch to mix them.
    - Design reviews and the screenshot tests keep working without an account.
+   - How the two are kept apart is set out below.
 4. **Four small API changes** (section 5).
    - Each only adds: new columns, a new table, a new allowed value, an optional field. The main app keeps working unchanged.
    - They ship together, in one migration and one deploy.
 5. **Stay in Expo Go.** Everything needed runs there. Revamp 5 has no `expo-dev-client`, so `npx expo start` already targets Go. A development build can come later, if it's ever needed.
+
+### Keeping the samples and your data apart
+
+The sample notes must never reach the database, and must never delete or overwrite what's there. Several independent locks make sure of it.
+
+- **No account, no access.** Demo mode only exists signed out, so there's no session token. The server turns away every request without one (401), and every query is scoped to the signed-in user, so no other account is reachable.
+- **Two sources, one switch.** In phase 3, screens get their data from one place, which picks the sample store (demo) or your account (signed in), never both:
+  - sample actions only change the in-memory store;
+  - account actions only go through the main app's hooks and outbox.
+- **Checked automatically:**
+  - `src/store/boundary.test.ts` fails if the sample store imports the server code or anything that sends or queues a request, or if the server code reads the samples.
+  - The interaction checks fail if demo mode sends a single request to the server.
+- **Sample ids can't hit real rows.** They aren't UUIDs ("t1", "slow-morning"), and real ones are. Task and area endpoints reject anything that isn't a UUID. Notes are looked up by id and owner together, so a sample id finds nothing.
+- **Nothing queued in demo can be sent later.** The outbox only loads for a signed-in user and is stored per user. Signing in starts from your account's data and never merges the samples into it.
+- **Changes go one at a time, by id.** No endpoint replaces everything, and the app never sends a whole local copy. The only bulk deletions are Clear done and Delete account, each behind its own button.
+- **"Reset sample data" only touches the samples.** From phase 3 it shows only in demo mode.
+- **Before your real account (after phase 4):** export your notes from Settings as a backup. I'll also record the database's row counts before and after first use, as was done for migration 014.
 
 ---
 
