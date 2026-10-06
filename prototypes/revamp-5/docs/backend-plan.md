@@ -255,7 +255,9 @@ Each phase ends with something to try on the phone and a check that it worked. S
 - **Then switch to your own account,** once these checks pass.
 
 ### Phase 5: the editor (L)
-- **Worked out in detail** in `docs/editor-plan.md` (2026-10-06). Where the two differ, that plan wins: the AI's questions move to Phase 6 with word help.
+- **Worked out in detail** in `docs/editor-plan.md` (2026-10-06). Where the two differ, that plan wins:
+  - the editor's page is built into the app and loaded by a plain web view, not an Expo DOM component, so `BootedNoteEditor` isn't needed;
+  - the AI's questions move to Phase 6 with word help.
 - **What comes over:** `NoteEditor` (Tiptap in a DOM component), the `BootedNoteEditor` wrapper (the first props stay empty until the page is up, to work around the WebView escaping problem), `localDrafts`, `noteDocs` and the note screen's save rules:
   - save 900 ms after typing stops, and on leave, background or tab switch;
   - flush the editor on leave;
@@ -286,6 +288,7 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - leave mid-sentence, kill the app, come back offline: the words are there.
 
 ### Phase 6: AI help and focus (M)
+- **Decisions still open** for this phase: section 9.
 - **Find tasks:**
   - a note's undecided suggestions come with its tasks (`pending`), so they're there when you come back, without asking the AI again;
   - `tasks/extract` waits for the note to sync first, then shows new results as Sage's cards (Add becomes a check, Not now dismisses);
@@ -401,6 +404,7 @@ All four live on revamp 5's branch and share one migration, `migrations/014_task
 | Rich text | Live since 3 October, so there's no Markdown-only stage |
 | API changes | All four in section 5 |
 | Areas on notes | Several: cards show the first, and the area sheet picks several |
+| The editor's page (2026-10-06) | Built into the app and loaded by a plain web view, so notes open offline even in Expo Go; not an Expo DOM component as in the main app |
 
 ## 8. After this: the end state
 
@@ -409,3 +413,46 @@ When revamp 5 works against real data, choose how it reaches the App Store:
 - **(b)** its screens and tokens move into `mobile/`, following DESIGN.md's porting order.
 
 Phase 8's findings should settle it. Either way the backend needs nothing beyond section 5.
+
+## 9. Decisions still open (2026-10-06)
+
+### The editor (Phase 5)
+In `docs/editor-plan.md`, section 8: questions as quotes, and the tools row.
+
+### AI (Phase 6)
+**How it works today:**
+- The server sends what it needs to read (the note, the words before the cursor, a task's notes) to an AI model through OpenRouter.
+  - Production sets no model of its own, so it uses the code's default: DeepSeek V4.1 Flash, picked for speed, with DeepSeek V4 Flash as the fallback.
+  - It's paid from one OpenRouter account, with no limit per person.
+- In Sage nothing calls the AI yet. Questions, "How it's going" and first steps are Sage's own text, and Find tasks says it comes later.
+
+1. **Privacy.**
+   - **What the apps say:** Sage's first run says "Your notes belong to you and are never shared". The main app's privacy page says they're "never shared with other people". Neither says the words go to an AI service.
+   - **What the requests do:** they don't ask OpenRouter to avoid providers that keep or train on what they're sent. OpenRouter's `data_collection` defaults to "allow", so it comes down to the OpenRouter account's own privacy settings.
+   - **Recommended:**
+     - every AI request asks for providers that keep nothing (`provider.zdr: true`, or at least `data_collection: "deny"`);
+     - the first run and Settings say plainly that AI help sends what it reads to an AI service that doesn't keep it;
+     - if the fast model has no such provider, choose a model that does.
+   - It's a server change, so a deploy with your OK, and it covers the main app too.
+2. **An AI switch.** The main app turns its suggestions on and off from the note screen. Recommended: an "AI help" switch in Sage's Settings, on by default, that stops every AI call: questions, Find tasks, How it's going, first steps, titles and word help.
+3. **Word help** (the main app's tray of words and sentence starters). Sage's first run already promises it ("offers a word when one is hard to find"). Recommended: in Sage, as a quiet strip above the keyboard that appears after a pause.
+4. **The AI's questions.**
+   - Recommended: Today's question stays Sage's own, by time of day, since there's no note yet for the AI to read.
+   - Go deeper and Next question come from the AI, reading the note, with Sage's own as the fallback offline or with AI help off.
+5. **What runs by itself.**
+   - Recommended, as in the main app:
+     - Find tasks the first time a note's tasks open;
+     - How it's going when a task opens, kept so it's there offline;
+     - first steps when Focus opens.
+   - Titles: an untitled note is given one quietly when you leave it. Nothing is offered while you write; the main app does both.
+6. **Learn from my writing:** on by default, as in both apps now. It uses the AI to note the people, places and topics in notes, so word help can draw on related notes. Forget clears it. Recommended: keep it on by default.
+7. **Spending:** recommended, no limit per person for now; revisit before anyone else uses the app.
+
+### Later
+8. **The main app,** each with your OK:
+   - send edit times (`changedAt`) from its outbox;
+   - save its offline copy soon after changes;
+   - build its editor page into the app too, which fixes notes not opening offline in Clarity Dev.
+
+   Recommended: once Sage's editor has proven itself.
+9. **Phase 8:** one EAS release build to check speed, then the end state (section 8).

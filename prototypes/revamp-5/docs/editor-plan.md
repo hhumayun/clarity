@@ -4,6 +4,8 @@
 
 This is phase 5 of `docs/backend-plan.md`, worked out against the main app's code on 2026-10-06 (commit 4344bd8).
 
+**Decided on 2026-10-06:** the editor's page is built into the app, rather than loaded as an Expo DOM component the way the main app does it (section 2). Section 9 sums up the other options considered.
+
 ---
 
 ## 1. What the main app has
@@ -14,12 +16,12 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
   - The app drives it with commands: `run("bold")`, `run("task")`, `run("link", url)`, `run("indent")`, `run("insertText", …)`, `run("insertQuestion", …)`, `run("flush")`.
   - It reports back: the text (`onChange`, after a pause in typing and at least every second), the formats under the cursor for the toolbar (`onState`), and the words around the cursor for word help (`onCursor`).
 - **Its fixes for real problems, already found and solved:**
-  - the start-up wrapper (`BootedNoteEditor`), which keeps a note from failing to load when its first text holds a line break or a backtick, and makes sure commands reach the editor on screen;
   - Backspace at the start of a list item;
   - empty and ticked checklist rows;
-  - indents that survive Markdown.
+  - indents that survive Markdown;
+  - the start-up wrapper (`BootedNoteEditor`), which keeps a note from failing to load when its first text holds a line break or a backtick, and makes sure commands reach the editor on screen. This one exists only because of how DOM components pass their first props and refs.
 
-  About 75 browser tests cover this (`tests/note-editor`).
+  About 75 browser tests cover the editor (`tests/note-editor`).
 - **The note screen's save rules** (inside `app/(app)/note/[id].tsx`, about 1,570 lines with its own UI):
   - A new note gets its id at once. Its words are kept on the phone as a draft at most every second, and sent to the server 900 ms after typing stops.
   - Leaving the note, switching tab or going to the background sends at once. A draft newer than the server's copy wins.
@@ -29,20 +31,30 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
 
 ## 2. The approach
 
-1. **Copy the editor, don't rebuild it.**
-   - The Tiptap page comes over with its start-up wrapper, and the editor tests come with it.
-   - Three local changes, listed in `src/core/SOURCE.md`:
-     - **Questions as quotes.** `insertQuestion` adds a quote, not a plain paragraph, so a question stays a question (Sage draws quotes as questions in your colour). The main app reads them as quotes too.
-     - **A slot for Sage's look.** A small `extraCss` prop, so Sage styles quotes, checklist circles, links and headings without touching the main app's styles.
+1. **The main app's editor, with its page built into the app.**
+   - **The editor comes over:** Tiptap 3.27.1, its extensions and its fixes.
+   - **Its page is built ahead of time** into one self-contained HTML file, fonts included, and shipped inside the app's code. A plain web view (`react-native-webview`, included in Expo Go) loads it from memory.
+     - So a note opens and edits offline everywhere: Expo Go, dev builds and release builds alike.
+     - In the main app, by contrast, the page comes from the development server while developing, so a note opened offline there can't load its editor.
+   - **A small message channel** replaces the DOM component's props and commands:
+     - the page says when it's ready, and the note goes in then (anything sent earlier waits);
+     - changes come back after a pause in typing and at least every second, as now;
+     - the formats under the cursor come back for the tools row, and the words before the cursor for word help later;
+     - commands go in: formats, lists, indent, link, insert text, insert a question, flush.
+   - **What it leaves out:** the main app's setup has two parts that caused trouble.
+     - `useDOMImperativeHandle` carries the commands, and Expo's docs say to "expect the behavior to be flakey and possibly phased out".
+     - The start-up wrapper was needed for the note's first text.
+   - **Local changes,** listed in `src/core/SOURCE.md`:
+     - **Questions as quotes.** `insertQuestion` adds a quote, not a plain paragraph (decision 1). Sage draws quotes as questions in your colour, and the main app reads them as quotes too.
+     - **Sage's look,** in the page's own styles: quotes as questions, round checklist ticks like the task check, links in your colour, Nunito Sans.
      - **Debug logging off.** The editor's `TRACE` logging is switched off.
+   - **Building it:** the page's source lives in `editor/`, with its own small build (Vite and vite-plugin-singlefile). `npm run editor` rebuilds `src/editor/page.ts`. That file is committed, so Metro and app builds need no extra step.
 2. **Lift the save rules out into a hook.**
    - `useNoteSession(id)` takes everything from the main app's note screen that isn't drawing: loading (draft or server copy), drafts, saves, flushing on leave and background.
    - The decision "which copy wins" becomes a pure function with its own tests.
-   - Title ideas and re-indexing have a place in the hook but switch on in phase 6, with the other AI help, as `docs/backend-plan.md` has it.
+   - Title ideas and re-indexing have a place in the hook but switch on in phase 6, with the other AI help.
 3. **Sage's note page around it.** Sage keeps its own page, now with the real editor in the middle.
-4. **A fallback when the editor page can't load.**
-   - In Expo Go, the editor page comes from the development server, so offline it can't load. (A real build carries the page inside the app; the main app recorded this on 2026-10-04.)
-   - If the page isn't ready within a few seconds, or reports an error, Sage shows the note read-only in today's block view, the one revamp 5 already draws from Markdown, and tries the editor again when back online. Nothing is lost, because a read-only view can't save over the rich copy.
+4. **If the page ever fails to start,** Sage shows the note read-only in today's block view, the one revamp 5 already draws from Markdown, with a way to try again. A read-only view can't save over anything, so nothing is lost.
 
 ## 3. Sage's note page with the editor
 
@@ -56,12 +68,10 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
   - **Aa** opens text styles: bold, italic, strike, heading, quote;
   - checklist, list, link, indent and outdent;
   - a keyboard-down button.
-  - Each tool shows when it's on, from the editor's `onState`. The image and microphone tools go until the main app has photos and dictation.
+  - Each tool shows when it's on, from the formats the page reports. The image and microphone tools wait until the main app has photos and dictation.
 - **Writing to Today's question:** the card opens a new page with its question as the first quote and the cursor under it. "Next question" adds another quote and moves the cursor under it. The page is saved as a `"page"` note.
 - **Go deeper,** at the end of a note, inserts its question as a quote, at the end.
-- **Where the questions come from:** Sage's own questions by time of day (`src/data/prompts.ts`), as now. Sage already writes them into notes as quotes (`> question`).
-  - The AI's questions come from the same call as word help (`suggestions/generate`), so they come with it in phase 6.
-  - That moves them one phase later than the backend plan had them.
+- **Where the questions come from:** Sage's own questions by time of day (`src/data/prompts.ts`), as now. Sage already writes them into notes as quotes (`> question`). Whether the AI writes some of them is an AI decision (`docs/backend-plan.md`, section 9).
 - **Tasks and Done:**
   - Done flushes, saves and leaves.
   - Tasks opens the note's tasks (Find tasks follows in phase 6).
@@ -78,46 +88,69 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
 - **Edit times.** Saves carry `changedAt` (phase 4), so the server's copy now carries the time of the edit rather than the time it arrived.
   - The main app's check (`applyNote`) uses the draft if it was written after the server copy's time.
   - Its new tests here include that case, so a server copy with an earlier time never wins over a draft written after it.
-- **Offline in Expo Go:** a note open before going offline keeps working. A note opened offline shows read-only, and returns to the editor once online. In a real build the editor opens offline too; that can be checked with an EAS preview build (one of the month's iOS builds), only if you want it.
+- **Offline:** the page is part of the app, so notes open and edit offline in Expo Go too. Only starting or reloading the app in Expo Go needs the development server.
 
 ## 5. Steps
 
 1. **Packages** (S):
-   - the Tiptap packages pinned at 3.27.1, `react-native-webview`, `expo-asset` and `react-native-keyboard-controller`;
+   - the Tiptap packages pinned at 3.27.1, `react-native-webview` and `react-native-keyboard-controller`;
+   - Vite and vite-plugin-singlefile, to build the page;
    - Metro is stopped during the install, because this machine runs out of memory otherwise.
-2. **The editor** (S): copy the editor and its wrapper; the three local changes; the main app's editor tests run against revamp 5's dev server.
+2. **The editor page** (M): the editor brought over; the build; the message channel with its ready handshake; Sage's styles; the main app's editor tests run against the built page.
 3. **`useNoteSession`** (M): the save rules lifted out, with the "which copy wins" rules tested on their own.
 4. **The page** (M):
    - Sage's note page with the editor, the tools row and the styles;
    - Today's question, Next question and Go deeper;
    - Done, archive and delete;
-   - the read-only fallback.
+   - the read-only view if the page fails to start.
 5. **Checks** (M):
-   - **The main app's editor tests:** about 75 checks.
-   - **New browser checks, as the test account:** write a note with formatting, then reopen it and check it's still there; tick a checklist row; write to a question; leave mid-sentence and reload, and check the words are kept; edit offline, then reconnect and check it arrives once with its time; Markdown-only notes from the main app open correctly.
-   - **On your phone:** typing, the keyboard and its tools row, the cursor staying in view, lists and Backspace, links, and the fallback in airplane mode.
+   - **The main app's editor tests:** about 75 checks, against the built page.
+   - **New browser checks, as the test account:**
+     - write a note with formatting, then reopen it and check the formatting is still there;
+     - tick a checklist row;
+     - write to a question;
+     - leave mid-sentence and reload, and check the words are kept;
+     - edit offline, then reconnect and check the change arrives once, with its time;
+     - Markdown-only notes from the main app open correctly.
+   - **On your phone:**
+     - typing, the keyboard and its tools row, the cursor staying in view;
+     - lists and Backspace, links;
+     - in airplane mode, a note opens and edits;
+     - how long the page takes to appear.
 
 The backend plan sizes this phase L. The page and the checks are the largest parts.
 
 ## 6. Not in this phase
 
-- Word help (the main app's suggestion tray of completions and sentence starters) comes with the AI work in phase 6, along with the AI's questions, title ideas and re-indexing.
+- The AI pieces come in phase 6: word help, the AI's questions, title ideas, re-indexing and Find tasks. The decisions they need are in `docs/backend-plan.md`, section 9.
 - Photos and dictation wait for the main app.
-- Find tasks is phase 6.
 
 ## 7. Risks
 
 | Risk | Handling |
 |---|---|
-| Typing feel in a web page inside the app (the cursor, the keyboard, scrolling) | The main app's editor has already met these problems and fixed several. Phone checks at each step; the browser tests catch regressions |
-| Losing the rich copy (indents, nesting) when only Markdown is sent | Markdown and the rich copy always go together; the fallback is read-only |
-| Expo Go can't open the editor offline | The read-only fallback; a preview build to confirm real-build behaviour, if wanted |
-| The main app's editor keeps changing | Copied from 4344bd8 with versions recorded in `SOURCE.md`; later fixes brought across deliberately |
-| Memory on this machine during the Tiptap install | Metro is stopped while packages install |
+| Typing feel in a web page inside the app (the cursor, the keyboard, scrolling) | The main app's editor has already met these problems and fixed several. The web view is set up the way 10tap sets up its own: no keyboard accessory bar, focus from code allowed, no scrolling of its own. Phone checks at each step; the browser tests catch regressions |
+| The message channel: messages lost or out of order while the page starts | A ready handshake, with anything sent earlier waiting for it; a test that sends a note before the page is up |
+| A bigger page that's slower to appear, with the fonts inside | Only Nunito Sans's three weights, Latin letters only; the start-up timed on the phone |
+| Losing the rich copy (indents, nesting) when only Markdown is sent | Markdown and the rich copy always go together; the read-only view can't save |
+| The two apps' editors drift apart | The editor code kept as close to the main app's as possible, with the differences in `SOURCE.md`. The main app can adopt the built page later, with your OK |
+| Memory on this machine during the install | Metro is stopped while packages install |
 
 ## 8. Decisions
 
-1. **Questions inside notes:** as quotes in your colour (recommended; the Markdown is `> question`), or as plain paragraphs like the main app.
-2. **Word help and the AI's questions, now or later:** later, with phase 6 (recommended), or bring the suggestion tray and the AI's questions now.
-3. **The tools row:** Aa (styles), checklist, list, link and indent (recommended), or the main app's full row of buttons.
-4. **A preview build** to confirm the editor opens offline in a real build: only if you want to spend one of the month's iOS builds.
+**Decided (2026-10-06):** the editor's page is built into the app.
+
+**Still open:**
+1. **Questions inside notes:** as quotes in your colour (recommended; Sage already writes them as `> question`), or as plain paragraphs like the main app.
+2. **The tools row:** Aa (styles), checklist, list, link and indent (recommended), or the main app's full row of buttons.
+
+Word help and the AI's questions are now among the AI decisions in `docs/backend-plan.md`, section 9. With the page built in, no preview build is needed to check offline behaviour; phase 8 still checks speed on a release build.
+
+## 9. Other options considered (2026-10-06)
+
+- **Native editors:** react-native-enriched-html, react-native-enriched-markdown, Expensify's live-markdown and apollohg's editor.
+  - They have the best typing feel, and Expo's guide recommends them for most apps.
+  - But each misses something these notes use (nested lists, quotes, checklists, or inserting at the cursor), or is very new. All of them need a dev build.
+  - Worth another look in a few months; they're changing quickly.
+- **10tap,** which packages Tiptap much as this plan does: no release since November 2025, and an unanswered report that it never starts on newer React Native.
+- **Simpler approaches:** plain Markdown with a formatted reading view isn't rich while you type. One text box per paragraph means building selection, paste and undo ourselves.
