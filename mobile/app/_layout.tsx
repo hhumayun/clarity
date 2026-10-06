@@ -37,10 +37,26 @@ const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 // Offline, queries pause and keep what they have rather than failing.
 startNetworkWatch();
 
+/** The longest delay a timer can take (2^31 - 1 ms, about 24.8 days); longer ones fire at once. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 export default function RootLayout() {
-  // Data is kept long enough to be written to the phone and read back offline.
+  // Data is kept long enough to be written to the phone and read back offline,
+  // but no longer than a timer can count: a 30-day keep-time fires at once,
+  // and everything restored from the phone is thrown away as it arrives (seen
+  // in revamp 5's web build). The copy on the phone still expires after 30 days.
+  // Changes are made on the phone and queued in the outbox, which waits for a
+  // connection by itself, so a mutation must never wait for one: React Query's
+  // default ("online") paused every change offline, on screen too, until the
+  // connection came back, and then stamped it with that later time.
   const [queryClient] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { gcTime: OFFLINE_MAX_AGE_MS } } }),
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { gcTime: Math.min(OFFLINE_MAX_AGE_MS, MAX_TIMER_MS) },
+          mutations: { networkMode: "always" },
+        },
+      }),
   );
   const [loaded, error] = useFonts({
     NunitoSans_400Regular,
