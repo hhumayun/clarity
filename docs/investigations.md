@@ -339,7 +339,7 @@ In `readDueDate`, not in chrono:
 
 ## Changes made offline are stamped with the time they sync, not when they were made
 
-**Reported:** 2026-10-01 · **Status:** open, small follow-up to offline support, not started
+**Reported:** 2026-10-01 · **Status:** partly fixed (2026-10-06): see Progress
 
 ### Symptom
 
@@ -368,6 +368,12 @@ the server's clock at arrival. Creates already carry the phone's time
   `updatedAt` to pick the newer copy (`note/[id].tsx`, `applyNote`). A
   back-dated `updatedAt` must not make an older server copy look newer than a
   draft written after it.
+
+### Progress (2026-10-06)
+
+- **Found while porting the offline layer to revamp 5:** React Query's default mutation `networkMode` (`"online"`) paused every change made offline. The hooks patch the cache and enqueue inside `mutationFn`, so offline nothing showed or queued until the connection came back, and then everything ran at once. That is much of this symptom. `app/_layout.tsx` now sets `mutations: { networkMode: "always" }`, since the outbox waits for a connection by itself.
+- **The server side is done:** `notes/update` and `tasks/update` accept `changedAt` since deployment e04e7540 (migration 014).
+- **Still to do here:** the phone doesn't send `changedAt` yet. Revamp 5's copy of `src/sync` and `src/hooks` does (see `prototypes/revamp-5/src/core/SOURCE.md` on the `revamp-5` branch), and can be brought across.
 
 ---
 
