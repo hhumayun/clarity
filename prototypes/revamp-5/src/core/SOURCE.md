@@ -62,6 +62,7 @@ Each one only adds, and is marked "(revamp 5)" in the code. They follow the API 
 - **A reminder for this time only (`remindOnce`, 2026-10-06; server migration 016).**
   - It's on `TaskRecord` (`types.ts`), in the task create and update bodies (`api/tasks.ts`, `sync/outbox.ts`, where creates may take it), and in the tasks hook's create and cache patch (`hooks/useTasks.ts`).
   - `lib/reminderRules.ts`: `reminderTimes` gives a reminder for this time only once, though the task repeats. `withReminders` clears it (`remindBefore: null, remindOnce: false`) when a repeating task comes back. Tested by `src/data/reminders.test.ts`.
+- `api/tasks.ts`: `postTaskDismissSuggestion` (2026-10-07), for "Not now" on a found task. The server already had the endpoint; the main app doesn't call it.
 
 ## The editor (phase 5, 2026-10-06)
 

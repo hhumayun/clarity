@@ -4,6 +4,7 @@ import { parseTask } from "../lib/parseTask";
 import { emptyHistory, type Area, type Block, type FocusHistory, type Note, type Outcome, type Repeat, type Suggestion, type Task } from "./model";
 import { seed } from "./seed";
 
+export type FindResult = "found" | "none" | "nothing-new" | "failed";
 type NewTask = { title: string; area: string; day: Day | null; time: number | null; noteId?: string | null };
 
 type State = {
@@ -64,7 +65,8 @@ type State = {
   archiveNote: (noteId: string) => void;
   deleteNote: (noteId: string) => void;
 
-  findTasks: (noteId: string) => "found" | "none" | "nothing-new";
+  /** Looks for tasks in a note's words: at once in the samples, through the AI for an account (which can fail). */
+  findTasks: (noteId: string) => FindResult | Promise<FindResult>;
   toggleSuggestion: (noteId: string, key: string) => void;
   dismissSuggestions: (noteId: string) => void;
   addSuggestions: (noteId: string) => number;

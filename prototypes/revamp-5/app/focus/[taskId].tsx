@@ -1,4 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useAiReady } from "../../src/data/ai";
+import { useFirstSteps } from "../../src/core/hooks/useFocus";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -25,7 +27,7 @@ import { useFocusHistory, useTask } from "../../src/data/hooks";
 import type { FocusLength, Outcome } from "../../src/store/model";
 import { clockLabel } from "../../src/store/selectors";
 import { useDevice } from "../../src/state/device";
-import { useSage } from "../../src/data/sage";
+import { useSage, useDataMode } from "../../src/data/sage";
 import { calm, duration, easeInOut, easeOut, spring } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { dark as room, edge, pad, radius, space } from "../../src/theme/tokens";
@@ -90,6 +92,11 @@ export default function Focus() {
   const speed = prefs.fastTimers ? 30 : 1;
 
   const [phase, setPhase] = useState<Phase>("setup");
+  // First steps from the AI for your account's task, with AI help on; Sage's own otherwise.
+  const account = useDataMode((state) => state.mode) === "account";
+  const aiReady = useAiReady();
+  const firstSteps = useFirstSteps(taskId, account && aiReady && phase === "setup");
+  const aiSteps = account && firstSteps.data?.steps.length ? firstSteps.data.steps.slice(0, 3) : null;
   const [length, setLength] = useState<number>(prefs.focusLength);
   const [step, setStep] = useState(() => firstStepFrom(history?.leftOff ?? null));
   const [secondsLeft, setSecondsLeft] = useState(length * 60);
@@ -279,7 +286,7 @@ export default function Focus() {
                 <Field icon="flag" value={step} onChangeText={setStep} placeholder="What's your first small step?" />
               </Card>
               <View style={styles.ideas}>
-                {suggestSteps(task.title).map((idea) => (
+                {(aiSteps ?? suggestSteps(task.title)).map((idea) => (
                   <Chip key={idea} icon="sparkles" label={idea} onPress={() => (tick(), setStep(idea))} accessibilityLabel={`Use: ${idea}`} />
                 ))}
               </View>

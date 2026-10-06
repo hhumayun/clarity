@@ -43,6 +43,7 @@ mkdir -p /tmp/clarity-revamp-5          # some write their output here
 | `account-check.mjs` | 15 checks of Sage on your data's screens |
 | `offline-check.mjs` | 19 offline checks: airplane mode, a restart with the server blocked, area remap |
 | `editor-account.mjs` | 16 note checks: one create and one save on leaving, rich text stored as a document, reopened with it, deleted from its menu, nothing else touched |
+| `ai-account.mjs` | 28 checks of AI help: asked about once after skipping the opening screens; off, nothing goes to an AI endpoint (a note left, its tasks, a task's page, Focus); on, Find tasks, a quiet title and one index on leaving an untitled note, how it's going, first steps; off again, nothing |
 | `remind-check.mjs` | 6 checks: "just this time" kept by the server; AI answering through zero-retention endpoints |
 | `API=live api-check.mjs` | 16 checks of the API changes (migration 014's) |
 | `clean-test-account.mjs`, `peek-test-account.mjs` | remove "Sage check" items; look at what's there |

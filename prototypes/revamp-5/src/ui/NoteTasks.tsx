@@ -5,6 +5,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanim
 import { useShallow } from "zustand/react/shallow";
 import type { Suggestion } from "../store/model";
 import { whenLabel } from "../store/selectors";
+import { useAiOn, useAiReady } from "../data/ai";
 import { useSage, useWhenEditable } from "../data/sage";
 import { duration, easeOut } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
@@ -38,21 +39,30 @@ export function NoteTasks({ noteId }: { noteId: string }) {
   const findTasks = useSage((state) => state.findTasks);
   const [looking, setLooking] = useState(false);
   const [nothing, setNothing] = useState(false);
+  // Finding tasks is AI help: only when it's on, and for an account, online.
+  const aiOn = useAiOn();
+  const aiReady = useAiReady();
 
-  const look = () => {
+  const look = async () => {
     if (looking) return;
+    if (!aiReady) {
+      acknowledge("Finding tasks needs a connection", "cloudOff");
+      return;
+    }
     setNothing(false);
     setLooking(true);
-    setTimeout(() => {
-      const result = findTasks(noteId);
-      setLooking(false);
-      if (result === "none") setNothing(true);
-      if (result === "nothing-new") acknowledge("Nothing new since the last look", "sparkles");
-    }, 1_400);
+    const started = Date.now();
+    const result = await findTasks(noteId);
+    // The dots stay a moment either way, so reading never flickers.
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, 1_400 - (Date.now() - started))));
+    setLooking(false);
+    if (result === "none") setNothing(true);
+    if (result === "nothing-new") acknowledge("Nothing new since the last look", "sparkles");
+    if (result === "failed") acknowledge("Couldn't read this note just now. Try again in a moment.", "sparkles");
   };
-  // The first time a note's tasks are opened, look for some.
+  // The first time a note's tasks are opened, look for some (with AI help on).
   useEffect(() => {
-    if (!searched) look();
+    if (!searched && aiReady) void look();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -105,8 +115,19 @@ export function NoteTasks({ noteId }: { noteId: string }) {
       />
       <ButtonPair style={styles.actions}>
         <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=none&note=${noteId}`))} />
-        <Button label={looking ? "Reading" : "Find tasks"} icon="sparkles" variant="secondary" size="md" flex state={looking ? "busy" : "idle"} onPress={look} accessibilityLabel="Find tasks in this note" />
+        {aiOn ? (
+          <Button label={looking ? "Reading" : "Find tasks"} icon="sparkles" variant="secondary" size="md" flex state={looking ? "busy" : "idle"} onPress={() => void look()} accessibilityLabel="Find tasks in this note" />
+        ) : null}
       </ButtonPair>
+      {aiOn ? null : (
+        <Pressable onPress={() => router.push("/settings")} accessibilityRole="button" accessibilityLabel="Finding tasks needs AI help. Open Settings" hitSlop={8} style={styles.link}>
+          {({ pressed }) => (
+            <Txt variant="footnote" tone="ink3" center style={{ opacity: pressed ? 0.5 : 1 }}>
+              Finding tasks in a note needs AI help, which is off. Turn it on in Settings.
+            </Txt>
+          )}
+        </Pressable>
+      )}
       <Pressable onPress={() => router.push(`/sheet/link-task?note=${noteId}`)} accessibilityRole="button" accessibilityLabel="Link an existing task" hitSlop={8} style={styles.link}>
         {({ pressed }) => (
           <View style={[styles.linkRow, { opacity: pressed ? 0.5 : 1 }]}>

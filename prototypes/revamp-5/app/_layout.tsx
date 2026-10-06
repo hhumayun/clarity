@@ -150,6 +150,7 @@ function Navigator() {
   const hydrated = useDevice((state) => state.hydrated);
   const demo = useDevice((state) => state.demo);
   const onboarded = useDevice((state) => state.onboarded);
+  const ai = useDevice((state) => state.ai);
   const [patience, setPatience] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setPatience(true), PATIENCE_MS);
@@ -162,9 +163,12 @@ function Navigator() {
   }, [hydrated, authState.type, patience]);
 
   const signedIn = authState.type === "authenticated";
-  const inApp = signedIn ? onboarded : demo;
+  // Signed in, AI help is asked about once before the app opens (on the
+  // opening screens, or on its own for phones that came through them before).
+  const askAi = signedIn && onboarded && ai === null;
+  const inApp = signedIn ? onboarded && !askAi : demo;
   const firstRun = signedIn && !onboarded;
-  const outside = !inApp && !firstRun;
+  const outside = !inApp && !firstRun && !askAi;
 
   return (
     <>
@@ -200,6 +204,9 @@ function Navigator() {
           </Stack.Protected>
           <Stack.Protected guard={firstRun}>
             <Stack.Screen name="first-run" options={{ animation: "fade" }} />
+          </Stack.Protected>
+          <Stack.Protected guard={askAi}>
+            <Stack.Screen name="ai-choice" options={{ animation: "fade" }} />
           </Stack.Protected>
           <Stack.Protected guard={outside}>
             <Stack.Screen name="(auth)" options={{ animation: "fade" }} />

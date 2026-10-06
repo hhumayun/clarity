@@ -1,11 +1,13 @@
-import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { onlineManager, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { findCachedNote, getNote, upsertNoteInLists } from "../core/hooks/useNotes";
 import { TASKS_QUERY_KEY } from "../core/hooks/useTasks";
 import { localDrafts, type LocalDraft } from "../core/lib/localDrafts";
 import { noteDocs } from "../core/lib/noteDocs";
-import { outbox } from "../core/sync/store";
+import { postNotesReindex, postSuggestTitle } from "../core/api/notes";
+import { outbox, waitUntilSynced } from "../core/sync/store";
+import { aiOn } from "../data/ai";
 import type { NoteRecord, ProjectRecord } from "../core/types";
 import { hasWriting, markdownOfBlocks, noteFacts } from "../data/adapt";
 import { getSage, useSage } from "../data/sage";
@@ -354,6 +356,37 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
     }
   }, [title, changes, loaded, draftKey]);
 
+  /**
+   * Leaving a note whose words changed, with AI help on and a connection: an
+   * untitled one is given a title quietly (from its words as they now stand),
+   * and the note is indexed once, so word help can draw on it. Nothing is
+   * offered while writing. Both wait for the note to reach the server.
+   */
+  const afterLeaving = () => {
+    const id = noteIdRef.current;
+    const content = contentRef.current;
+    if (!id || !aiOn() || !onlineManager.isOnline() || content === baselineRef.current) return;
+    const untitled = !titleRef.current.trim() && !titleTouchedRef.current && hasWriting("", content, askedRef.current());
+    void (async () => {
+      await waitUntilSynced(`note:${id}`, 10_000);
+      if (untitled) {
+        try {
+          const { title } = await postSuggestTitle({ content });
+          const current = findCachedNote(queryClient, id);
+          // Titled meanwhile (here or elsewhere): that title stays.
+          if (title && !current?.title.trim()) {
+            const now = new Date();
+            outbox.enqueue({ kind: "note.update", body: { id, title, changedAt: now } });
+            if (current) upsertNoteInLists(queryClient, { ...current, title, updatedAt: now });
+          }
+        } catch {
+          // Untitled is fine: the lists show its first line.
+        }
+      }
+      void postNotesReindex({ noteId: id }).catch(() => {});
+    })();
+  };
+
   /** To the server now, not waiting for the minute. */
   const sendNow = useCallback(() => {
     if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
@@ -395,6 +428,7 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
       if (leftRef.current) return;
       leftRef.current = true;
       sendNow();
+      afterLeaving();
     },
     saveNow: sendNow,
     restart: (markdown, doc) => {

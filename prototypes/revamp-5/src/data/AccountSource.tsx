@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { saveOfflineCopyNow } from "../core/sync/persist";
-import { outbox } from "../core/sync/store";
+import { outbox, waitUntilSynced } from "../core/sync/store";
+import { postTaskDismissSuggestion } from "../core/api/tasks";
 import { usePendingCount } from "../core/sync/SyncProvider";
 import { useFocusSummary, useRecordFocus } from "../core/hooks/useFocus";
 import { useCreateNote, useDeleteNote, useNotes, useUpdateNote } from "../core/hooks/useNotes";
@@ -13,6 +14,9 @@ import { byName, hhmm, noonOf, noteContent, pagesOf, toArea, toFocus, toNote, to
 import { declined, emptyAccount, setAccountNotifier, useAccountStore, type AccountState } from "./account";
 import { syncNoticesQuiet } from "./quiet";
 import { useDataMode, useOnline } from "./sage";
+import { aiOn } from "./ai";
+import { dayOf } from "../lib/dates";
+import type { Suggestion } from "../store/model";
 
 /**
  * Every signed-in account saves. Until phase 4's offline checks passed, only
@@ -237,14 +241,57 @@ export function AccountSource() {
     useAccountStore.setState({ editable: true, ...actions });
   }, [editable]);
 
-  // Finding tasks asks the AI; it comes with its own phase.
+  // Find tasks: the AI reads the note (once its words have reached the
+  // server) and the found tasks wait on their cards. Add adds one there and
+  // then; Not now is kept on the server, so it doesn't come back. Only with
+  // AI help on; the samples have their own.
   useEffect(() => {
-    const later = "Finding tasks comes later";
+    const found = (noteId: string) => useAccountStore.getState().suggestions[noteId] ?? [];
+    const setFound = (noteId: string, items: Suggestion[]) =>
+      useAccountStore.setState((state) => ({ suggestions: { ...state.suggestions, [noteId]: items } }));
+    const addTasks = (noteId: string, items: Suggestion[]) => {
+      if (!items.length) return;
+      latest.current.tasks.addSuggested.mutate({ noteId, tasks: items.map((item) => ({ text: item.title, projectName: item.area, completeBy: item.day ? noonOf(item.day) : null })) });
+      const keys = new Set(items.map((item) => item.key));
+      setFound(noteId, found(noteId).map((item) => (keys.has(item.key) ? { ...item, added: true } : item)));
+    };
     useAccountStore.setState({
-      findTasks: () => (declined(later), "none"),
-      addSuggestions: () => (declined(later), 0),
-      addSuggestion: () => declined(later),
-      skipSuggestion: () => declined(later),
+      findTasks: async (noteId) => {
+        if (!aiOn()) return "none";
+        try {
+          await waitUntilSynced(`note:${noteId}`, 8_000);
+          const { suggested, unchanged } = await latest.current.tasks.extract.mutateAsync({ noteId });
+          const items: Suggestion[] = suggested.map((task, i) => ({
+            key: `${noteId}:${i}:${task.text}`,
+            title: task.text,
+            area: task.projectName,
+            day: task.completeBy ? dayOf(task.completeBy) : null,
+            time: null,
+            picked: true,
+          }));
+          useAccountStore.setState((state) => ({ suggestions: { ...state.suggestions, [noteId]: items }, searched: { ...state.searched, [noteId]: true } }));
+          if (items.length) return "found";
+          return unchanged ? "nothing-new" : "none";
+        } catch {
+          return "failed";
+        }
+      },
+      toggleSuggestion: (noteId, key) => setFound(noteId, found(noteId).map((item) => (item.key === key ? { ...item, picked: !item.picked } : item))),
+      addSuggestion: (noteId, key) => addTasks(noteId, found(noteId).filter((item) => item.key === key && !item.added)),
+      addSuggestions: (noteId) => {
+        const items = found(noteId).filter((item) => item.picked && !item.added);
+        addTasks(noteId, items);
+        return items.length;
+      },
+      skipSuggestion: (noteId, key) => {
+        const item = found(noteId).find((suggestion) => suggestion.key === key);
+        setFound(noteId, found(noteId).filter((suggestion) => suggestion.key !== key));
+        if (item) void postTaskDismissSuggestion({ noteId, text: item.title }).catch(() => {});
+      },
+      dismissSuggestions: (noteId) => {
+        for (const item of found(noteId)) if (!item.added) void postTaskDismissSuggestion({ noteId, text: item.title }).catch(() => {});
+        setFound(noteId, []);
+      },
     });
   }, []);
 

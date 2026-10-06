@@ -3,11 +3,12 @@ import { BackHandler, Pressable, ScrollView, StyleSheet, View } from "react-nati
 import Animated, { LinearTransition, useReducedMotion, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Magnifier, Notebook, Tea } from "../src/art/Pictures";
+import { AI_CHOICE } from "../src/data/ai";
 import { useDevice } from "../src/state/device";
 import { duration, easeOut, spring } from "../src/theme/motion";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, space } from "../src/theme/tokens";
-import { Button } from "../src/ui/Button";
+import { Button, ButtonPair } from "../src/ui/Button";
 import { AccentSwatches, PaperTiles } from "../src/ui/ColourPicker";
 import { done as doneHaptic, tick } from "../src/ui/haptics";
 import { Icon } from "../src/ui/Icon";
@@ -16,8 +17,9 @@ import { Txt } from "../src/ui/Txt";
 
 const STEPS = [
   { key: "write", title: "Write freely", body: "Notes save themselves as you type. Nothing to remember, nothing to lose." },
-  { key: "help", title: "Gentle help", body: "Clarity finds the tasks in what you write, and offers a word when one is hard to find. Take it or leave it." },
-  { key: "yours", title: "Yours alone", body: "Your notes belong to you and are never shared. You can stop the app learning from your writing in Settings." },
+  // The one question on the way in: AI help, said plainly (2026-10-06).
+  { key: "help", title: AI_CHOICE.title, body: AI_CHOICE.body },
+  { key: "yours", title: "Yours alone", body: "Your notes belong to you and are never shared with other people. Turn AI help on or off, or stop it learning from your writing, in Settings." },
   { key: "colour", title: "Pick a colour", body: "Buttons, checks and focus time take it. You can change it any time in Settings." },
 ] as const;
 
@@ -26,8 +28,10 @@ const pills = LinearTransition.duration(duration.base).easing(easeOut);
 /**
  * The first time in: three short pages about what Clarity is, then your
  * colour and paper, Rosebud's "pick a colour, any colour". The app takes
- * the colour at once, the leaf with it. Skip, or the last button, ends it
- * for good on this phone; Back goes a page back.
+ * the colour at once, the leaf with it. The second page asks the one
+ * question: AI help, on or not now. Skip, or the last button, ends it for
+ * good on this phone (skipped, the AI question is asked once on its own);
+ * Back goes a page back.
  */
 export default function FirstRun() {
   const { colors, accent, dark } = useTheme();
@@ -36,6 +40,7 @@ export default function FirstRun() {
   const prefs = useDevice((state) => state.prefs);
   const setPref = useDevice((state) => state.setPref);
   const setOnboarded = useDevice((state) => state.setOnboarded);
+  const setAi = useDevice((state) => state.setAi);
   const [step, setStep] = useState(0);
   const [forward, setForward] = useState(true);
   const last = step === STEPS.length - 1;
@@ -130,7 +135,30 @@ export default function FirstRun() {
         </Animated.View>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space[3]) + space[2] }]}>
-        <Button label={last ? "Start writing" : "Next"} icon={last ? "compose" : undefined} onPress={last ? finish : () => go(step + 1)} />
+        {current.key === "help" ? (
+          <ButtonPair>
+            <Button
+              label="Not now"
+              variant="outline"
+              flex
+              onPress={() => {
+                setAi("off");
+                go(step + 1);
+              }}
+            />
+            <Button
+              label="Turn on AI help"
+              icon="sparkles"
+              flex
+              onPress={() => {
+                setAi("on");
+                go(step + 1);
+              }}
+            />
+          </ButtonPair>
+        ) : (
+          <Button label={last ? "Start writing" : "Next"} icon={last ? "compose" : undefined} onPress={last ? finish : () => go(step + 1)} />
+        )}
       </View>
     </View>
   );

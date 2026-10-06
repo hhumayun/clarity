@@ -148,6 +148,20 @@ export async function postTasksExtract(
   };
 }
 
+/** "Not now" on a found task: the server keeps it out of later looks (revamp 5). */
+export async function postTaskDismissSuggestion(
+  body: { noteId: string; text: string },
+  init?: RequestInit,
+): Promise<{ dismissed: true }> {
+  const result = await apiFetch("/_api/tasks/dismiss_suggestion", {
+    method: "POST",
+    body: superjson.stringify(body),
+    ...init,
+    headers: jsonHeaders(init),
+  });
+  return parseResponse(result);
+}
+
 export async function postTasksAdd(
   body: {
     noteId: string;

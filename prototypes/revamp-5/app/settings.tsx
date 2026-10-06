@@ -9,6 +9,7 @@ import { getAccountExport, postAccountDelete } from "../src/core/api/account";
 import { useClearPersonalization, usePreferences, useUpdatePreferences } from "../src/core/hooks/usePreferences";
 import { useAuth } from "../src/core/providers/AuthProvider";
 import { usePendingCount } from "../src/core/sync/SyncProvider";
+import { useAiOn } from "../src/data/ai";
 import { useDevice } from "../src/state/device";
 import type { FocusLength } from "../src/store/model";
 import { isTestAccount } from "../src/data/AccountSource";
@@ -42,6 +43,8 @@ export default function Settings() {
   const { authState } = useAuth();
   const prefs = useDevice((state) => state.prefs);
   const setPref = useDevice((state) => state.setPref);
+  const aiOn = useAiOn();
+  const setAi = useDevice((state) => state.setAi);
   const reset = useSage((state) => state.reset);
   const demo = useDataMode((state) => state.mode) === "demo";
 
@@ -64,6 +67,20 @@ export default function Settings() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + space[12] }}>
         <Caption first>Account</Caption>
         {authState.type === "authenticated" ? <Account email={authState.user.email} /> : <LookingAround />}
+
+        <Caption>AI help</Caption>
+        <CardGroup style={styles.group}>
+          <ToggleRow
+            icon="sparkles"
+            label="AI help"
+            detail="Finds tasks, asks questions and offers words. What it reads goes to AI companies that don't keep it or train on it."
+            value={aiOn}
+            onChange={(value) => setAi(value ? "on" : "off")}
+          />
+        </CardGroup>
+        <Txt variant="footnote" tone="ink3" center style={styles.note}>
+          {aiOn ? "When it's off, nothing is sent to an AI, and Sage's own questions stand in." : "Nothing is sent to an AI. Sage's own questions stand in."}
+        </Txt>
 
         <Caption>Your colour</Caption>
         <AccentSwatches value={prefs.accent} onChange={(name) => setPref("accent", name)} />
@@ -164,6 +181,7 @@ export default function Settings() {
 
 /** Signed in: who you are, your notes to take away, what the app may learn, and the doors out. */
 function Account({ email }: { email: string }) {
+  const aiOn = useAiOn();
   const { colors } = useTheme();
   const { user } = useUser();
   const { logout } = useAuth();
@@ -224,13 +242,16 @@ function Account({ email }: { email: string }) {
           </Txt>
           {exporting ? <Spinner color={colors.ink3} size={18} /> : null}
         </CardRow>
-        <ToggleRow
-          icon="sparkles"
-          label="Learn from my writing"
-          detail="Better word help, from phrases you've liked."
-          value={preferences.data?.usePersonalization ?? true}
-          onChange={(value) => updatePreferences.mutate({ usePersonalization: value })}
-        />
+        {/* Only AI help learns, so this only matters while it's on. */}
+        {aiOn ? (
+          <ToggleRow
+            icon="sparkles"
+            label="Learn from my writing"
+            detail="Better word help, from phrases you've liked."
+            value={preferences.data?.usePersonalization ?? true}
+            onChange={(value) => updatePreferences.mutate({ usePersonalization: value })}
+          />
+        ) : null}
       </CardGroup>
       <View style={styles.actions}>
         <AskInPlace

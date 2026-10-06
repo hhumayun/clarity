@@ -65,12 +65,12 @@ export function emptyAccount(): Omit<AccountState, "refresh"> {
     writeNote: () => declined(),
     archiveNote: () => declined(),
     deleteNote: () => declined(),
-    findTasks: () => (declined("Finding tasks comes later"), "none"),
+    findTasks: () => (declined(), "none"),
     toggleSuggestion: () => {},
     dismissSuggestions: () => {},
-    addSuggestions: () => (declined("Finding tasks comes later"), 0),
-    addSuggestion: () => declined("Finding tasks comes later"),
-    skipSuggestion: () => declined("Finding tasks comes later"),
+    addSuggestions: () => (declined(), 0),
+    addSuggestion: () => declined(),
+    skipSuggestion: () => declined(),
     // The samples' reset has nothing to do with an account.
     reset: () => {},
   };

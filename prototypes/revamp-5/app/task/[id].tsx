@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAiOn, useAiReady } from "../../src/data/ai";
+import { useTaskSummary } from "../../src/core/hooks/useTasks";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
@@ -7,7 +9,7 @@ import { addDays, dayLabel, durationLabel, today } from "../../src/lib/dates";
 import { useFocusHistory, useTask } from "../../src/data/hooks";
 import type { FocusHistory, Note, Task } from "../../src/store/model";
 import { clockLabel, noteGroup, reminderLabel, repeatLabels, shortDate, sinceLabel } from "../../src/store/selectors";
-import { useSage, useUnsent } from "../../src/data/sage";
+import { useSage, useUnsent, useDataMode } from "../../src/data/sage";
 import { duration, easeOut } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
@@ -221,49 +223,71 @@ export default function TaskScreen() {
 }
 
 /**
- * How a task is going, read from its notes and focus time. The first time
- * the page opens Clarity "reads" (three dots), then the summary streams in
- * word by word and the steps that led here follow. With nothing to read,
- * the card isn't there.
+ * How a task is going, read from its notes and focus time. With AI help on
+ * (an account), the AI's summary, which the server keeps until the notes or
+ * focus time change; otherwise Sage's own reading of them. Either way it
+ * "reads" first (three dots), then the words stream in and the steps that
+ * led here follow, once; coming back, it's simply there. With nothing to
+ * read, the card isn't there.
  */
 function HowItsGoing({ task, history, notes }: { task: Task; history: FocusHistory | undefined; notes: Note[] }) {
+  const account = useDataMode((state) => state.mode) === "account";
+  const aiOn = useAiOn();
+  const own = summarise(task, history, notes);
+  if (account && aiOn) return <AiHowItsGoing task={task} own={own} />;
+  return own ? <SummaryCard id={task.id} text={own.text} steps={own.steps} pace /> : null;
+}
+
+/** The AI's summary, with Sage's own standing in offline (nothing kept yet) or if it can't be had. */
+function AiHowItsGoing({ task, own }: { task: Task; own: ReturnType<typeof summarise> }) {
+  const ready = useAiReady();
+  const query = useTaskSummary(task.id, ready);
+  if (query.data) {
+    if (!query.data.summary) return null;
+    const steps = query.data.progress.map((step) => ({ when: dayLabel(step.date), text: step.text }));
+    return <SummaryCard id={task.id} text={query.data.summary} steps={steps} />;
+  }
+  if (query.isFetching) return <SummaryCard id={task.id} text={null} steps={[]} />;
+  return own ? <SummaryCard id={task.id} text={own.text} steps={own.steps} pace /> : null;
+}
+
+/** The card: dots while reading, then the words streaming in, then the steps. `pace` reads a moment first (Sage's own is instant). */
+function SummaryCard({ id, text, steps, pace = false }: { id: string; text: string | null; steps: { when: string; text: string }[]; pace?: boolean }) {
   const { colors, accent } = useTheme();
-  const seen = summarised.has(task.id);
+  const seen = summarised.has(id);
   const [phase, setPhase] = useState<"reading" | "writing" | "done">(seen ? "done" : "reading");
   useEffect(() => {
-    if (phase !== "reading") return;
-    const timer = setTimeout(() => setPhase("writing"), 1_300);
+    if (phase !== "reading" || text === null) return;
+    const timer = setTimeout(() => setPhase("writing"), pace ? 1_300 : 0);
     return () => clearTimeout(timer);
-  }, [phase]);
-  const summary = summarise(task, history, notes);
-  if (!summary) return null;
+  }, [phase, text, pace]);
   return (
     <>
       <SectionTitle title="How it's going" icon="sparkles" />
       <Animated.View layout={settle} style={[styles.reflection, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>
-        {phase === "reading" ? (
+        {phase === "reading" || text === null ? (
           <Animated.View exiting={FadeOut.duration(duration.quick)} style={styles.reading}>
             <ThinkingDots />
           </Animated.View>
         ) : phase === "writing" ? (
           <StreamText
-            text={summary.text}
+            text={text}
             variant="callout"
             onDone={() => {
-              summarised.add(task.id);
+              summarised.add(id);
               setTimeout(() => setPhase("done"), 120);
             }}
           />
         ) : (
-          <Txt variant="callout">{summary.text}</Txt>
+          <Txt variant="callout">{text}</Txt>
         )}
-        {phase === "done" && summary.steps.length ? (
+        {phase === "done" && text !== null && steps.length ? (
           <Animated.View entering={seen ? undefined : FadeInDown.duration(duration.enter).easing(easeOut)} style={[styles.steps, { borderTopColor: colors.hairline }]}>
-            {summary.steps.map((step, i) => (
+            {steps.map((step, i) => (
               <View key={i} style={styles.step}>
                 <View style={styles.rail}>
-                  <View style={[styles.stepDot, { backgroundColor: i === summary.steps.length - 1 ? accent.solid : colors.line }]} />
-                  {i < summary.steps.length - 1 ? <View style={[styles.stepLine, { backgroundColor: colors.line }]} /> : null}
+                  <View style={[styles.stepDot, { backgroundColor: i === steps.length - 1 ? accent.solid : colors.line }]} />
+                  {i < steps.length - 1 ? <View style={[styles.stepLine, { backgroundColor: colors.line }]} /> : null}
                 </View>
                 <View style={styles.flex}>
                   <Txt variant="footnote" tone="ink3">
