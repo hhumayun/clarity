@@ -129,10 +129,14 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
   const draftKey = isNew ? (newId as string) : routeId;
   const [noteId, setNoteId] = useState<string | null>(isNew ? null : routeId);
   const noteIdRef = useRef(noteId);
-  const [title, setTitleState] = useState("");
-  const titleRef = useRef("");
+  // Opened from a list, its title is there from the first frame, not filled
+  // in a moment later as the page slides in (the words follow once the
+  // phone's copy of them is read).
+  const [listedAtOpen] = useState(() => (isNew ? null : findCachedNote(queryClient, routeId)));
+  const [title, setTitleState] = useState(listedAtOpen?.title ?? "");
+  const titleRef = useRef(listedAtOpen?.title ?? "");
   const [loaded, setLoaded] = useState(false);
-  const [createdAt, setCreatedAt] = useState<Date | null>(isNew ? new Date() : null);
+  const [createdAt, setCreatedAt] = useState<Date | null>(isNew ? new Date() : listedAtOpen ? new Date(listedAtOpen.createdAt) : null);
   const [missing, setMissing] = useState(false);
   const [written, setWritten] = useState(!isNew);
   const [seed, setSeed] = useState<EditorSeed>({ key: "boot", markdown: "", doc: null, focus: null });

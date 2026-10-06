@@ -38,6 +38,10 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
 
 - **Phase 6, AI help, is built** (f927c7a and the commit after it). See "Phase 6" below for what's in and what's left.
 
+- **From the user's phone test (2026-10-06):**
+  - **A jolt as a note opened:** for an account's note, the title filled in a moment after the page arrived (two phone-storage reads), the words rose 8 points as they faded in, and Go deeper popped in under them. Now the title comes from the list's copy at once, the words only fade, and Go deeper is there from the start. The editor page also sets up its fonts once, and says it's shown only once they're loaded and the words are drawn. Check: `tests/checks/note-open.mjs`.
+  - **Area filters:** the chips tick (Notes and Life; Search already did). Life's lag was every leaving row's fade-out and every staying row's slide (Reanimated exit and layout animations, and the measuring they force), so filtering now goes in steps a frame apart (`src/ui/quietFilter.ts`): the chip, then the rows drop their animations, then the list changes. Life also keeps two screens drawn either side, not four. In the web build at 4× slower CPU with 80 tasks, the chip went from 1.2–2.6 s to 0.15–0.3 s from the press, and the rows on screen from 1.2–2.6 s (then a third of a second of sliding) to 0.95–1.3 s, settled. `tests/checks/filter-lag.mjs`.
+
 ## Waiting on the user
 
 - **A phone test of everything above:** the editor, the feedback changes, the tab changes, and now AI help. They haven't tried any of it on the phone yet.

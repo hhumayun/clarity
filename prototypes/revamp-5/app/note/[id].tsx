@@ -148,12 +148,14 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
     router.back();
   }, [session.missing, acknowledge, router]);
 
-  // The words fade in and rise a little once the editor has them.
+  // The words fade in where they'll stay once the editor has drawn them (in
+  // Sage's face, see editor/main.ts), as the lines standing in for them fade
+  // out. Nothing moves: words being read don't slide.
   const reveal = useSharedValue(0);
   useEffect(() => {
-    reveal.value = shown ? withTiming(1, { duration: duration.enter, easing: easeOut }) : 0;
+    reveal.value = shown ? withTiming(1, { duration: duration.base, easing: easeOut }) : 0;
   }, [shown, reveal]);
-  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value, transform: [{ translateY: (1 - reveal.value) * 8 }] }));
+  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
 
   // Leaving, however it happens (Done, back, the swipe back): words typed in
   // the last moment come over from the editor, and everything is saved.
@@ -277,13 +279,8 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
     acknowledge("Deleted");
   };
 
-  // Go deeper asks about the note as it stood when it first showed on this
-  // visit: once per visit, not again after each small edit.
-  const deeperRef = useRef<string | null>(null);
-  const deeperText = () => {
-    if (deeperRef.current === null) deeperRef.current = textRef.current ?? session.seed.markdown;
-    return deeperRef.current;
-  };
+  // What Go deeper asks the AI about: the note as it stands when asked.
+  const noteText = () => textRef.current ?? session.seed.markdown;
 
   const meta = (note ? `${longDay(note.day)} · ${noteTime(note.time)}` : longDay(today())).toUpperCase();
   const fresh = isNew && !session.written;
@@ -443,11 +440,12 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
           </View>
         ) : keyboardUp ? null : (
           <View style={[styles.bottom, { borderTopColor: colors.hairline, paddingBottom: Math.max(insets.bottom, space[3]) }]}>
-            {!isNew && session.noteId && shown ? (
+            {/* There from the first frame, so nothing pops in under the words as they arrive. */}
+            {!isNew && session.noteId && !failed ? (
               <GoDeeper
                 noteId={session.noteId}
                 title={session.title}
-                markdown={deeperText()}
+                text={noteText}
                 visit={help.questions}
                 asked={asked.list()}
                 onAdd={(question) => {
@@ -509,16 +507,18 @@ function QuestionTool({ icon, label, onPress }: { icon: IconName; label: string;
  * wanted (once per version of the note), so opening a note to read costs
  * nothing.
  */
-function GoDeeper({ noteId, title, markdown, visit, asked, onAdd }: { noteId: string; title: string; markdown: string; visit: string[]; asked: string[]; onAdd: (question: string) => void }) {
+function GoDeeper({ noteId, title, text, visit, asked, onAdd }: { noteId: string; title: string; text: () => string; visit: string[]; asked: string[]; onAdd: (question: string) => void }) {
   const { colors } = useTheme();
   const demo = useDataMode((state) => state.mode) === "demo";
   const aiReady = useAiReady();
   const promptType = useType("prompt");
   const [n, setN] = useState(0);
   const [open, setOpen] = useState(true);
-  const [askAi, setAskAi] = useState(false);
+  // The note as it stood when another question was wanted (null: not asked).
+  const [askedAbout, setAskedAbout] = useState<string | null>(null);
+  const askAi = askedAbout !== null;
   const canAsk = !demo && aiReady && visit.length === 0;
-  const fromNote = useDeeperQuestions({ noteId, title, markdown, enabled: canAsk && askAi });
+  const fromNote = useDeeperQuestions({ noteId, title, markdown: askedAbout ?? "", enabled: canAsk && askAi });
   if (!open) return null;
   const own = demo ? (deeper[noteId] ?? deeperFallback) : deeperFallback;
   const ai = visit.length ? visit : (fromNote ?? null);
@@ -532,7 +532,7 @@ function GoDeeper({ noteId, title, markdown, visit, asked, onAdd }: { noteId: st
   const another = () => {
     tick();
     if (canAsk && !askAi && !ai) {
-      setAskAi(true);
+      setAskedAbout(text());
       setN(0);
       return;
     }

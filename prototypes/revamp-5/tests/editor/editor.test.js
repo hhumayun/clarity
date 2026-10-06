@@ -713,6 +713,34 @@ function check(name, got, want) {
     check("sage: body at the look's size", looks.body, "18px");
     check("sage: questions in semibold, in the accent", `${looks.quoteWeight} ${looks.quoteColour}`, "600 rgb(34, 170, 119)");
     await page.close();
+
+    // Opening a note without a jolt (2026-10-06): "shown" waits for Sage's
+    // face, and a new look never sets the faces up again.
+    page = await browser.newPage({ viewport: { width: 390, height: 700 } });
+    await page.addInitScript((look) => {
+      window.__faceAtShown = null;
+      window.ReactNativeWebView = {
+        postMessage: (raw) => {
+          const msg = JSON.parse(raw);
+          if (msg.type === "ready") {
+            setTimeout(() => {
+              window.clarityEditor.receive({ type: "look", look });
+              window.clarityEditor.receive({ type: "seed", seed: "1", markdown: "Words in Sage's face.", doc: null, focus: null });
+            });
+          }
+          if (msg.type === "shown") window.__faceAtShown = document.fonts.check("17px Sage") && document.fonts.check("600 17px Sage");
+        },
+      };
+    }, LOOK);
+    await page.goto(PAGE, { waitUntil: "load", timeout: 60000 });
+    await page.waitForFunction(() => window.__faceAtShown !== null, null, { timeout: 20000 });
+    check("sage: shown only once Sage's face is loaded", await page.evaluate(() => window.__faceAtShown), true);
+    const faceRules = () => page.evaluate(() => [...document.querySelectorAll("style")].filter((el) => el.textContent.includes("@font-face")).length);
+    const facesBefore = await faceRules();
+    await page.evaluate((look) => window.clarityEditor.receive({ type: "look", look: { ...look, body: { size: 20, lineHeight: 30 } } }), LOOK);
+    check("sage: a new look leaves the faces as they were (one set, not loaded again)", `${facesBefore} ${await faceRules()}`, "1 1");
+    check("sage: …and still takes effect", await page.evaluate(() => getComputedStyle(document.querySelector(".ProseMirror")).fontSize), "20px");
+    await page.close();
   } finally {
     await browser.close();
   }

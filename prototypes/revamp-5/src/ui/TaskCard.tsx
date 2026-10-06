@@ -22,11 +22,15 @@ import { TaskRow, type TaskVariant } from "./TaskRow";
 import { Txt } from "./Txt";
 
 const settle = LinearTransition.duration(duration.enter).easing(easeOut);
+// Made once: a new builder each render would set the animation up again each time.
+const leave = FadeOut.duration(duration.quick);
+const arrive = FadeIn.duration(duration.base);
 
 /**
  * Tasks on one card, a hairline between rows. A row that leaves fades while
  * the rows under it close the gap and the card shrinks to fit; a row that
- * arrives fades in where it lands. The first render doesn't animate.
+ * arrives fades in where it lands. The first render doesn't animate, nor
+ * does a quiet change (an area chosen, see useQuietFilter).
  */
 export function TaskCard({
   tasks,
@@ -35,6 +39,7 @@ export function TaskCard({
   noteId,
   highlightId,
   empty,
+  quiet = false,
 }: {
   tasks: Task[];
   variant?: TaskVariant;
@@ -43,15 +48,16 @@ export function TaskCard({
   highlightId?: string | null;
   /** Said inside the card when there are no tasks; without it an empty list draws nothing. */
   empty?: React.ReactNode;
+  quiet?: boolean;
 }) {
   const { colors } = useTheme();
   const lastAdded = useSage((state) => state.lastAdded);
   if (tasks.length === 0 && !empty) return null;
   return (
-    <Animated.View layout={settle} style={[styles.card, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>
+    <Animated.View layout={quiet ? undefined : settle} style={[styles.card, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>
       <LayoutAnimationConfig skipEntering>
         {tasks.map((task, i) => (
-          <Animated.View key={task.id} layout={settle} entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)}>
+          <Animated.View key={task.id} layout={quiet ? undefined : settle} entering={quiet ? undefined : arrive} exiting={quiet ? undefined : leave}>
             {i > 0 ? <View style={[styles.rule, { backgroundColor: colors.hairline }]} /> : null}
             <TaskRow task={task} variant={variant} showArea={showArea} noteId={noteId} highlight={task.id === (highlightId ?? lastAdded)} />
           </Animated.View>
@@ -83,7 +89,8 @@ const SHADOW_ROOM = 20;
  * each row is its own item, and the slices together look like one card. Each
  * slice's card reaches past its clip above and below (except where the real
  * card starts and ends), so its side shadow never thins at a join; the first
- * and last slices carry the corners. A row that leaves fades out.
+ * and last slices carry the corners. A row that leaves fades out, unless
+ * the list is changing quietly (an area chosen, see useQuietFilter).
  */
 export const TaskSlice = React.memo(function TaskSlice({
   task,
@@ -91,17 +98,19 @@ export const TaskSlice = React.memo(function TaskSlice({
   first,
   last,
   showArea,
+  quiet = false,
 }: {
   task: Task;
   variant: TaskVariant;
   first: boolean;
   last: boolean;
   showArea: boolean;
+  quiet?: boolean;
 }) {
   const { colors } = useTheme();
   const highlight = useSage((state) => state.lastAdded === task.id);
   return (
-    <Animated.View exiting={FadeOut.duration(duration.quick)} style={[styles.sliceClip, first && styles.sliceFirst, last && styles.sliceLast]}>
+    <Animated.View exiting={quiet ? undefined : leave} style={[styles.sliceClip, first && styles.sliceFirst, last && styles.sliceLast]}>
       <View style={[styles.sliceCard, { backgroundColor: colors.card, boxShadow: colors.cardShadow }, first ? styles.cardTop : styles.reachUp, last ? styles.cardBottom : styles.reachDown]}>
         {first ? null : <View style={[styles.rule, { backgroundColor: colors.hairline }]} />}
         <TaskRow task={task} variant={variant} showArea={showArea} highlight={highlight} />
@@ -113,21 +122,24 @@ export const TaskSlice = React.memo(function TaskSlice({
 /**
  * What's been finished, folded under a small centred "Done": no count, a
  * check and a chevron. When a task arrives here the word gives a small
- * bump, so you can see where it went.
+ * bump, so you can see where it went. A filter changing what it holds
+ * (`scope`) isn't a task arriving: no bump, and while the list changes
+ * quietly (`quiet`) it doesn't slide into its new place either.
  */
-export function DoneFold({ tasks, label = "Done", showArea = true, onClear }: { tasks: Task[]; label?: string; showArea?: boolean; onClear?: () => void }) {
+export function DoneFold({ tasks, label = "Done", showArea = true, onClear, quiet = false, scope = "" }: { tasks: Task[]; label?: string; showArea?: boolean; onClear?: () => void; quiet?: boolean; scope?: string }) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
   const bump = useSharedValue(1);
   const turn = useSharedValue(0);
-  const before = useRef(tasks.length);
+  const before = useRef({ count: tasks.length, scope });
   useEffect(() => {
-    if (tasks.length > before.current && !reduced) {
+    const arrived = tasks.length > before.current.count && scope === before.current.scope;
+    if (arrived && !reduced) {
       bump.value = withSequence(withTiming(1.14, { duration: 140, easing: easeOut }), withSpring(1, spring.pop));
     }
-    before.current = tasks.length;
-  }, [tasks.length, bump, reduced]);
+    before.current = { count: tasks.length, scope };
+  }, [tasks.length, scope, bump, reduced]);
   useEffect(() => {
     turn.value = withTiming(open ? 1 : 0, { duration: duration.base, easing: easeOut });
   }, [open, turn]);
@@ -135,7 +147,7 @@ export function DoneFold({ tasks, label = "Done", showArea = true, onClear }: { 
   const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
   if (tasks.length === 0) return null;
   return (
-    <Animated.View layout={settle} entering={FadeIn.duration(duration.base)}>
+    <Animated.View layout={quiet ? undefined : settle} entering={FadeIn.duration(duration.base)}>
       <View style={styles.foldHead}>
         <Pressable onPress={() => setOpen((v) => !v)} accessibilityRole="button" accessibilityLabel={open ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} aria-expanded={open} hitSlop={10}>
           {({ pressed }) => (
@@ -167,7 +179,7 @@ export function DoneFold({ tasks, label = "Done", showArea = true, onClear }: { 
       </View>
       {open ? (
         <Animated.View entering={FadeIn.duration(duration.base)} exiting={FadeOut.duration(duration.quick)}>
-          <TaskCard tasks={tasks} showArea={showArea} />
+          <TaskCard tasks={tasks} showArea={showArea} quiet={quiet} />
         </Animated.View>
       ) : null}
     </Animated.View>

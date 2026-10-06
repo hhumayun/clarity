@@ -2,9 +2,9 @@
 
 The main app's note editor tests (`tests/note-editor` at 4344bd8), run against revamp 5's built editor page: the string in `src/editor/page.ts`, exactly what the app loads. The page is opened in desktop Chrome and driven the way the note page drives it: the look, the note and commands go in through `clarityEditor.receive`, and what the page sends back is captured.
 
-About 82 checks:
+About 85 checks:
 - the main app's: lists and checklists, Backspace at an item's start, indents, quotes, links, Markdown round trips, suggestions at the cursor, how changes are batched, and row heights;
-- Sage's: questions as quotes at the end or on an empty line, today's page opening with the cursor under its question, the look's sizes and colours.
+- Sage's: questions as quotes at the end or on an empty line, today's page opening with the cursor under its question, the look's sizes and colours, and (since 2026-10-06) "shown" waiting for Sage's face, with a new look leaving the faces alone.
 
 ## Running them
 

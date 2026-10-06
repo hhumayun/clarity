@@ -89,6 +89,23 @@ let look: EditorLook = {
   padding: { top: 8, side: 20, bottom: 54 },
 };
 
+// Sage's face, set up once and loaded at once. Kept apart from the look,
+// which comes again as the app sends it: rewriting these rules with it made
+// the fonts load again, so the words could first show in another face.
+const faces = document.createElement("style");
+faces.textContent = [
+  [regular, 400, "normal"],
+  [italic, 400, "italic"],
+  [semibold, 600, "normal"],
+  [bold, 700, "normal"],
+]
+  .map(([url, weight, fontStyle]) => `@font-face { font-family: "Sage"; src: url("${url}") format("woff2"); font-weight: ${weight}; font-style: ${fontStyle}; }`)
+  .join("\n");
+document.head.appendChild(faces);
+const facesReady: Promise<unknown> = document.fonts
+  ? Promise.all(["400 17px Sage", "italic 400 17px Sage", "600 17px Sage", "700 17px Sage"].map((font) => document.fonts.load(font))).catch(() => undefined)
+  : Promise.resolve();
+
 const style = document.createElement("style");
 document.head.appendChild(style);
 
@@ -101,13 +118,7 @@ function check(stroke: string, width: number, opacity = 1): string {
 function applyLook(next: EditorLook) {
   look = next;
   const { colors: c, body, question: q, padding: p } = next;
-  const face = (url: string, weight: number, fontStyle: string) =>
-    `@font-face { font-family: "Sage"; src: url("${url}") format("woff2"); font-weight: ${weight}; font-style: ${fontStyle}; }`;
   style.textContent = `
-    ${face(regular, 400, "normal")}
-    ${face(italic, 400, "italic")}
-    ${face(semibold, 600, "normal")}
-    ${face(bold, 700, "normal")}
     html, body { margin: 0; padding: 0; background: ${c.card}; -webkit-text-size-adjust: 100%; }
     body { -webkit-tap-highlight-color: transparent; }
     .ProseMirror {
@@ -317,7 +328,24 @@ function takeSeed(message: Extract<ToPage, { type: "seed" }>) {
   else editor.commands.setContent(message.markdown, { contentType: "markdown", emitUpdate: false });
   if (message.focus === "end") editor.commands.focus("end");
   reportFormats(editor);
-  send({ type: "shown", seed: message.seed });
+  shownOnceDrawn(message.seed);
+}
+
+/**
+ * "Shown" once the words are really on screen: Sage's face loaded and the
+ * page drawn (two frames), so the app's fade-in never starts on a blank or
+ * half-drawn page. If the face or the frames are slow to come (a page out
+ * of sight), it's said anyway after a moment.
+ */
+function shownOnceDrawn(seed: string) {
+  let said = false;
+  const say = () => {
+    if (said) return;
+    said = true;
+    send({ type: "shown", seed });
+  };
+  void facesReady.then(() => requestAnimationFrame(() => requestAnimationFrame(say)));
+  setTimeout(say, 400);
 }
 
 /**

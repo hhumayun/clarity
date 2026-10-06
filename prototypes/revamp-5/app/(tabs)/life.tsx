@@ -1,5 +1,5 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import { ScrollView, StyleSheet, View, type ListRenderItem } from "react-native";
 import Animated, { FadeIn, LinearTransition, useAnimatedRef } from "react-native-reanimated";
 import type { Task } from "../../src/store/model";
@@ -20,6 +20,7 @@ import { confirm } from "../../src/ui/confirm";
 import { Icon } from "../../src/ui/Icon";
 import { IconButton } from "../../src/ui/IconButton";
 import { SectionTitle } from "../../src/ui/SectionTitle";
+import { useQuietFilter } from "../../src/ui/quietFilter";
 import { DoneFold, TaskSlice } from "../../src/ui/TaskCard";
 import type { TaskVariant } from "../../src/ui/TaskRow";
 import { TopBar } from "../../src/ui/TopBar";
@@ -62,7 +63,8 @@ export default function LifeCenter() {
   const { ready } = useSageStatus();
   const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
-  const [area, setArea] = useState<string | null>(null);
+  // The chips answer the tap at once; the list follows a frame later, quietly (useQuietFilter).
+  const { chosen, shown: area, quiet, choose } = useQuietFilter<string | null>(null);
   const groups = useMemo(() => groupTasks(tasks, area), [tasks, area]);
   const anySlipped = useMemo(() => groupTasks(tasks, null).slipped.length > 0, [tasks]);
   const anyOpen = groups.today.length + groups.week.length + groups.later.length + groups.undated.length > 0;
@@ -94,7 +96,7 @@ export default function LifeCenter() {
   const renderRow = useCallback<ListRenderItem<Row>>(
     ({ item }) => {
       if (item.kind === "title") return <SectionTitle title={item.title} first={item.first} />;
-      if (item.kind === "task") return <TaskSlice task={item.task} variant={item.variant} first={item.first} last={item.last} showArea={!area} />;
+      if (item.kind === "task") return <TaskSlice task={item.task} variant={item.variant} first={item.first} last={item.last} showArea={!area} quiet={quiet} />;
       return (
         <Card style={styles.slipped}>
           <View style={[styles.slippedIcon, { backgroundColor: colors.warmSoft }]}>
@@ -110,16 +112,16 @@ export default function LifeCenter() {
         </Card>
       );
     },
-    [area, colors, router],
+    [area, quiet, colors, router],
   );
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
       <TopBar title="Life Center" scrollY={scrollY} right={<IconButton icon="sliders" label="Manage areas" onPress={() => router.push("/sheet/areas")} />}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          <Chip label="All" selected={area === null} onPress={() => setArea(null)} />
+          <Chip label="All" selected={chosen === null} onPress={() => choose(null)} />
           {areas.map((item) => (
-            <Chip key={item.name} label={item.name} selected={area === item.name} onPress={() => setArea(area === item.name ? null : item.name)} />
+            <Chip key={item.name} label={item.name} selected={chosen === item.name} onPress={() => choose(chosen === item.name ? null : item.name)} />
           ))}
         </ScrollView>
       </TopBar>
@@ -129,18 +131,22 @@ export default function LifeCenter() {
         data={rows}
         keyExtractor={(row) => row.key}
         renderItem={renderRow}
-        // Rows that stay close the gap a leaving one leaves.
-        itemLayoutAnimation={settle}
+        // Rows that stay close the gap a leaving one leaves; not while an area is chosen.
+        itemLayoutAnimation={quiet ? undefined : settle}
+        testID="life-list"
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         refreshControl={pull}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120, paddingTop: space[4] }}
-        // A screenful first, then the rest as it comes into view.
+        // A screenful first, then the rest as it comes into view. Two screens
+        // either side are kept drawn, not four: choosing an area takes down
+        // and puts up every drawn row, and each carries a swipe and its own
+        // animations.
         initialNumToRender={10}
         maxToRenderPerBatch={8}
-        windowSize={9}
+        windowSize={5}
         ListHeaderComponent={
           <>
             <LoadProblem />
@@ -161,7 +167,7 @@ export default function LifeCenter() {
               </Animated.View>
             ) : null}
             <View style={styles.fold}>
-              <DoneFold tasks={groups.done} onClear={clear} showArea={!area} />
+              <DoneFold tasks={groups.done} onClear={clear} showArea={!area} quiet={quiet} scope={area ?? ""} />
             </View>
           </>
         }

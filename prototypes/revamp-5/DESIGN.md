@@ -67,6 +67,7 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 - **Rich notes:** the main app's Tiptap editor, with its page built into the app (`editor/`, `src/editor/`), drawn in Sage. Nunito Sans, the body at 17/27, and questions as quotes in the accent at the question size. Checklist rows tick with Sage's round check, and links take the accent.
 - **Writing:** the tools ride on the keyboard in a row that scrolls sideways. It holds every tool the main app has (checklist, bullets, numbers, indent, outdent, bold, italic, strike, heading, quote, link), then Next question on a question page, then the keyboard away. Each tool shows when it's on with the accent's soft fill.
 - **Reading:** Go deeper sits above Tasks and Done, and the menu by the title archives, or deletes after asking in place.
+- **Opening (2026-10-06):** the title and Go deeper are there from the first frame; three quiet lines stand where the words will be, and the words fade in over them, in Nunito Sans from the start, without moving. Before, the title filled in late, the words rose 8 points, and Go deeper popped in under them, which read as a jolt.
 - **Today's question:** the page opens with the question as a quote and the cursor under it. Before anything's written, it can be swapped for another or taken away.
 - **If the editor can't start:** the note is shown to read, as Sage drew it before, with Try again.
 - **Quiet saving:** the note page says nothing about saving or syncing. With the keyboard up, whether for the title or the words, Tasks and Done stay down until it goes.
@@ -76,6 +77,7 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 - **A short fade-through, on the page only.** The old page is gone in the first third, then the new one fades in from very nearly its full size (200 ms). It's how iOS's own tab bar has moved since iOS 18. Nothing slides, and the bar only changes which place is chosen. With Reduce Motion, the switch is instant.
 - **Every place is drawn ahead** once the app has a quiet moment, one at a time, so even a first visit opens at once.
 - **Long lists draw as they scroll.** Notes builds only the cards on screen; Life draws each task as a slice of its section's card, and the slices still read as one card with its shadow and corners.
+- **Choosing an area (2026-10-06)** ticks, and the chip shows it at once. The list then changes in one step with nothing animating: no rows fading out, none sliding into place. Leaving and closing-the-gap animations are kept for ticking a task off. Done's little bump is kept for a task arriving, not for a filter showing more of them.
 
 ## Repeats and reminders (2026-10-06)
 

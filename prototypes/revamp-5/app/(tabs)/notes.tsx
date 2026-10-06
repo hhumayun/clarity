@@ -13,7 +13,7 @@ import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, space } from "../../src/theme/tokens";
 import { Chip } from "../../src/ui/Chip";
 import { useScrollY } from "../../src/ui/chrome";
-import { tap } from "../../src/ui/haptics";
+import { tap, tick } from "../../src/ui/haptics";
 import { IconButton } from "../../src/ui/IconButton";
 import { NoteCard } from "../../src/ui/NoteCard";
 import { SectionTitle } from "../../src/ui/SectionTitle";
@@ -51,9 +51,10 @@ export default function Notes() {
   const [filtering, setFiltering] = useState(false);
   const [area, setArea] = useState<string | null>(null);
 
-  // Newest first; each day's heading once, before its notes.
+  // Newest first, sorted once per change to the notes, not again for each area chosen.
+  const sorted = useMemo(() => [...notes].sort((a, b) => (a.day === b.day ? b.time.localeCompare(a.time, undefined, { numeric: true }) : a.day < b.day ? 1 : -1)), [notes]);
+  // Each day's heading once, before its notes.
   const rows = useMemo(() => {
-    const sorted = [...notes].sort((a, b) => (a.day === b.day ? b.time.localeCompare(a.time, undefined, { numeric: true }) : a.day < b.day ? 1 : -1));
     const list: Row[] = [];
     let group: string | null = null;
     for (const note of sorted) {
@@ -65,7 +66,7 @@ export default function Notes() {
       group = title;
     }
     return list;
-  }, [notes, area]);
+  }, [sorted, area]);
 
   const renderRow = useCallback<ListRenderItem<Row>>(
     ({ item }) =>
@@ -84,6 +85,11 @@ export default function Notes() {
     if (filtering) setArea(null);
     setFiltering(!filtering);
   };
+  // Choosing an area answers with a tick, as a choice should.
+  const choose = (next: string | null) => {
+    tick();
+    setArea(next);
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
@@ -95,9 +101,9 @@ export default function Notes() {
         {filtering ? (
           <Animated.View entering={enter} exiting={exit}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              <Chip label="All" selected={area === null} onPress={() => setArea(null)} />
+              <Chip label="All" selected={area === null} onPress={() => choose(null)} />
               {areaList.map(({ name }) => (
-                <Chip key={name} label={name} selected={area === name} onPress={() => setArea(area === name ? null : name)} />
+                <Chip key={name} label={name} selected={area === name} onPress={() => choose(area === name ? null : name)} />
               ))}
             </ScrollView>
           </Animated.View>
@@ -106,6 +112,7 @@ export default function Notes() {
 
       <Animated.FlatList
         ref={scroller}
+        testID="notes-list"
         data={rows}
         keyExtractor={(row) => row.key}
         renderItem={renderRow}

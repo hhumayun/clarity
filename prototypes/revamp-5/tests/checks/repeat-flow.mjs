@@ -12,6 +12,11 @@ const ok = (name, pass, detail = "") => {
 };
 const browser = await chromium.launch({ executablePath: "/opt/google/chrome/chrome", args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--renderer-process-limit=1", "--disable-extensions"] });
 const page = await (await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true })).newPage();
+// The morning of today, whenever this runs: the task under test reminds at 12:30, and after that the
+// sheet rightly says a this-time-only reminder has already passed.
+const morning = new Date();
+morning.setHours(8, 0, 0, 0);
+await page.clock.setFixedTime(morning);
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const row = (label) => page.getByRole("button", { name: new RegExp(`^${label}: `) }).first();
