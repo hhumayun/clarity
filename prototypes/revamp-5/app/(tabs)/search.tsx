@@ -1,5 +1,5 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,13 +7,13 @@ import { Magnifier } from "../../src/art/Pictures";
 import { byPlan } from "../../src/store/selectors";
 import { useSage, useSageStatus } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards } from "../../src/ui/Loading";
-import { arriveSlow, leave, settle } from "../../src/theme/motion";
+import { leave } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, radius, space } from "../../src/theme/tokens";
 import { Button } from "../../src/ui/Button";
-import { Chip } from "../../src/ui/Chip";
+import { ChipRow } from "../../src/ui/ChipRow";
+import { useFilterSwap } from "../../src/ui/filterSwap";
 import { useScrollY } from "../../src/ui/chrome";
-import { tick } from "../../src/ui/haptics";
 import { Icon } from "../../src/ui/Icon";
 import { NoteCard } from "../../src/ui/NoteCard";
 import { SectionTitle } from "../../src/ui/SectionTitle";
@@ -21,14 +21,12 @@ import { TaskCard } from "../../src/ui/TaskCard";
 import { TopBar } from "../../src/ui/TopBar";
 import { Txt, useType } from "../../src/ui/Txt";
 
-const enter = arriveSlow;
-const exit = leave;
-
 /**
  * One place to find anything: a white field under the bar, and as you type
  * the notes and the tasks that mention it, on cards, with the words you
  * typed picked out in the accent. Before you type, a magnifier drifts over
- * a page and the areas offer a way in. No counts of results.
+ * a page, and the areas, in the same row of chips as Life's, offer a way in.
+ * No counts of results.
  */
 export default function Search() {
   const { colors, accent } = useTheme();
@@ -43,13 +41,38 @@ export default function Search() {
   useScrollToTop(scroller as never);
   const inputType = useType("callout");
   const [query, setQuery] = useState("");
-  const [area, setArea] = useState<string | null>(null);
+  const typed = query.trim().toLowerCase();
+
+  // What's searched for (the words, as typed once typing pauses, and the area) changes the results as
+  // one calm swap (useFilterSwap): they dip, change out of sight and rise. They used to rebuild on every
+  // key, cards swapping and rows sliding.
+  const { chosen, shown, quiet, choose, reset, listStyle } = useFilterSwap<Scope>(EVERYTHING, {
+    same: sameScope,
+    scrollToTop: () => scroller.current?.scrollTo({ y: 0, animated: false }),
+  });
+  const chosenRef = useRef(chosen);
+  chosenRef.current = chosen;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const next = { q: typed, area: chosenRef.current.area };
+      if (!sameScope(next, chosenRef.current)) choose(next, { silent: true });
+    }, TYPING_PAUSE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typed]);
+  // Tapping the chosen area again goes back to every area.
+  const pickArea = (value: string | null) => {
+    const area = value !== null && value === chosen.area ? null : value;
+    const next = { q: typed, area };
+    if (!sameScope(next, chosen)) choose(next);
+  };
   // The chosen area renamed or removed: back to every area.
   useEffect(() => {
-    if (area !== null && !areas.some((item) => item.name === area)) setArea(null);
-  }, [areas, area]);
-  const q = query.trim().toLowerCase();
+    if (chosen.area !== null && !areas.some((item) => item.name === chosen.area)) reset({ q: chosen.q, area: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areas, chosen]);
 
+  const { q, area } = shown;
   const foundNotes = useMemo(
     () =>
       notes
@@ -95,6 +118,13 @@ export default function Search() {
             </Pressable>
           ) : null}
         </View>
+        <ChipRow
+          choices={[{ label: "All", value: null }, ...areas.map(({ name }) => ({ label: name, value: name as string | null }))]}
+          chosen={chosen.area}
+          onChoose={pickArea}
+          contentStyle={styles.chips}
+          testID="search-chips"
+        />
       </TopBar>
 
       <Animated.ScrollView
@@ -108,64 +138,64 @@ export default function Search() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
         <LoadProblem />
-        <View style={styles.areas}>
-          {areas.map(({ name }) => (
-            <Chip
-              key={name}
-              label={name}
-              selected={area === name}
-              onPress={() => {
-                tick();
-                setArea(area === name ? null : name);
-              }}
-            />
-          ))}
-        </View>
-
-        {!looking ? (
-          <Animated.View entering={enter} exiting={exit} style={styles.empty}>
-            <Magnifier size={96} />
-            <Txt variant="headline" center>
-              Find anything you wrote
-            </Txt>
-            <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
-              Search every note and task, or start from an area.
-            </Txt>
-          </Animated.View>
-        ) : (
-          <Animated.View layout={settle}>
-            {ready ? null : <SkeletonCards cards={1} rows={2} label="Loading" />}
-            {foundNotes.length ? (
-              <Animated.View layout={settle} entering={enter} exiting={exit}>
-                <SectionTitle title="Notes" first />
-                <View style={styles.cards}>
-                  {foundNotes.slice(0, notesShown).map((note) => (
-                    <NoteCard key={note.id} note={note} match={q} lines={2} onPress={() => router.push(`/note/${note.id}`)} />
-                  ))}
+        {/* The results as one layer: they dip and rise as what's searched for changes. */}
+        <Animated.View style={listStyle} testID="search-results">
+          {!looking ? (
+            <View style={styles.empty}>
+              <Magnifier size={96} />
+              <Txt variant="headline" center>
+                Find anything you wrote
+              </Txt>
+              <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
+                Search every note and task, or start from an area.
+              </Txt>
+            </View>
+          ) : (
+            <View>
+              {ready ? null : (
+                <Animated.View exiting={leave}>
+                  <SkeletonCards cards={1} rows={2} label="Loading" />
+                </Animated.View>
+              )}
+              {foundNotes.length ? (
+                <View>
+                  <SectionTitle title="Notes" first />
+                  <View style={styles.cards}>
+                    {foundNotes.slice(0, notesShown).map((note) => (
+                      <NoteCard key={note.id} note={note} match={q} lines={2} onPress={() => router.push(`/note/${note.id}`)} />
+                    ))}
+                  </View>
+                  {foundNotes.length > notesShown ? <Button label="Show more notes" variant="plain" size="sm" onPress={() => setNotesShown((n) => n + PAGE)} style={styles.more} /> : null}
                 </View>
-                {foundNotes.length > notesShown ? <Button label="Show more notes" variant="plain" size="sm" onPress={() => setNotesShown((n) => n + PAGE)} style={styles.more} /> : null}
-              </Animated.View>
-            ) : null}
-            {foundTasks.length ? (
-              <Animated.View layout={settle} entering={enter} exiting={exit}>
-                <SectionTitle title="Tasks" first={!foundNotes.length} />
-                <TaskCard tasks={foundTasks.slice(0, tasksShown)} />
-                {foundTasks.length > tasksShown ? <Button label="Show more tasks" variant="plain" size="sm" onPress={() => setTasksShown((n) => n + PAGE)} style={styles.more} /> : null}
-              </Animated.View>
-            ) : null}
-            {ready && !foundNotes.length && !foundTasks.length ? (
-              <Animated.View entering={enter} style={styles.none}>
-                <Txt variant="subhead" tone="ink3" center>
-                  {q ? `Nothing mentions “${query.trim()}”${area ? ` in ${area}` : ""}.` : `Nothing in ${area} yet.`}
-                </Txt>
-              </Animated.View>
-            ) : null}
-          </Animated.View>
-        )}
+              ) : null}
+              {foundTasks.length ? (
+                <View>
+                  <SectionTitle title="Tasks" first={!foundNotes.length} />
+                  <TaskCard tasks={foundTasks.slice(0, tasksShown)} quiet={quiet} />
+                  {foundTasks.length > tasksShown ? <Button label="Show more tasks" variant="plain" size="sm" onPress={() => setTasksShown((n) => n + PAGE)} style={styles.more} /> : null}
+                </View>
+              ) : null}
+              {ready && !foundNotes.length && !foundTasks.length ? (
+                <View style={styles.none}>
+                  <Txt variant="subhead" tone="ink3" center>
+                    {q ? `Nothing mentions “${q}”${area ? ` in ${area}` : ""}.` : `Nothing in ${area} yet.`}
+                  </Txt>
+                </View>
+              ) : null}
+            </View>
+          )}
+        </Animated.View>
       </Animated.ScrollView>
     </View>
   );
 }
+
+/** What's searched for: the words (lower case, trimmed) and the area. */
+type Scope = { q: string; area: string | null };
+const EVERYTHING: Scope = { q: "", area: null };
+const sameScope = (a: Scope, b: Scope) => a.q === b.q && a.area === b.area;
+// The results change once typing pauses this long, not on every key.
+const TYPING_PAUSE_MS = 120;
 
 // How many notes, and tasks, show before "Show more".
 const PAGE = 12;
@@ -176,7 +206,7 @@ const styles = StyleSheet.create({
   field: { flexDirection: "row", alignItems: "center", gap: space[2], height: 48, marginHorizontal: edge, marginBottom: space[3], paddingHorizontal: space[4], borderRadius: radius.button, borderCurve: "continuous" },
   input: { flex: 1, height: 48, paddingVertical: 0, outlineWidth: 0 },
   clear: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  areas: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: space[2], paddingHorizontal: edge, paddingTop: space[4] },
+  chips: { gap: space[2], paddingHorizontal: edge, paddingBottom: space[3], alignItems: "center" },
   empty: { alignItems: "center", gap: space[2], paddingTop: space[10], paddingHorizontal: edge },
   emptyText: { maxWidth: 260 },
   cards: { gap: space[3] },

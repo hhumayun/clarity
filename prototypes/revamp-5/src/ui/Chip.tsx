@@ -9,7 +9,8 @@ import { Txt } from "./Txt";
 /**
  * A choice, as a white pill on the page. Chosen, it takes an ink edge and
  * ink words. With an icon and no label it's a small round glyph. `onCard`
- * draws it on a card instead, as a pale well.
+ * draws it on a card instead, as a pale well. In a ChipRow the ink edge is
+ * the row's one travelling ring, so the chip draws none (`ringless`).
  */
 export function Chip({
   label,
@@ -17,6 +18,7 @@ export function Chip({
   selected,
   onPress,
   onCard,
+  ringless,
   accessibilityLabel,
 }: {
   label?: string;
@@ -24,6 +26,7 @@ export function Chip({
   selected?: boolean;
   onPress?: () => void;
   onCard?: boolean;
+  ringless?: boolean;
   accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
@@ -37,7 +40,7 @@ export function Chip({
       style={[
         styles.chip,
         label ? null : styles.round,
-        { backgroundColor: onCard ? colors.sunken : colors.card, borderColor: selected ? colors.ink : onCard ? colors.sunken : colors.card },
+        { backgroundColor: onCard ? colors.sunken : colors.card, borderColor: selected && !ringless ? colors.ink : onCard ? colors.sunken : colors.card },
       ]}
     >
       {icon ? <Icon name={icon} size={15} color={tone} weight="semibold" /> : null}

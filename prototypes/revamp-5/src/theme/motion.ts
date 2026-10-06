@@ -32,6 +32,8 @@ export const duration = {
 
 /** Strong ease-out: quick to leave, long to land. */
 export const easeOut = Easing.bezier(0.16, 1, 0.3, 1);
+/** Gathering speed: for what's on its way out (a list dipping before it's swapped). */
+export const easeIn = Easing.bezier(0.4, 0, 1, 1);
 /** Symmetric, for things that go and come back. */
 export const easeInOut = Easing.bezier(0.65, 0, 0.35, 1);
 /** Loops (a cloud's drift, a star's twinkle, the focus surface) swell on a sine. */

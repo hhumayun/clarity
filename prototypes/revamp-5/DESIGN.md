@@ -77,7 +77,16 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 - **The new page fades in, on the page only.** A tap on a tab covers the old page in the page colour at once, and that veil lifts over 220 ms once the new page is drawn under it. Nothing slides, and the bar only changes which place is chosen. (Until the evening of 2026-10-06 the tab navigator did a fade-through itself. In expo-router 57 that left Life or Notes blank now and then, expo/expo#49681, so the navigator no longer animates.)
 - **Every place is drawn ahead** once the app has a quiet moment, one at a time, so even a first visit opens at once.
 - **Long lists draw as they scroll.** Notes builds only the cards on screen; Life draws each task as a slice of its section's card, and the slices still read as one card with its shadow and corners.
-- **Choosing an area (2026-10-06)** ticks, and the chip shows it at once. The list then changes in one step with nothing animating: no rows fading out, none sliding into place. Leaving and closing-the-gap animations are kept for ticking a task off. Done's little bump is kept for a task arriving, not for a filter showing more of them.
+- **Choosing an area (2026-10-06, UX phase 2)**, the same on Life, Notes and Search:
+  - The tap ticks, and the label inks.
+  - One ink ring travels from chip to chip, stretching toward the new one and gathering as it lands, like the week strip's. A chip near the edge scrolls fully into view.
+  - The list, as one layer, dips: it fades and lifts 3 pt over 110 ms. It changes out of sight and goes back to the top, then rises 8 pt into place over 220 ms.
+  - The latest tap wins. Under Reduce Motion the ring fades across and the list cross-fades (80 ms out, 150 ms in).
+  - Rows never animate on their own during a change; that was the lag.
+  - Notes' chips unfold by moving the list down, not by jumping it. Search's results change the same way once typing pauses (120 ms), not on every key.
+  - Done's little bump is kept for a task arriving, not for a filter showing more of them.
+- **Another day** (phase 2): the old day leaves toward the far side, quicker than the new one arrives. The title cross-fades and the "‹ Today" pill fades. A swiped week carries on out and the next comes in from that side. A new time of day cross-fades Today's card.
+- **Loading** (phase 2): placeholders fade as the content arrives (it rises in on Notes and Life), and the "couldn't load" note comes and goes softly.
 
 ## Repeats and reminders (2026-10-06)
 

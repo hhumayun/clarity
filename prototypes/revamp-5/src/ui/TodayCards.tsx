@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
 import { Hourglass } from "../art/Pictures";
 import { TimeOfDay } from "../art/TimeOfDay";
 import { greetings, questions } from "../data/prompts";
@@ -8,6 +9,7 @@ import { today } from "../lib/dates";
 import { noteTime, openOn } from "../store/selectors";
 import { useDevice } from "../state/device";
 import { useSage, useWhenEditable } from "../data/sage";
+import { arrive, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, radius, space } from "../theme/tokens";
 import { Card } from "./Card";
@@ -116,12 +118,17 @@ function WriteCard({ title, question, written, onPress }: { title: string; quest
       accessibilityLabel={written ? `${title}. Today's page, written at ${written}` : `${title}. ${question}`}
       style={[styles.card, { backgroundColor: colors.quiet, boxShadow: "none" }, shown && { backgroundColor: colors.page, borderWidth: 1.5, borderColor: colors.line }]}
     >
-      <View style={[styles.picture, shown && styles.resting]}>
-        <TimeOfDay phase={phase} size={76} />
-      </View>
-      <Txt variant="headline" tone={shown ? "ink2" : "ink"} center style={styles.title}>
-        {title}
-      </Txt>
+      {/* A new time of day: the picture and greeting cross-fade (they swapped in one frame), but not on first sight. */}
+      <LayoutAnimationConfig skipEntering>
+        <Animated.View key={phase} entering={arrive} exiting={leave} style={styles.phase}>
+          <View style={[styles.picture, shown && styles.resting]}>
+            <TimeOfDay phase={phase} size={76} />
+          </View>
+          <Txt variant="headline" tone={shown ? "ink2" : "ink"} center style={styles.title}>
+            {title}
+          </Txt>
+        </Animated.View>
+      </LayoutAnimationConfig>
       {shown ? (
         <View style={styles.done}>
           <PopCheck size={24} />
@@ -149,6 +156,7 @@ function PopCheck({ size }: { size: number }) {
 }
 
 const styles = StyleSheet.create({
+  phase: { alignItems: "center", alignSelf: "stretch" },
   pair: { flexDirection: "row", gap: space[3], marginHorizontal: edge },
   card: { flex: 1, minHeight: 150, borderRadius: radius.card + 2, alignItems: "center", paddingHorizontal: space[3], paddingTop: space[3], paddingBottom: space[4], gap: 2 },
   picture: { height: 58, justifyContent: "center", marginBottom: 2 },

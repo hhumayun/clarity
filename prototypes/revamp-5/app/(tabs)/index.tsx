@@ -1,14 +1,14 @@
 import { useNavigation, useRouter, useScrollToTop } from "expo-router";
 import React, { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeInLeft, FadeInRight, useAnimatedRef } from "react-native-reanimated";
+import Animated, { FadeInLeft, FadeInRight, FadeOutLeft, FadeOutRight, useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Tea } from "../../src/art/Pictures";
 import { addDays, dateOf, dayLabel, daysBetween, today, weekStart } from "../../src/lib/dates";
 import { comingUp, doneOn, notesOn, openOn, slipped } from "../../src/store/selectors";
 import { getSage, useSage, useSageStatus, useWhenEditable } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
-import { arrive, arriveSlow, duration, easeOut, reducedAtLaunch, squashSmall } from "../../src/theme/motion";
+import { arrive, arriveSlow, duration, easeIn, easeOut, leave, reducedAtLaunch, squashSmall } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, radius, space } from "../../src/theme/tokens";
 import { Button, ButtonPair } from "../../src/ui/Button";
@@ -40,6 +40,13 @@ export default function Today() {
   const router = useRouter();
   const whenEditable = useWhenEditable();
   const { ready } = useSageStatus();
+  // Whether the tasks were waited for (the placeholder showed): then they arrive with a fade.
+  const loadedLate = useRef(!ready);
+  if (!ready) loadedLate.current = true;
+  // Once arrived, later days don't fade it in again (they slide in whole).
+  useEffect(() => {
+    if (ready) loadedLate.current = false;
+  }, [ready]);
   const pull = usePullToRefresh();
   const navigation = useNavigation();
   const tasks = useSage((state) => state.tasks);
@@ -114,7 +121,7 @@ export default function Today() {
         scrollY={scrollY}
         left={
           !isToday ? (
-            <Animated.View entering={arrive}>
+            <Animated.View entering={arrive} exiting={leave}>
               <PressableScale
                 onPress={() => {
                   tap();
@@ -151,7 +158,12 @@ export default function Today() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
         <LoadProblem />
-        <Animated.View key={viewDay} entering={reducedAtLaunch ? arriveSlow : (forward ? FadeInRight : FadeInLeft).duration(duration.enter).easing(easeOut)}>
+        {/* Another day: the old one leaves toward the far side, quicker than the new one arrives from the near one (it used to vanish, leaving a blank frame). */}
+        <Animated.View
+          key={viewDay}
+          entering={reducedAtLaunch ? arriveSlow : (forward ? FadeInRight : FadeInLeft).duration(duration.enter).easing(easeOut)}
+          exiting={reducedAtLaunch ? leave : (forward ? FadeOutLeft : FadeOutRight).duration(duration.quick).easing(easeIn)}
+        >
           {isToday ? (
             <View style={styles.cards}>
               <TodayCards />
@@ -159,7 +171,16 @@ export default function Today() {
           ) : null}
 
           <SectionTitle title="Tasks" first={!isToday} />
-          {ready ? <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} /> : <SkeletonCards cards={1} rows={3} label="Loading your tasks" />}
+          {/* Loaded: the placeholder fades as the card arrives, only if it was waited for. */}
+          {ready ? (
+            <Animated.View entering={loadedLate.current ? arriveSlow : undefined}>
+              <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} />
+            </Animated.View>
+          ) : (
+            <Animated.View exiting={leave}>
+              <SkeletonCards cards={1} rows={3} label="Loading your tasks" />
+            </Animated.View>
+          )}
           <ButtonPair style={styles.actions}>
             <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=${viewDay}`))} />
             {late.length ? (

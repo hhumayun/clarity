@@ -20,7 +20,7 @@ import { useDeeperQuestions, useWritingHelp, type WordIdea } from "../../src/edi
 import { longDay, today } from "../../src/lib/dates";
 import { noteTime } from "../../src/store/selectors";
 import type { Block } from "../../src/store/model";
-import { arrive, arriveSlow, duration, fadeTiming, leave as fadeOut, riseIn } from "../../src/theme/motion";
+import { arrive, arriveSlow, duration, fadeTiming, leave as fadeOut, riseIn, settle } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
@@ -560,13 +560,14 @@ function GoDeeper({
     remember((m) => ({ ...m, n: m.n + 1 }));
   };
   return (
-    <Animated.View entering={arrive} exiting={fadeOut} style={[styles.deeper, { backgroundColor: colors.sunken }]}>
+    <Animated.View entering={arrive} exiting={fadeOut} layout={settle} style={[styles.deeper, { backgroundColor: colors.sunken }]}>
       <View style={styles.deeperHead}>
         <Icon name="idea" size={16} color={colors.ink3} weight="semibold" />
         <Txt variant="footnote" tone="ink3" weight="semibold" style={styles.flex}>
           Go deeper
         </Txt>
         {more ? (
+          <Animated.View entering={arrive} exiting={fadeOut}>
           <Pressable
             onPress={another}
             accessibilityRole="button"
@@ -575,10 +576,20 @@ function GoDeeper({
           >
             {({ pressed }) => <Icon name="another" size={16} color={pressed ? colors.ink3 : colors.ink2} weight="semibold" />}
           </Pressable>
+          </Animated.View>
         ) : null}
       </View>
       <View style={[styles.deeperQuestion, { minHeight: promptType.lineHeight * 2 }]}>
-        {question === null ? <ThinkingDots /> : <Roll value={question} variant="prompt" color={colors.ink} />}
+        {/* Reading, then the question: one fades into the other (they swapped in one frame), and the card grows for a longer one. */}
+        {question === null ? (
+          <Animated.View key="reading" entering={arrive} exiting={fadeOut}>
+            <ThinkingDots />
+          </Animated.View>
+        ) : (
+          <Animated.View key="question" entering={askedAbout !== null ? arrive : undefined}>
+            <Roll value={question} variant="prompt" color={colors.ink} />
+          </Animated.View>
+        )}
       </View>
       <ButtonPair style={styles.deeperButtons}>
         <Button label="Not now" variant="outline" size="sm" flex onPress={() => (tick(), remember((m) => ({ ...m, open: false })))} />

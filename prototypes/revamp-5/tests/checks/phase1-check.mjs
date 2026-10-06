@@ -58,7 +58,8 @@ try {
   const days = await frames(
     page,
     () => {
-      const row = document.querySelector('[aria-label^="Mark "]');
+      // A task of the day arriving (Wednesday's), not the one leaving.
+      const row = document.querySelector('[data-testid="today"] [aria-label="Mark Ask Sam about the brackets done"]');
       let opacity = row ? 1 : 0;
       let slid = false;
       for (let el = row; el && el !== document.body; el = el.parentElement) {
@@ -71,7 +72,7 @@ try {
     },
     700,
   );
-  ok("reduced: another day fades in (a fade plays under Reduce Motion)", days.some((f) => f.opacity > 0.05 && f.opacity < 0.95), JSON.stringify(days.map((f) => f.opacity)));
+  ok("reduced: another day fades in (a fade plays under Reduce Motion)", days.some((f) => f.opacity > 0.05 && f.opacity < 0.95) && days.at(-1).opacity > 0.99, JSON.stringify(days.map((f) => f.opacity)));
   ok("reduced: …and nothing slides", days.every((f) => !f.slid));
   await btn(page, "Back to today").click();
   await page.waitForTimeout(800);

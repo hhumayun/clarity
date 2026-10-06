@@ -1,6 +1,6 @@
 import { useRouter, useScrollToTop } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
-import { ScrollView, StyleSheet, View, type ListRenderItem } from "react-native";
+import { StyleSheet, View, type ListRenderItem } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import type { Task } from "../../src/store/model";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,13 +14,13 @@ import { edge, pad, radius, space } from "../../src/theme/tokens";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
 import { Button } from "../../src/ui/Button";
 import { Card } from "../../src/ui/Card";
-import { Chip } from "../../src/ui/Chip";
 import { useScrollY } from "../../src/ui/chrome";
 import { confirm } from "../../src/ui/confirm";
 import { Icon } from "../../src/ui/Icon";
 import { IconButton } from "../../src/ui/IconButton";
 import { SectionTitle } from "../../src/ui/SectionTitle";
-import { useQuietFilter } from "../../src/ui/quietFilter";
+import { ChipRow } from "../../src/ui/ChipRow";
+import { useFilterSwap } from "../../src/ui/filterSwap";
 import { DoneFold, TaskSlice } from "../../src/ui/TaskCard";
 import type { TaskVariant } from "../../src/ui/TaskRow";
 import { TopBar } from "../../src/ui/TopBar";
@@ -62,8 +62,16 @@ export default function LifeCenter() {
   const { ready } = useSageStatus();
   const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
-  // The chips answer the tap at once; the list follows a frame later, quietly (useQuietFilter).
-  const { chosen, shown: area, quiet, choose, reset } = useQuietFilter<string | null>(null);
+  // An area chosen: the chip answers at once, the list dips, changes out of sight and rises (useFilterSwap).
+  const { chosen, shown: area, quiet, choose, reset, listStyle } = useFilterSwap<string | null>(null, {
+    scrollToTop: () => scroller.current?.scrollToOffset({ offset: 0, animated: false }),
+    ready,
+  });
+  // Tapping the chosen area again goes back to every area.
+  const pickArea = (value: string | null) => {
+    const next = value !== null && value === chosen ? null : value;
+    if (next !== chosen) choose(next);
+  };
   // The chosen area renamed or removed (in Manage areas): back to every area,
   // rather than a filter on a name that's gone ("Nothing waiting in …").
   useEffect(() => {
@@ -123,14 +131,11 @@ export default function LifeCenter() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
       <TopBar title="Life Center" scrollY={scrollY} right={<IconButton icon="sliders" label="Manage areas" onPress={() => router.push("/sheet/areas")} />}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          <Chip label="All" selected={chosen === null} onPress={() => choose(null)} />
-          {areas.map((item) => (
-            <Chip key={item.name} label={item.name} selected={chosen === item.name} onPress={() => choose(chosen === item.name ? null : item.name)} />
-          ))}
-        </ScrollView>
+        <ChipRow choices={[{ label: "All", value: null }, ...areas.map((item) => ({ label: item.name, value: item.name as string | null }))]} chosen={chosen} onChoose={pickArea} contentStyle={styles.chips} testID="life-chips" />
       </TopBar>
 
+      {/* The list as one layer: it dips and rises when an area is chosen (on the list itself the fade didn't apply on web). */}
+      <Animated.View style={[styles.screen, listStyle]}>
       <Animated.FlatList
         ref={scroller}
         data={rows}
@@ -177,6 +182,7 @@ export default function LifeCenter() {
           </>
         }
       />
+      </Animated.View>
     </View>
   );
 }

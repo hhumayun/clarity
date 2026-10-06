@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useShallow } from "zustand/react/shallow";
@@ -36,24 +36,29 @@ export function NoteTasks({ noteId }: { noteId: string }) {
   const found = useSage((state) => state.suggestions[noteId]);
   const searched = useSage((state) => state.searched[noteId]);
   const findTasks = useSage((state) => state.findTasks);
-  const [looking, setLooking] = useState(false);
-  const [nothing, setNothing] = useState(false);
   // Finding tasks is AI help: only when it's on, and for an account, online.
   const aiOn = useAiOn();
   const aiReady = useAiReady();
+  // Opened for the first time with AI help: it's reading from the first frame,
+  // rather than "Reading…" pushing everything down as the sheet comes up.
+  const [looking, setLooking] = useState(() => !searched && aiReady);
+  const [nothing, setNothing] = useState(false);
+  const busy = useRef(false);
 
   const look = async () => {
-    if (looking) return;
+    if (busy.current) return;
     if (!aiReady) {
       acknowledge("Finding tasks needs a connection", "cloudOff");
       return;
     }
+    busy.current = true;
     setNothing(false);
     setLooking(true);
     const started = Date.now();
     const result = await findTasks(noteId);
     // The dots stay a moment either way, so reading never flickers.
     await new Promise((resolve) => setTimeout(resolve, Math.max(0, 1_400 - (Date.now() - started))));
+    busy.current = false;
     setLooking(false);
     if (result === "none") setNothing(true);
     if (result === "nothing-new") acknowledge("Nothing new since the last look", "sparkles");
@@ -81,7 +86,7 @@ export function NoteTasks({ noteId }: { noteId: string }) {
       ) : null}
 
       {!looking && waiting.length ? (
-        <Animated.View entering={arriveSlow} layout={settle}>
+        <Animated.View entering={arriveSlow} exiting={leave} layout={settle}>
           <SectionTitle title="Found in this note" icon="sparkles" first />
           <View style={styles.found}>
             {waiting.map((item) => (
@@ -101,6 +106,8 @@ export function NoteTasks({ noteId }: { noteId: string }) {
         </Animated.View>
       ) : null}
 
+      {/* What follows the found cards moves with them, rather than jumping as they come and go. */}
+      <Animated.View layout={settle}>
       <SectionTitle title="Tasks" first={looking || (!waiting.length && !nothing)} />
       <TaskCard
         tasks={open}
@@ -138,6 +145,7 @@ export function NoteTasks({ noteId }: { noteId: string }) {
         )}
       </Pressable>
       <DoneFold tasks={done} />
+      </Animated.View>
     </View>
   );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { RefreshControl, StyleSheet, View, type RefreshControlProps } from "react-native";
 import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useDataMode, useSageStatus } from "../data/sage";
-import { breathe, duration } from "../theme/motion";
+import { arrive, breathe, duration, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, pad, radius, space } from "../theme/tokens";
 import { Button } from "./Button";
@@ -43,9 +43,10 @@ export function SkeletonCards({ cards = 2, rows = 3, label = "Loading your notes
 export function LoadProblem() {
   const { problem, refresh } = useSageStatus();
   const [state, setState] = useState<"idle" | "busy">("idle");
+  // It comes and goes softly (it popped in, shifting the page).
   if (!problem) return null;
   return (
-    <View style={[styles.card, styles.problem]} accessibilityLiveRegion="polite">
+    <Animated.View entering={arrive} exiting={leave} style={[styles.card, styles.problem]} accessibilityLiveRegion="polite">
       <Txt variant="subhead" tone="ink2" center>
         {problem}
       </Txt>
@@ -59,7 +60,7 @@ export function LoadProblem() {
           void refresh().finally(() => setState("idle"));
         }}
       />
-    </View>
+    </Animated.View>
   );
 }
 

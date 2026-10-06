@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { arrive } from "../theme/motion";
+import { arrive, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge } from "../theme/tokens";
 import { Icon } from "./Icon";
@@ -44,7 +44,7 @@ export function TopBar({
   const insets = useSafeAreaInsets();
   const rule = useAnimatedStyle(() => ({ opacity: interpolate(scrollY?.value ?? 0, [0, 10], [0, 1], "clamp") }));
   const name = (pressed = false) => (
-    <Animated.View key={changeKey} entering={changeKey ? arrive : undefined} style={[styles.names, { opacity: pressed ? 0.55 : 1 }]}>
+    <Animated.View key={changeKey} entering={changeKey ? arrive : undefined} exiting={changeKey ? leave : undefined} style={[styles.names, { opacity: pressed ? 0.55 : 1 }]}>
       <View style={styles.name}>
         <Txt variant="headline" numberOfLines={1} accessibilityRole="header">
           {title}

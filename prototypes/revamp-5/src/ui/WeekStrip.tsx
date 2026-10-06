@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { dateOf, longDay, today, type Day } from "../lib/dates";
-import { breathe, calm, duration, easeOut, fadeTiming, spring } from "../theme/motion";
+import { breathe, calm, duration, easeIn, easeOut, fadeTiming, keep, spring } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius } from "../theme/tokens";
 import { tick } from "./haptics";
@@ -35,12 +35,16 @@ export function WeekStrip({ days, selected, onSelect, onWeek }: { days: StripDay
   const disc = useStretch(Math.max(0, index), column, Math.max(0, (column - DISC) / 2));
   const t = today();
 
-  // The week slides in from the side it was swiped toward.
+  // A swipe: the old week carries on out and fades; the new one, swapped in
+  // while nothing shows, comes in from the side it was swiped toward. Its
+  // starting place is set before it paints (it used to paint where the finger
+  // left the old week, then jump).
   const x = useSharedValue(0);
   const fade = useSharedValue(1);
   const firstDay = days[0]?.day;
   const lastFirst = useRef(firstDay);
-  useEffect(() => {
+  const travel = Math.max(60, width * 0.25);
+  useLayoutEffect(() => {
     if (!firstDay || lastFirst.current === firstDay) return;
     const forward = firstDay > (lastFirst.current ?? firstDay);
     lastFirst.current = firstDay;
@@ -49,11 +53,11 @@ export function WeekStrip({ days, selected, onSelect, onWeek }: { days: StripDay
       fade.value = withTiming(1, fadeTiming(duration.base));
       return;
     }
-    x.value = (forward ? 1 : -1) * Math.max(60, width * 0.25);
-    fade.value = 0.2;
+    x.value = (forward ? 1 : -1) * travel;
+    fade.value = Math.min(fade.value, 0.2);
     x.value = withSpring(0, spring.glide);
     fade.value = withTiming(1, { duration: duration.enter, easing: easeOut });
-  }, [firstDay, reduced, width, x, fade]);
+  }, [firstDay, reduced, travel, x, fade]);
 
   const pan = Gesture.Pan()
     .activeOffsetX([-16, 16])
@@ -63,8 +67,20 @@ export function WeekStrip({ days, selected, onSelect, onWeek }: { days: StripDay
     })
     .onEnd((event) => {
       const go = Math.abs(event.translationX) > 56 || Math.abs(event.velocityX) > 600;
-      if (go) scheduleOnRN(onWeek, event.translationX < 0 ? 1 : -1);
-      else x.value = withSpring(0, reduced ? calm : spring.glide);
+      if (!go) {
+        x.value = withSpring(0, reduced ? calm : spring.glide);
+        return;
+      }
+      const step = event.translationX < 0 ? 1 : -1;
+      if (reduced) {
+        scheduleOnRN(onWeek, step);
+        return;
+      }
+      const out = { duration: duration.quick, easing: easeIn, reduceMotion: keep };
+      fade.value = withTiming(0, out);
+      x.value = withTiming(-step * travel, out, (finished) => {
+        if (finished) scheduleOnRN(onWeek, step);
+      });
     });
 
   const slide = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }], opacity: fade.value }));

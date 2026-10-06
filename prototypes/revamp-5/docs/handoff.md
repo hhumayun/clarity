@@ -47,7 +47,18 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - **Fix:** the navigator no longer animates (`animation: "none"` in `app/(tabs)/_layout.tsx`). TabBar's veil, in the page colour, covers on a tap and lifts once the new page is drawn, so the new page still fades in.
   - **The browser can't show the bug** (it runs those animations in JavaScript and doesn't detach pages). `tests/checks/tab-open.mjs` (150 taps) guards the switching, and `tab-feel.mjs` now measures the veil.
   - Bring the navigator's fade back only once expo-router has the fix.
-- **Next:** phase 2, swaps (the area filters with `useFilterSwap` and a travelling ring, Today's day change, Search, skeletons).
+- **Phase 2, swaps, is done:**
+  - `src/ui/filterSwap.ts` (`useFilterSwap`, replacing `useQuietFilter`): the list dips, swaps out of sight and rises; the latest choice wins; `quiet` holds the rows' own animations; `ready` lets first content rise in.
+    - The fade goes on an `Animated.View` around the list. On `Animated.FlatList` itself it didn't apply on web.
+  - `src/ui/ChipRow.tsx` with `useStretchTo` (stretch.ts): one measured ink ring that travels, plus scrolling a chosen chip into view. Used on Life, Notes and Search.
+    - Search's chips moved under its field, and Search swaps results after a 120 ms pause in typing.
+  - Notes' filter row moves the list down (a `layout={settle}` wrapper).
+  - Today: the old day leaves (`FadeOutLeft`/`Right`), the title and the pill fade, the week strip's swipe leaves before the new week comes in, and Today's card cross-fades at a new time of day.
+  - Placeholders and LoadProblem fade.
+  - Go deeper's dots and question fade into each other.
+  - The note's tasks sheet opens already reading, and what follows the found cards moves with them.
+  - **Checks:** `tests/checks/filter-swap.mjs` (22). The chip's label inks in about 0.16–0.3 s on Life at 4× CPU in the web build, and 0.5–0.7 s on Notes' first tap there (the ring moves on the UI thread at once on the phone).
+- **Next:** phase 3, writing (the note page's keyboard choreography).
 
 ## What's done
 

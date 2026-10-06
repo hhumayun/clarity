@@ -1,6 +1,6 @@
 import { useRouter, useScrollToTop } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View, type ListRenderItem } from "react-native";
+import { StyleSheet, View, type ListRenderItem } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Notebook } from "../../src/art/Pictures";
@@ -8,12 +8,13 @@ import type { Note } from "../../src/store/model";
 import { noteGroup } from "../../src/store/selectors";
 import { useSage, useSageStatus } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
-import { arriveSlow, leave } from "../../src/theme/motion";
+import { arriveSlow, leave, settle } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, space } from "../../src/theme/tokens";
-import { Chip } from "../../src/ui/Chip";
+import { ChipRow } from "../../src/ui/ChipRow";
+import { useFilterSwap } from "../../src/ui/filterSwap";
 import { useScrollY } from "../../src/ui/chrome";
-import { tap, tick } from "../../src/ui/haptics";
+import { tap } from "../../src/ui/haptics";
 import { IconButton } from "../../src/ui/IconButton";
 import { NoteCard } from "../../src/ui/NoteCard";
 import { SectionTitle } from "../../src/ui/SectionTitle";
@@ -49,11 +50,16 @@ export default function Notes() {
   const pull = usePullToRefresh();
   useScrollToTop(scroller as never);
   const [filtering, setFiltering] = useState(false);
-  const [area, setArea] = useState<string | null>(null);
+  // An area chosen: the chip answers at once, the list dips, changes out of sight and rises (useFilterSwap).
+  const { chosen, shown: area, choose, reset, listStyle } = useFilterSwap<string | null>(null, {
+    scrollToTop: () => scroller.current?.scrollToOffset({ offset: 0, animated: false }),
+    ready,
+  });
   // The chosen area renamed or removed: back to every area.
   useEffect(() => {
-    if (area !== null && !areaList.some((item) => item.name === area)) setArea(null);
-  }, [areaList, area]);
+    if (chosen !== null && !areaList.some((item) => item.name === chosen)) reset(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaList, chosen]);
 
   // Newest first, sorted once per change to the notes, not again for each area chosen.
   const sorted = useMemo(() => [...notes].sort((a, b) => (a.day === b.day ? b.time.localeCompare(a.time, undefined, { numeric: true }) : a.day < b.day ? 1 : -1)), [notes]);
@@ -84,15 +90,16 @@ export default function Notes() {
     [area, router],
   );
 
+  // Folding the chips away goes back to every area, as the same calm swap (the button's tap is the feedback).
   const toggleFilter = () => {
     tap();
-    if (filtering) setArea(null);
+    if (filtering && chosen !== null) choose(null, { silent: true });
     setFiltering(!filtering);
   };
-  // Choosing an area answers with a tick, as a choice should.
-  const choose = (next: string | null) => {
-    tick();
-    setArea(next);
+  // Tapping the chosen area again goes back to every area.
+  const pickArea = (value: string | null) => {
+    const next = value !== null && value === chosen ? null : value;
+    if (next !== chosen) choose(next);
   };
 
   return (
@@ -104,16 +111,15 @@ export default function Notes() {
       >
         {filtering ? (
           <Animated.View entering={enter} exiting={exit}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              <Chip label="All" selected={area === null} onPress={() => choose(null)} />
-              {areaList.map(({ name }) => (
-                <Chip key={name} label={name} selected={area === name} onPress={() => choose(area === name ? null : name)} />
-              ))}
-            </ScrollView>
+            <ChipRow choices={[{ label: "All", value: null }, ...areaList.map(({ name }) => ({ label: name, value: name as string | null }))]} chosen={chosen} onChoose={pickArea} contentStyle={styles.chips} testID="notes-chips" />
           </Animated.View>
         ) : null}
       </TopBar>
 
+      {/* The chips unfolding make room by moving the list down, not by jumping it. */}
+      <Animated.View layout={settle} style={styles.screen}>
+      {/* The list as one layer: it dips and rises when an area is chosen. */}
+      <Animated.View style={[styles.screen, listStyle]}>
       <Animated.FlatList
         ref={scroller}
         testID="notes-list"
@@ -151,6 +157,8 @@ export default function Notes() {
           ) : null
         }
       />
+      </Animated.View>
+      </Animated.View>
     </View>
   );
 }
