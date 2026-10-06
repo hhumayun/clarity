@@ -26,7 +26,7 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
   - Every note's rich text so far (all 10 on the server) is a quoted string inside the JSON column. The cause: the create and update endpoints hand the database driver a JSON string, which it encodes again.
   - The main app treats a string as no rich text, so it has always opened server copies from their Markdown; anything only the rich text keeps (a list moved in) is lost after a reload.
   - Sage reads both forms (`asDoc`).
-  - A server fix is on the branch, not deployed: writes go in as text and become JSON once (checked on a temporary table), and reads unwrap old strings (`readableDoc`). `migrations/015_note_doc_objects.sql` unwraps the 10 stored copies in place. Both wait for your OK.
+  - **Fixed and deployed (2026-10-06, 130b109e), with your OK.** Writes go in as text and become JSON once, and reads unwrap old strings (`readableDoc`). Migration 015 unwrapped all 11 stored copies; no last-changed time moved. The main app now gets real rich text from the server too.
 
 ---
 

@@ -57,10 +57,19 @@ The facts here were checked against the code on 2026-10-05.
   - The read-only path stays in the code, should saving ever need pausing.
 - **Phase 5 is built** (2026-10-06): the editor, with its page built into the app (details and checks in `docs/editor-plan.md`).
   - Waiting on the phone test.
-  - Three server changes are ready on the branch but not deployed, each needing your OK:
-    - AI only through endpoints that keep nothing (`helpers/ai.tsx`);
-    - rich text stored once-encoded (`readableDoc`, plus migration 015 to unwrap the 10 stored copies);
-    - a reminder for this time only (`remind_once`, migration 016). This must be applied before the deploy, since every task list reads the column.
+- **Deployed** (2026-10-06, 130b109e, revamp 5 at 2fed946), with your OK:
+  - AI only through endpoints that keep nothing;
+  - rich text stored encoded once, with old copies read back;
+  - a reminder for this time only (`remind_once`).
+
+  Migration 016 was applied first. All 83 tasks were unchanged: none marked, no last-changed time moved.
+  - **Afterwards, migration 015 unwrapped the 11 notes' stored rich text into documents.** No last-changed time moved and the count stayed at 89. The backup is on the dev machine.
+  - **Checked against the live server as the test account:**
+    - the 16 API checks, including Find tasks' AI;
+    - 16 note checks, with new rich text stored as a document;
+    - 6 task checks, with "just this time" kept and an AI title idea answered.
+
+    The test account was left with only your items.
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---
@@ -314,7 +323,7 @@ Each phase ends with something to try on the phone and a check that it worked. S
   - A task's repeat has its own sheet: ticked off, the task comes back on its next day.
   - A reminder is a notification counted back from the task's time. On a repeating task it goes off each time it repeats, or just this time (`remindOnce`). A reminder for this time only is cleared when the task comes back.
   - "No reminder" no longer clears the repeat.
-  - This needs one server field, `tasks.remind_once` (migration 016, additive, default each time). It's on the branch but not applied or deployed.
+  - The server field `tasks.remind_once` (migration 016, additive, default each time) is applied and deployed (130b109e).
   - The main app doesn't know the field: it reminds each time.
 - **What comes over:** the reminders code as is:
   - local notifications, at most 50 waiting, repeating tasks scheduled up to six times ahead;
