@@ -90,6 +90,7 @@ export async function handle(request: Request) {
           dueTime: input.completeBy ? (input.dueTime ?? null) : null,
           remindBefore: input.remindBefore ?? null,
           remindRepeat: input.remindRepeat ?? null,
+          remindOnce: input.remindOnce ?? false,
           status: input.status ?? "todo",
           sourceFingerprint: null,
           updatedAt: now,

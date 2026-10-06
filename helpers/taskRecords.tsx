@@ -20,6 +20,7 @@ export function selectTaskRecords(executor: Kysely<DB> | Transaction<DB>, userId
       "tasks.dueTime as dueTime",
       "tasks.remindBefore as remindBefore",
       "tasks.remindRepeat as remindRepeat",
+      "tasks.remindOnce as remindOnce",
       "tasks.status as status",
       "tasks.completedAt as completedAt",
       "tasks.movedFrom as movedFrom",

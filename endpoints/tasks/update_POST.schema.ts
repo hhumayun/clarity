@@ -16,6 +16,8 @@ export const schema = z.object({
   /** Minutes before the task's time (or 9:00 on its day) to remind; null for none. */
   remindBefore: z.number().int().min(0).max(MAX_REMIND_BEFORE).nullable().optional(),
   remindRepeat: z.enum(REMINDER_REPEAT_VALUES).nullable().optional(),
+  /** The reminder is for this time only, not each time the task repeats. */
+  remindOnce: z.boolean().optional(),
   status: z.enum(TASK_STATUS_VALUES).optional(),
   /** The day it was planned for before a move (Catch up, the menu, the date sheet) pushed it on; null clears it. */
   movedFrom: z.date().nullable().optional(),

@@ -23,6 +23,7 @@ export async function handle(request: Request) {
       dueTime?: string | null;
       remindBefore?: number | null;
       remindRepeat?: typeof input.remindRepeat;
+      remindOnce?: boolean;
       status?: typeof input.status;
       movedFrom?: Date | null;
       updatedAt: Date;
@@ -36,6 +37,7 @@ export async function handle(request: Request) {
     if (input.completeBy === null) values.dueTime = null;
     if (input.remindBefore !== undefined) values.remindBefore = input.remindBefore;
     if (input.remindRepeat !== undefined) values.remindRepeat = input.remindRepeat;
+    if (input.remindOnce !== undefined) values.remindOnce = input.remindOnce;
     if (input.status !== undefined) values.status = input.status;
     if (input.movedFrom !== undefined) values.movedFrom = input.movedFrom;
     // Done keeps the moment it first became done, so a change sent twice

@@ -160,6 +160,8 @@ export interface Tasks {
   /** Minutes before the task's time (or 9:00 on its day) to remind (migration 011). */
   remindBefore: number | null;
   remindRepeat: ReminderRepeat | null;
+  /** The reminder is for this time only: when the repeating task comes back, it has none (migration 016). */
+  remindOnce: Generated<boolean>;
   sourceFingerprint: string | null;
   status: Generated<TaskStatus>;
   text: string;
