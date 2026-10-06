@@ -255,6 +255,7 @@ Each phase ends with something to try on the phone and a check that it worked. S
 - **Then switch to your own account,** once these checks pass.
 
 ### Phase 5: the editor (L)
+- **Worked out in detail** in `docs/editor-plan.md` (2026-10-06). Where the two differ, that plan wins: the AI's questions move to Phase 6 with word help.
 - **What comes over:** `NoteEditor` (Tiptap in a DOM component), the `BootedNoteEditor` wrapper (the first props stay empty until the page is up, to work around the WebView escaping problem), `localDrafts`, `noteDocs` and the note screen's save rules:
   - save 900 ms after typing stops, and on leave, background or tab switch;
   - flush the editor on leave;
