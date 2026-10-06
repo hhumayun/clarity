@@ -11,7 +11,7 @@ import { useAuth } from "../src/core/providers/AuthProvider";
 import { usePendingCount } from "../src/core/sync/SyncProvider";
 import { useDevice } from "../src/state/device";
 import type { FocusLength } from "../src/store/model";
-import { canSave } from "../src/data/AccountSource";
+import { isTestAccount } from "../src/data/AccountSource";
 import { useDataMode, useSage } from "../src/data/sage";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { edge, pad, space, type Phase } from "../src/theme/tokens";
@@ -210,9 +210,11 @@ function Account({ email }: { email: string }) {
             <Txt variant="row" numberOfLines={1}>
               {shown}
             </Txt>
-            <Txt variant="footnote" tone="ink3">
-              {canSave(shown) ? "A test account: changes are saved." : "Read-only in revamp 5 until testing is done."}
-            </Txt>
+            {isTestAccount(shown) ? (
+              <Txt variant="footnote" tone="ink3">
+                A test account.
+              </Txt>
+            ) : null}
           </View>
         </View>
         <CardRow onPress={() => void exportNotes()} accessibilityRole="button" accessibilityLabel="Export my notes" style={styles.row}>

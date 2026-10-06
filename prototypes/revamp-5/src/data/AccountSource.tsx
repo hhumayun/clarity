@@ -14,12 +14,17 @@ import { declined, emptyAccount, setAccountNotifier, useAccountStore, type Accou
 import { useDataMode, useOnline } from "./sage";
 
 /**
- * Only test accounts (Clerk's +clerk_test addresses) save from revamp 5 for
- * now. Any other account is read-only here until the offline checks of
- * phase 4 have passed, so your own notes can't be changed by anything
- * unfinished.
+ * Every signed-in account saves. Until phase 4's offline checks passed, only
+ * test accounts did; saving opened to all accounts on 2026-10-06, with the
+ * user's OK, after a backup of the real accounts. The read-only path stays,
+ * should saving ever need pausing.
  */
 export function canSave(email: string | undefined): boolean {
+  return !!email;
+}
+
+/** Clerk's test addresses (+clerk_test): no inbox, the code is always 424242. */
+export function isTestAccount(email: string | undefined): boolean {
   return !!email && /\+clerk_test@/i.test(email);
 }
 

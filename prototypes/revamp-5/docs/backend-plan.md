@@ -51,6 +51,10 @@ The facts here were checked against the code on 2026-10-05.
     2. Data restored from the phone was thrown away at once, because its keep-time (30 days) was longer than a timer can count.
     3. The phone's copy of the lists lagged up to 30 seconds behind changes.
   - **Still to do:** try airplane mode on the phone, then open saving to your own account, with your OK, after exporting a backup and counting rows. Editing, archiving and deleting notes come with the editor (phase 5).
+- **Saving opened to every account** (2026-10-06), with your OK, after airplane mode worked on your phone (three tasks added offline arrived once each, with their times).
+  - First, a backup of the real accounts' rows was taken to a private file on the dev machine (`/root/.config/clarity-backups/`).
+  - Counts beforehand: 87 notes, 78 tasks (33 done), 8 areas, last changed 4 October.
+  - The read-only path stays in the code, should saving ever need pausing.
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---

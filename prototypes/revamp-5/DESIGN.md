@@ -53,7 +53,7 @@ Phases 0 and 1 of `docs/backend-plan.md`. The main app's sign-in, offline and da
 - **While loading:** placeholders the shape of the cards breathe in their place, so nothing jumps when the cards arrive. An empty list still shows its picture, but only once the list has really arrived.
 - **If the lists can't be fetched** and nothing is kept on the phone, a calm card says so with Try again. Pull down to refresh on Today, Notes and Life Center.
 - **An account's first task:** every task lives in an area, so with none yet, quick add says so and shows a "Name your first area" field. It doesn't take the keyboard from the task. A name typed there counts when you tap Add task, with no Return needed.
-- **Accounts that can't save yet** (anything but a test account, until phase 4's checks): a change says "Read-only for now: nothing changed" in the capsule, and no screen claims "Saved" after it. A new note or task doesn't open at all, so nothing typed is lost. Settings says which kind of account you're in.
+- **Every account saves** since 2026-10-06. Before that, only test accounts did. The read-only path is still there, should saving ever need pausing: a change says "Read-only for now: nothing changed" in the capsule, no screen claims "Saved" after it, and a new note or task doesn't open at all, so nothing typed is lost.
 
 **Offline (phase 4, 2026-10-06), said quietly and never counted:**
 - **Going offline:** the capsule says "Offline. Changes will sync." Changes keep showing at once.
