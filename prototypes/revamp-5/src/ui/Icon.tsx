@@ -77,6 +77,15 @@ import CloudUpload from "lucide-react-native/icons/cloud-upload";
 import CloudOff from "lucide-react-native/icons/cloud-off";
 import CloudCheck from "lucide-react-native/icons/cloud-check";
 import CircleDot from "lucide-react-native/icons/circle-dot";
+import ListOrdered from "lucide-react-native/icons/list-ordered";
+import ListIndentDecrease from "lucide-react-native/icons/list-indent-decrease";
+import Bold from "lucide-react-native/icons/bold";
+import Italic from "lucide-react-native/icons/italic";
+import Strikethrough from "lucide-react-native/icons/strikethrough";
+import Heading2 from "lucide-react-native/icons/heading-2";
+import Quote from "lucide-react-native/icons/quote";
+import Archive from "lucide-react-native/icons/archive";
+import ArchiveRestore from "lucide-react-native/icons/archive-restore";
 import React from "react";
 
 const icons = {
@@ -107,6 +116,15 @@ const icons = {
   checklist: ["checklist", ListChecks],
   list: ["list.bullet", List],
   indent: ["increase.indent", ListIndentIncrease],
+  outdent: ["decrease.indent", ListIndentDecrease],
+  numbered: ["list.number", ListOrdered],
+  bold: ["bold", Bold],
+  italic: ["italic", Italic],
+  strike: ["strikethrough", Strikethrough],
+  heading: ["textformat.size", Heading2],
+  quote: ["text.quote", Quote],
+  archive: ["archivebox", Archive],
+  unarchive: ["arrow.up.bin", ArchiveRestore],
   link: ["link", Link],
   keyboardDown: ["keyboard.chevron.compact.down", KeyboardOff],
   play: ["play.fill", Play],

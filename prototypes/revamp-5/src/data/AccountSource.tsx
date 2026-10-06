@@ -4,7 +4,7 @@ import { saveOfflineCopyNow } from "../core/sync/persist";
 import { outbox } from "../core/sync/store";
 import { usePendingCount } from "../core/sync/SyncProvider";
 import { useFocusSummary, useRecordFocus } from "../core/hooks/useFocus";
-import { useCreateNote, useNotes, useUpdateNote } from "../core/hooks/useNotes";
+import { useCreateNote, useDeleteNote, useNotes, useUpdateNote } from "../core/hooks/useNotes";
 import { useTasks } from "../core/hooks/useTasks";
 import type { TaskChange } from "../core/lib/reminderRules";
 import { useAuth } from "../core/providers/AuthProvider";
@@ -36,7 +36,7 @@ const sameName = (a: string, b: string) => cleanName(a).toLowerCase() === cleanN
 
 type Actions = Pick<
   AccountState,
-  "addTask" | "updateTask" | "setDone" | "moveTask" | "deleteTask" | "clearCompleted" | "linkNote" | "unlinkNote" | "addArea" | "renameArea" | "deleteArea" | "recordFocus" | "parkThought" | "addNote" | "setNoteArea"
+  "addTask" | "updateTask" | "setDone" | "moveTask" | "deleteTask" | "clearCompleted" | "linkNote" | "unlinkNote" | "addArea" | "renameArea" | "deleteArea" | "recordFocus" | "parkThought" | "addNote" | "setNoteArea" | "writeNote" | "archiveNote" | "deleteNote"
 >;
 
 /**
@@ -57,6 +57,7 @@ export function AccountSource() {
   const focus = useFocusSummary();
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
+  const deleteNote = useDeleteNote();
   const recordFocus = useRecordFocus();
 
   useEffect(() => {
@@ -124,13 +125,13 @@ export function AccountSource() {
   }, [refetchTasks, refetchNotes, refetchFocus]);
 
   // The actions read the latest hooks and lists through this, so they never act on a stale copy.
-  const latest = useRef({ tasks, createNote, updateNote, recordFocus, projects, taskRecords, noteRecords });
-  latest.current = { tasks, createNote, updateNote, recordFocus, projects, taskRecords, noteRecords };
+  const latest = useRef({ tasks, createNote, updateNote, deleteNote, recordFocus, projects, taskRecords, noteRecords });
+  latest.current = { tasks, createNote, updateNote, deleteNote, recordFocus, projects, taskRecords, noteRecords };
 
   useEffect(() => {
     if (!editable) {
-      const { addTask, updateTask, setDone, moveTask, deleteTask, clearCompleted, linkNote, unlinkNote, addArea, renameArea, deleteArea, recordFocus: record, parkThought, addNote, setNoteArea } = emptyAccount();
-      useAccountStore.setState({ editable: false, addTask, updateTask, setDone, moveTask, deleteTask, clearCompleted, linkNote, unlinkNote, addArea, renameArea, deleteArea, recordFocus: record, parkThought, addNote, setNoteArea });
+      const { addTask, updateTask, setDone, moveTask, deleteTask, clearCompleted, linkNote, unlinkNote, addArea, renameArea, deleteArea, recordFocus: record, parkThought, addNote, setNoteArea, writeNote, archiveNote, deleteNote: removeNote } = emptyAccount();
+      useAccountStore.setState({ editable: false, addTask, updateTask, setDone, moveTask, deleteTask, clearCompleted, linkNote, unlinkNote, addArea, renameArea, deleteArea, recordFocus: record, parkThought, addNote, setNoteArea, writeNote, archiveNote, deleteNote: removeNote });
       return;
     }
     const projectId = (name: string | null | undefined) => (name ? latest.current.projects?.find((project) => sameName(project.name, name))?.id : undefined);
@@ -225,6 +226,11 @@ export function AccountSource() {
         if (first === next[0] && next.length === current.projectIds.length) return;
         latest.current.updateNote.mutate({ id: noteId, projectIds: next });
       },
+      // An account's note saves from its page, words and rich text together,
+      // through the outbox (src/editor/useNoteSession.ts); this is the demo's way.
+      writeNote: () => {},
+      archiveNote: (noteId) => latest.current.updateNote.mutate({ id: noteId, archived: true }),
+      deleteNote: (noteId) => latest.current.deleteNote.mutate({ id: noteId }),
     };
     useAccountStore.setState({ editable: true, ...actions });
   }, [editable]);

@@ -158,6 +158,39 @@ export function toNote(record: NoteRecord, areaName: (projectId: string) => stri
   };
 }
 
+/**
+ * A sample note's words as Markdown, for the editor: questions as quotes,
+ * checklist rows (which run together as one list) and paragraphs.
+ */
+export function markdownOfBlocks(blocks: Block[]): string {
+  return blocks
+    .map((block, i) => {
+      const line = block.kind === "check" ? `- [${block.done ? "x" : " "}] ${block.text}` : block.kind === "quote" ? `> ${block.text}` : block.text;
+      if (i === 0) return line;
+      return blocks[i - 1].kind === "check" && block.kind === "check" ? `\n${line}` : `\n\n${line}`;
+    })
+    .join("");
+}
+
+/** What the lists show for a note written on its page: its title, preview, blocks and word count. */
+export function noteFacts(title: string, markdown: string): { title: string; excerpt: string; blocks: Block[]; words: number } {
+  const shown = displayTitle({ title, content: markdown });
+  return { title: shown.title, excerpt: shown.preview, blocks: blocksOf(markdown), words: plainText(markdown).split(/\s+/).filter(Boolean).length };
+}
+
+/**
+ * Whether a page has been written on: a title, or words beyond the questions
+ * it was given (a question alone isn't a note).
+ */
+export function hasWriting(title: string, markdown: string, asked: string[]): boolean {
+  if (title.trim()) return true;
+  const questions = new Set(asked.map((question) => question.trim()));
+  return markdown
+    .split("\n")
+    .map((line) => line.trim())
+    .some((line) => line && !questions.has(line.replace(/^>\s?/, "").trim()));
+}
+
 /** Each day's page, the note written to Today's question (`source: "page"`): the first one that day. */
 export function pagesOf(records: NoteRecord[]): Record<Day, string> {
   const pages: Record<Day, string> = {};

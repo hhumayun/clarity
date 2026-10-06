@@ -59,3 +59,20 @@ Each one only adds, and is marked "(revamp 5)" in the code. They follow the API 
 - `api/tasks.ts` and `api/notes.ts`: the update bodies take `changedAt` (and tasks take `movedFrom`); note creates may be a `"page"`.
 - `hooks/useTasks.ts`: an update is stamped with `changedAt`, and the phone's copy shows `completedAt` and `movedFrom` at once.
 - `hooks/useNotes.ts`: a note update is stamped with `changedAt`; a create may be a `"page"`.
+
+## The editor (phase 5, 2026-10-06)
+
+The main app's note editor and its save rules came over at 4344bd8, outside `src/core/`:
+
+- `editor/extensions.ts`: the editing rules from `mobile/src/editor/NoteEditor.tsx`, unchanged. Indents, Backspace at a line's start, empty checklist rows, quotes and links are all there; only the temporary tracing (`TRACE`) is left out.
+- `editor/main.ts`: the rest of that file (the editor's setup, change batching, cursor and formats, commands) as a plain page. There's no React and no Expo DOM component; it's built into `src/editor/page.ts` by `npm run editor`. It differs from the main app in four ways:
+  - it talks to the app over `src/editor/protocol.ts` instead of props and `useDOMImperativeHandle`;
+  - `insertQuestion` adds a quote, and takes `{ text, atEnd }`;
+  - Sage's look is in the page's styles, with Nunito Sans inside it as Latin-only woff2 (`editor/fonts`, OFL);
+  - "Write" is the hint under a question.
+- `src/editor/useNoteSession.ts`: the note screen's save rules from `mobile/app/(app)/note/[id].tsx`: loading (the list's copy, then the server's), the draft-or-server choice, drafts every second, the outbox 900 ms after a pause, flushing on leave and background. It differs in four ways:
+  - a page from Today's question is saved as `"page"`;
+  - a new page isn't made until it has words beyond its questions;
+  - updates carry `changedAt`;
+  - the server's rich text is read through `asDoc`, because the server stored it as a quoted string (see `docs/editor-plan.md`, progress).
+- `tests/editor/editor.test.js`: the main app's `tests/note-editor` with its harness swapped for this page's channel. The question check expects a quote, and seven checks for Sage's questions are added.

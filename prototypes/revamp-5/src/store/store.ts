@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { addDays, dateOf, dayOf, today, type Day } from "../lib/dates";
 import { parseTask } from "../lib/parseTask";
-import { emptyHistory, type Area, type FocusHistory, type Note, type Outcome, type Repeat, type Suggestion, type Task } from "./model";
+import { emptyHistory, type Area, type Block, type FocusHistory, type Note, type Outcome, type Repeat, type Suggestion, type Task } from "./model";
 import { seed } from "./seed";
 
 type NewTask = { title: string; area: string; day: Day | null; time: number | null; noteId?: string | null };
@@ -54,6 +54,15 @@ type State = {
    */
   addNote: (note: { title: string; body?: string; segments?: { question: string | null; answer: string }[]; area: string | null; page?: boolean }) => string;
   setNoteArea: (noteId: string, area: string | null) => void;
+  /**
+   * A note written or edited on its page: its words as Markdown, with what the
+   * lists show worked out by the page (src/data/adapt.ts, noteFacts). A new id
+   * makes the note; today's page (`page`) becomes the day's page.
+   */
+  writeNote: (note: { id: string; title: string; typedTitle: string; markdown: string; excerpt: string; blocks: Block[]; words: number; area: string | null; page?: boolean }) => void;
+  /** Archived notes leave the lists. */
+  archiveNote: (noteId: string) => void;
+  deleteNote: (noteId: string) => void;
 
   findTasks: (noteId: string) => "found" | "none" | "nothing-new";
   toggleSuggestion: (noteId: string, key: string) => void;
@@ -306,6 +315,25 @@ export const useStore = create<State>()((set, get) => ({
   },
 
   setNoteArea: (noteId, area) => set((state) => ({ notes: state.notes.map((note) => (note.id === noteId ? { ...note, area } : note)) })),
+
+  writeNote: ({ id, title, typedTitle, markdown, excerpt, blocks, words, area, page }) =>
+    set((state) => {
+      const facts = { title, typedTitle, markdown, excerpt, blocks, words };
+      if (state.notes.some((note) => note.id === id)) {
+        return { notes: state.notes.map((note) => (note.id === id ? { ...note, ...facts } : note)) };
+      }
+      const note: Note = { id, ...facts, area, day: today(), time: clock() };
+      return { notes: [note, ...state.notes], pages: page ? { ...state.pages, [today()]: id } : state.pages };
+    }),
+
+  archiveNote: (noteId) => get().deleteNote(noteId),
+
+  deleteNote: (noteId) =>
+    set((state) => ({
+      notes: state.notes.filter((note) => note.id !== noteId),
+      pages: Object.fromEntries(Object.entries(state.pages).filter(([, id]) => id !== noteId)),
+      tasks: state.tasks.map((task) => (task.noteIds.includes(noteId) ? { ...task, noteIds: task.noteIds.filter((id) => id !== noteId) } : task)),
+    })),
 
   findTasks: (noteId) => {
     const state = get();

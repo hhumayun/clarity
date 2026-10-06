@@ -6,6 +6,28 @@ This is phase 5 of `docs/backend-plan.md`, worked out against the main app's cod
 
 **Decided on 2026-10-06:** the editor's page is built into the app, rather than loaded as an Expo DOM component the way the main app does it (section 2). Section 9 sums up the other options considered.
 
+**Progress (2026-10-06): built and checked in the web build; the phone test is next.**
+- The page is in `editor/`, built into `src/editor/page.ts` (540 KB, with Nunito Sans inside). The app talks to it over `src/editor/protocol.ts`; on the web build the same page runs in an iframe.
+- The main app's editor tests run against the built page: all 75 pass, with 7 more for Sage's questions (`tests/editor`).
+- **The note page, demo mode, 18 checks in the web build:**
+  - a sample note opens with its checklist and question;
+  - words added are kept;
+  - a new note is made with the tools;
+  - Today's question opens with the cursor under it, and Next question adds another;
+  - a page with only its question isn't saved;
+  - nothing is sent to the server.
+- **The note page, as the test account against the live server, 12 checks:**
+  - a note is made once, as the right Markdown with its rich text;
+  - reopened, it uses the rich text (a list moved in stays moved in);
+  - a tick is saved with its rich text and its time;
+  - Delete in its menu removes it;
+  - every other note is left exactly as it was.
+- **Found on the way: the server stores rich text twice-encoded.**
+  - Every note's rich text so far (all 10 on the server) is a quoted string inside the JSON column. The cause: the create and update endpoints hand the database driver a JSON string, which it encodes again.
+  - The main app treats a string as no rich text, so it has always opened server copies from their Markdown; anything only the rich text keeps (a list moved in) is lost after a reload.
+  - Sage reads both forms (`asDoc`).
+  - A server fix is on the branch, not deployed: writes go in as text and become JSON once (checked on a temporary table), and reads unwrap old strings (`readableDoc`). `migrations/015_note_doc_objects.sql` unwraps the 10 stored copies in place. Both wait for your OK.
+
 ---
 
 ## 1. What the main app has

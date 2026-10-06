@@ -55,6 +55,9 @@ The facts here were checked against the code on 2026-10-05.
   - First, a backup of the real accounts' rows was taken to a private file on the dev machine (`/root/.config/clarity-backups/`).
   - Counts beforehand: 87 notes, 78 tasks (33 done), 8 areas, last changed 4 October.
   - The read-only path stays in the code, should saving ever need pausing.
+- **Phase 5 is built** (2026-10-06): the editor, with its page built into the app (details and checks in `docs/editor-plan.md`).
+  - Waiting on the phone test.
+  - Two server changes are ready on the branch but not deployed, each needing your OK: AI only through endpoints that keep nothing (`helpers/ai.tsx`), and rich text stored once-encoded (`readableDoc`, plus migration 015 to unwrap the 10 stored copies).
 - **Later:** `@clerk/clerk-expo` 2.20 is deprecated in favour of `@clerk/expo` (Clerk's Core 3). Both apps use it; move them together.
 
 ---

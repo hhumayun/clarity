@@ -20,6 +20,7 @@ import React, { useEffect, useState } from "react";
 import { AppState, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { FadeOut, useReducedMotion, withTiming } from "react-native-reanimated";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { moveDocsOutOfLists } from "../src/core/hooks/useNotes";
 import { AuthProvider, useAuth } from "../src/core/providers/AuthProvider";
@@ -101,6 +102,9 @@ export default function RootLayout() {
           onSuccess={() => void moveDocsOutOfLists(queryClient)}
         >
           <SafeAreaProvider>
+            {/* The note's tools ride on the keyboard, and the page makes room for it
+                on its own timing (react-native-keyboard-controller, in Expo Go). */}
+            <KeyboardProvider>
             <ThemeProvider>
               <AcknowledgementProvider>
                 <ToastProvider>
@@ -114,6 +118,7 @@ export default function RootLayout() {
                 </ToastProvider>
               </AcknowledgementProvider>
             </ThemeProvider>
+            </KeyboardProvider>
           </SafeAreaProvider>
         </PersistQueryClientProvider>
       </ClerkProvider>

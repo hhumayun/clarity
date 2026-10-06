@@ -62,6 +62,14 @@ Phases 0 and 1 of `docs/backend-plan.md`. The main app's sign-in, offline and da
 
 Signing up on the **web build** shows Cloudflare's "Verify you are human" check, which Clerk requires there. It never appears in the phone app.
 
+## The editor (2026-10-06)
+
+- **Rich notes:** the main app's Tiptap editor, with its page built into the app (`editor/`, `src/editor/`), drawn in Sage. Nunito Sans, the body at 17/27, and questions as quotes in the accent at the question size. Checklist rows tick with Sage's round check, and links take the accent.
+- **Writing:** the tools ride on the keyboard in a row that scrolls sideways. It holds every tool the main app has (checklist, bullets, numbers, indent, outdent, bold, italic, strike, heading, quote, link), then Next question on a question page, then the keyboard away. Each tool shows when it's on with the accent's soft fill.
+- **Reading:** Go deeper sits above Tasks and Done, and the menu by the title archives, or deletes after asking in place.
+- **Today's question:** the page opens with the question as a quote and the cursor under it. Before anything's written, it can be swapped for another or taken away.
+- **If the editor can't start:** the note is shown to read, as Sage drew it before, with Try again.
+
 ## The brief
 
 The user asked for:

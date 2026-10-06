@@ -63,6 +63,10 @@ export type Note = {
   words: number;
   /** "focus" for a thought parked during focus time. */
   source?: "focus";
+  /** Its words as written in the editor (Markdown), once written or edited on its page. */
+  markdown?: string;
+  /** The title as typed on its page; empty when the one shown comes from the first line. */
+  typedTitle?: string;
 };
 
 /** A possible task found in a note, waiting for a yes or no. */
