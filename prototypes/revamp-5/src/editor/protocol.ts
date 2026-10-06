@@ -65,7 +65,9 @@ export type EditorCommand =
   | "tray"
   | "keyboard"
   | "focus"
-  | "blur";
+  | "blur"
+  /** `value`: points at the bottom of the page covered by something over it (word help's strip); the line being written stays clear of them. */
+  | "inset";
 
 /** To the page. */
 export type ToPage =
@@ -93,6 +95,8 @@ export type FromPage =
   | { type: "cursor"; cursor: EditorCursor }
   | { type: "formats"; formats: EditorFormats }
   | { type: "focus"; focused: boolean }
+  /** A checklist row ticked (or unticked) by a tap: the app answers with a haptic. */
+  | { type: "ticked"; on: boolean }
   | { type: "error"; message: string };
 
 /** The global the page listens on; the app calls it with `injectJavaScript`. */

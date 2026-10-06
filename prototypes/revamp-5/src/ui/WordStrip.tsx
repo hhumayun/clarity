@@ -8,11 +8,15 @@ import { edge, space } from "../theme/tokens";
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 
+/** The strip's height: a chip, and a little room above and below it. */
+export const WORD_STRIP_HEIGHT = 36 + 2 * 6;
+
 /**
  * Word help, on the keyboard, above the tools: after a pause, a few words to
  * finish the sentence (they start with "…") or to start the next. A tap puts
  * them in at the cursor; typing on lets them go. Nothing else about it asks
- * for attention: it fades in, and out.
+ * for attention: it fades in, and out, over the bottom of the words, which
+ * keep the line being written clear of it (so nothing moves).
  */
 export function WordStrip({ words, onTake }: { words: WordIdea[]; onTake: (word: WordIdea) => void }) {
   const { colors } = useTheme();
@@ -20,7 +24,7 @@ export function WordStrip({ words, onTake }: { words: WordIdea[]; onTake: (word:
     <Animated.View
       entering={arrive}
       exiting={leave}
-      style={[styles.strip, { borderTopColor: colors.hairline }]}
+      style={[styles.strip, { borderTopColor: colors.hairline, backgroundColor: colors.card }]}
       accessibilityLabel="Words you could use"
     >
       <View style={styles.mark} accessible={false}>
@@ -42,7 +46,7 @@ export function WordStrip({ words, onTake }: { words: WordIdea[]; onTake: (word:
 }
 
 const styles = StyleSheet.create({
-  strip: { flexDirection: "row", alignItems: "center", borderTopWidth: StyleSheet.hairlineWidth, paddingLeft: edge - 4, paddingVertical: 6 },
+  strip: { flexDirection: "row", alignItems: "center", height: WORD_STRIP_HEIGHT, borderTopWidth: StyleSheet.hairlineWidth, paddingLeft: edge - 4 },
   mark: { width: 22, alignItems: "center" },
   words: { alignItems: "center", gap: space[2], paddingLeft: 4, paddingRight: edge },
 });

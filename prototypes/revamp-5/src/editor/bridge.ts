@@ -4,6 +4,13 @@ import type { EditorCommand, EditorCursor, EditorFormats, EditorLook, FromPage, 
 /** What the editor takes in: the note, again whenever `key` changes. */
 export type EditorSeed = { key: string; markdown: string; doc: unknown; focus: "end" | null };
 
+/**
+ * The note not read yet. The editor can start while the phone reads it (a
+ * page that's ready sooner shows the words sooner); nothing goes in until a
+ * real seed comes. The editor page ignores this key too.
+ */
+export const NO_SEED_YET: EditorSeed = { key: "boot", markdown: "", doc: null, focus: null };
+
 /** What the note page asks of the editor: `run("bold")`, `run("link", url)`… */
 export type NoteEditorHandle = { run: (name: EditorCommand, value?: string) => void };
 
@@ -16,13 +23,15 @@ export type NoteEditorProps = {
   onFormats?: (formats: EditorFormats) => void;
   onCursor?: (cursor: EditorCursor) => void;
   onFocusChange?: (focused: boolean) => void;
+  /** A checklist row ticked by a tap (true) or unticked (false). */
+  onTicked?: (on: boolean) => void;
   /** The note is on screen. */
   onShown?: () => void;
   /** The page didn't start, or broke before showing the note. */
   onFailed?: (reason: string) => void;
 };
 
-// A page that hasn't shown the note by now isn't going to.
+// A page that hasn't shown the note this long after having it isn't going to.
 const START_LIMIT_MS = 8_000;
 
 /**
@@ -79,10 +88,11 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
         const again = restarts.current > 0 ? content.current : null;
         if (again) {
           deliverRef.current({ type: "seed", seed: `${current.seed.key}~${restarts.current}`, markdown: again.markdown, doc: again.doc, focus: null });
-        } else {
+          sentSeed.current = current.seed.key;
+        } else if (current.seed.key !== NO_SEED_YET.key) {
           deliverRef.current({ type: "seed", seed: current.seed.key, markdown: current.seed.markdown, doc: current.seed.doc, focus: current.seed.focus });
+          sentSeed.current = current.seed.key;
         }
-        sentSeed.current = current.seed.key;
         for (const waited of waiting.current.splice(0)) deliverRef.current(waited);
         break;
       }
@@ -105,6 +115,9 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
       case "focus":
         current.onFocusChange?.(message.focused);
         break;
+      case "ticked":
+        current.onTicked?.(message.on);
+        break;
       case "error":
         if (!shown.current) fail(message.message);
         else if (__DEV__) console.warn("[editor]", message.message);
@@ -118,9 +131,9 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
     restarts.current += 1;
   };
 
-  // A new copy of the note (the server's, a restored draft, a new question).
+  // The note, once it's read, and any new copy of it (the server's, a restored draft, a new question).
   useEffect(() => {
-    if (!ready.current || sentSeed.current === props.seed.key) return;
+    if (!ready.current || sentSeed.current === props.seed.key || props.seed.key === NO_SEED_YET.key) return;
     sentSeed.current = props.seed.key;
     deliverRef.current({ type: "seed", seed: props.seed.key, markdown: props.seed.markdown, doc: props.seed.doc, focus: props.seed.focus });
   }, [props.seed]);
@@ -133,14 +146,17 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
     deliverRef.current({ type: "look", look: props.look });
   }, [props.look]);
 
+  // Counted from when the note is there to show: a slow read isn't the editor's.
+  const hasNote = props.seed.key !== NO_SEED_YET.key;
   useEffect(() => {
+    if (!hasNote) return;
     const timer = setTimeout(() => {
       if (!shown.current) fail("The editor didn't start");
     }, START_LIMIT_MS);
     return () => clearTimeout(timer);
-    // Once, as the editor opens.
+    // Once, when the note first comes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasNote]);
 
   return { receive, restart };
 }

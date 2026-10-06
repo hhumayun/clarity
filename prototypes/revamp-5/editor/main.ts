@@ -123,7 +123,7 @@ function applyLook(next: EditorLook) {
     body { -webkit-tap-highlight-color: transparent; }
     .ProseMirror {
       outline: none; box-sizing: border-box; min-height: 100vh;
-      padding: ${p.top}px ${p.side}px ${p.bottom}px;
+      padding: ${p.top}px ${p.side}px calc(${p.bottom}px + var(--inset, 0px));
       font-family: "Sage", -apple-system, system-ui, sans-serif;
       font-size: ${body.size}px; line-height: ${body.lineHeight}px;
       color: ${c.ink}; caret-color: ${c.accent};
@@ -149,7 +149,18 @@ function applyLook(next: EditorLook) {
       flex: 0 0 auto; display: flex; align-items: center; height: ${body.lineHeight}px; margin: 0;
     }
     .ProseMirror ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
-    .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { color: ${c.ink3}; text-decoration: line-through; }
+    .ProseMirror ul[data-type="taskList"] li > div {
+      text-decoration: line-through; text-decoration-color: transparent;
+      transition: color 220ms cubic-bezier(0.16, 1, 0.3, 1), text-decoration-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { color: ${c.ink3}; text-decoration-color: ${c.ink3}; }
+    /* A question added comes down into place. */
+    .ProseMirror blockquote.arriving { animation: sage-arrive 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes sage-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .ProseMirror blockquote.arriving { animation-name: sage-fade; }
+      @keyframes sage-fade { from { opacity: 0; } to { opacity: 1; } }
+    }
     .ProseMirror ul[data-type="taskList"] input {
       -webkit-appearance: none; appearance: none; box-sizing: border-box;
       width: 24px; height: 24px; margin: 0; border-radius: 50%;
@@ -203,7 +214,14 @@ const editor = new Editor({
   ],
   content: "",
   contentType: "markdown",
-  editorProps: { attributes: { autocapitalize: "sentences", autocorrect: "on", spellcheck: "true" } },
+  editorProps: {
+    attributes: { autocapitalize: "sentences", autocorrect: "on", spellcheck: "true" },
+    // Typing, the line stays in sight the page's way: clear of whatever covers its bottom.
+    handleScrollToSelection: () => {
+      keepCaretClear(false);
+      return true;
+    },
+  },
   // Changes go over in batches (see CHANGE_PAUSE_MS). Leaving the note must
   // never lose the last words typed: the keyboard closing, the page being
   // hidden and the app asking all send what is waiting at once.
@@ -256,11 +274,55 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", () => flushChange(editor));
 
-// Less room for the words (the keyboard rising, word help's strip coming in
-// above it): the line being written stays in sight.
-window.addEventListener("resize", () => {
-  if (editor.isFocused) editor.commands.scrollIntoView();
-});
+// Points at the bottom covered by something over the page (word help's strip):
+// the line being written stays above it, and the words can scroll up past it.
+let bottomInset = 0;
+const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+/**
+ * The line being written stays in sight: above the bottom (and whatever covers
+ * it) and below the top, with a little room. `smooth` glides there (a new
+ * question, the strip arriving) instead of jumping.
+ */
+function keepCaretClear(smooth: boolean) {
+  if (!editor.isFocused) return;
+  let at: { top: number; bottom: number };
+  try {
+    at = editor.view.coordsAtPos(editor.state.selection.head);
+  } catch {
+    return;
+  }
+  const room = 12;
+  const bottom = window.innerHeight - bottomInset - room;
+  const by = at.bottom > bottom ? at.bottom - bottom : at.top < room ? at.top - room : 0;
+  if (by) window.scrollBy({ top: by, behavior: smooth && !reducedMotion() ? "smooth" : "auto" });
+}
+
+// Less room for the words (the keyboard rising): the line being written stays in sight.
+window.addEventListener("resize", () => keepCaretClear(false));
+
+// A checklist row ticked by a tap: its check gives a little pop, and the app
+// is told, for the haptic. The pop is an animation, not a class: the editor
+// puts back any change to its own markup.
+// Heard before the row's own handler (capture), since that redraws the row:
+// where it is now, so the redrawn row can be found once it's there.
+editor.view.dom.addEventListener(
+  "change",
+  (event) => {
+    const box = event.target as HTMLInputElement | null;
+    if (!box || box.type !== "checkbox") return;
+    const on = box.checked;
+    // Which row it is, by its place among the checklist rows: a redraw doesn't change that.
+    const rows = () => [...editor.view.dom.querySelectorAll('ul[data-type="taskList"] li')];
+    const index = rows().indexOf(box.closest("li") as Element);
+    requestAnimationFrame(() => {
+      const check = index >= 0 ? rows()[index]?.querySelector("input") : null;
+      if (!on || !check || reducedMotion()) return;
+      check.animate([{ transform: "scale(0.82)" }, { transform: "scale(1.08)", offset: 0.6 }, { transform: "scale(1)" }], { duration: 420, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" });
+    });
+    send({ type: "ticked", on });
+  },
+  true,
+);
 
 let cursorTimer: ReturnType<typeof setTimeout> | null = null;
 let lastCursor = "";
@@ -309,6 +371,8 @@ function reportFormats(current: Editor) {
 // ---- What comes from the app ------------------------------------------------
 
 let seedNow = "boot";
+// A note has been put on the page once: later copies cross-fade in.
+let hasShown = false;
 
 /** The note's text, once the app sends it, and any new copy of it later (the server's, a restored draft). */
 function takeSeed(message: Extract<ToPage, { type: "seed" }>) {
@@ -323,11 +387,26 @@ function takeSeed(message: Extract<ToPage, { type: "seed" }>) {
   }
   // The rich text when the note has it; its Markdown otherwise (notes from
   // before rich text, or edited as plain text since).
-  const doc = message.doc as { type?: unknown } | null;
-  if (doc && typeof doc === "object" && doc.type === "doc") editor.commands.setContent(doc as JSONContent, { emitUpdate: false });
-  else editor.commands.setContent(message.markdown, { contentType: "markdown", emitUpdate: false });
-  if (message.focus === "end") editor.commands.focus("end");
-  reportFormats(editor);
+  const put = () => {
+    const doc = message.doc as { type?: unknown } | null;
+    if (doc && typeof doc === "object" && doc.type === "doc") editor.commands.setContent(doc as JSONContent, { emitUpdate: false });
+    else editor.commands.setContent(message.markdown, { contentType: "markdown", emitUpdate: false });
+    if (message.focus === "end") editor.commands.focus("end");
+    reportFormats(editor);
+  };
+  // A later copy (another question in its place, none, a newer copy from the
+  // server): the words cross-fade rather than change in one frame.
+  if (hasShown && !reducedMotion()) {
+    const page = editor.view.dom;
+    page.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 110, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }).onfinish = () => {
+      put();
+      page.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "forwards" });
+    };
+    send({ type: "shown", seed: message.seed });
+    return;
+  }
+  put();
+  hasShown = true;
   shownOnceDrawn(message.seed);
 }
 
@@ -376,8 +455,16 @@ function insertQuestion(text: string, atEnd: boolean) {
   }
   const tr = state.tr.replaceWith(from, to, [quote, answer]);
   tr.setSelection(TextSelection.create(tr.doc, from + quote.nodeSize + 1));
-  editor.view.dispatch(tr.scrollIntoView());
-  editor.commands.focus();
+  editor.view.dispatch(tr);
+  // It comes down into place (a little rise as it fades in), and the page
+  // glides to the answer's line rather than jumping there.
+  const added = editor.view.nodeDOM(from);
+  if (added instanceof HTMLElement) {
+    added.classList.add("arriving");
+    added.addEventListener("animationend", () => added.classList.remove("arriving"), { once: true });
+  }
+  editor.commands.focus(null, { scrollIntoView: false });
+  requestAnimationFrame(() => keepCaretClear(true));
 }
 
 function run(name: EditorCommand, value?: string) {
@@ -472,6 +559,14 @@ function run(name: EditorCommand, value?: string) {
     case "focus":
       editor.commands.focus();
       break;
+    case "inset": {
+      const next = Math.max(0, Number(value) || 0);
+      const more = next > bottomInset;
+      bottomInset = next;
+      document.documentElement.style.setProperty("--inset", `${next}px`);
+      if (more) keepCaretClear(true);
+      break;
+    }
     case "blur":
       editor.commands.blur();
       break;

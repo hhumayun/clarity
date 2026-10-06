@@ -11,7 +11,7 @@ import { aiOn } from "../data/ai";
 import type { NoteRecord, ProjectRecord } from "../core/types";
 import { hasWriting, markdownOfBlocks, noteFacts } from "../data/adapt";
 import { getSage, useSage } from "../data/sage";
-import type { EditorSeed } from "./bridge";
+import { NO_SEED_YET, type EditorSeed } from "./bridge";
 import { draftWins, serverCopyReplaces } from "./noteCopies";
 
 /**
@@ -139,7 +139,7 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
   const [createdAt, setCreatedAt] = useState<Date | null>(isNew ? new Date() : listedAtOpen ? new Date(listedAtOpen.createdAt) : null);
   const [missing, setMissing] = useState(false);
   const [written, setWritten] = useState(!isNew);
-  const [seed, setSeed] = useState<EditorSeed>({ key: "boot", markdown: "", doc: null, focus: null });
+  const [seed, setSeed] = useState<EditorSeed>(NO_SEED_YET);
   const seeds = useRef(0);
   const reseed = (markdown: string, doc: unknown, focus: "end" | null = null) => setSeed({ key: String(++seeds.current), markdown, doc, focus });
 

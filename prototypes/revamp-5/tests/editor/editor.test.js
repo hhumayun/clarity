@@ -741,6 +741,62 @@ function check(name, got, want) {
     check("sage: a new look leaves the faces as they were (one set, not loaded again)", `${facesBefore} ${await faceRules()}`, "1 1");
     check("sage: …and still takes effect", await page.evaluate(() => getComputedStyle(document.querySelector(".ProseMirror")).fontSize), "20px");
     await page.close();
+
+    // Writing (UX phase 3, 2026-10-06): a tick is told to the app (for the haptic) and pops;
+    // a question added comes down into place; a later copy cross-fades in; the strip's inset is taken.
+    page = await open(browser, "- [ ] milk\n- [ ] eggs");
+    await page.click('ul[data-type="taskList"] input[type="checkbox"]');
+    await pause(page, 120);
+    const tickedSent = await page.evaluate(() => window.__msgs.filter((m) => m.type === "ticked").map((m) => m.on));
+    check("sage: ticking a checklist row tells the app (for the haptic)", JSON.stringify(tickedSent), "[true]");
+    check("sage: …and its check gives a little pop", await page.evaluate(() => document.querySelector('li[data-checked="true"] input').getAnimations().length > 0), true);
+    await page.click(".ProseMirror");
+    await page.keyboard.press("Control+End");
+    const arriving = await page.evaluate(() => {
+      window._domRefProxy.run("insertQuestion", JSON.stringify({ text: "What made today good?", atEnd: true }));
+      return [...document.querySelectorAll("blockquote")].some((q) => q.classList.contains("arriving") || q.getAnimations().length > 0);
+    });
+    check("sage: a question added comes down into place", arriving, true);
+    await run(page, "inset", "48");
+    await pause(page, 200);
+    check("sage: the strip's inset is taken without fuss", await page.evaluate(() => !!document.querySelector(".ProseMirror")), true);
+    // Words typed here and not yet sent stay over any copy; once they've gone, a newer copy can come in.
+    await pause(page, 1300);
+    await page.evaluate(() => window.clarityEditor.receive({ type: "seed", seed: "2", markdown: "A newer copy.", doc: null, focus: null }));
+    const mid = await page.evaluate(() => new Promise((r) => setTimeout(() => r(Number(getComputedStyle(document.querySelector(".ProseMirror")).opacity)), 60)));
+    await pause(page, 500);
+    check("sage: a later copy cross-fades in (dims, then shows)", mid < 1 && (await page.evaluate(() => document.querySelector(".ProseMirror").innerText.trim())) === "A newer copy.", true);
+    await page.close();
+
+    // Word help's strip lies over the bottom of the words: with its inset, the words can scroll up
+    // past it, and the line being typed at the end of a long note stays above it.
+    page = await open(browser, Array.from({ length: 40 }, (_, i) => `Line ${i + 1}`).join("\n"));
+    const roomUnder = () =>
+      page.evaluate(() => {
+        const pm = document.querySelector(".ProseMirror");
+        return Math.round(document.scrollingElement.scrollHeight - (pm.lastElementChild.getBoundingClientRect().bottom + window.scrollY));
+      });
+    const roomBefore = await roomUnder();
+    await page.click(".ProseMirror");
+    await page.keyboard.press("Control+End");
+    await run(page, "inset", "48");
+    await pause(page, 400);
+    check("sage: with the strip's inset, the words can scroll up past it", (await roomUnder()) - roomBefore, 48);
+    for (const line of ["Typing on", "and on", "at the end"]) {
+      await page.keyboard.press("Enter");
+      await type(page, line);
+    }
+    await pause(page, 200);
+    const caretClear = await page.evaluate(() => {
+      const range = window.getSelection().getRangeAt(0).cloneRange();
+      const box = range.getClientRects()[0] ?? range.startContainer.parentElement.getBoundingClientRect();
+      return Math.round(window.innerHeight - box.bottom);
+    });
+    check("sage: …and the line being typed stays above it", caretClear >= 48, true);
+    await run(page, "inset", "0");
+    await pause(page, 200);
+    check("sage: …and the room goes with it", await roomUnder(), roomBefore);
+    await page.close();
   } finally {
     await browser.close();
   }

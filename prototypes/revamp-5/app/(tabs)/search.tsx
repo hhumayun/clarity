@@ -1,6 +1,6 @@
 import { useRouter, useScrollToTop } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, TextInput, View } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Magnifier } from "../../src/art/Pictures";
@@ -162,7 +162,17 @@ export default function Search() {
                   <SectionTitle title="Notes" first />
                   <View style={styles.cards}>
                     {foundNotes.slice(0, notesShown).map((note) => (
-                      <NoteCard key={note.id} note={note} match={q} lines={2} onPress={() => router.push(`/note/${note.id}`)} />
+                      <NoteCard
+                        key={note.id}
+                        note={note}
+                        match={q}
+                        lines={2}
+                        onPress={() => {
+                          // The search's keyboard goes as the note opens (a tap on a result leaves it up), so the note shows its buttons.
+                          Keyboard.dismiss();
+                          router.push(`/note/${note.id}`);
+                        }}
+                      />
                     ))}
                   </View>
                   {foundNotes.length > notesShown ? <Button label="Show more notes" variant="plain" size="sm" onPress={() => setNotesShown((n) => n + PAGE)} style={styles.more} /> : null}

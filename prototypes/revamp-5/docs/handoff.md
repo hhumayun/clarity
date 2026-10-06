@@ -58,7 +58,29 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - Go deeper's dots and question fade into each other.
   - The note's tasks sheet opens already reading, and what follows the found cards moves with them.
   - **Checks:** `tests/checks/filter-swap.mjs` (22). The chip's label inks in about 0.16–0.3 s on Life at 4× CPU in the web build, and 0.5–0.7 s on Notes' first tap there (the ring moves on the UI thread at once on the phone).
-- **Next:** phase 3, writing (the note page's keyboard choreography).
+- **Phase 3, writing, is done in the browser and waits for the user's phone look:**
+  - **The keyboard** (`app/note/[id].tsx`; `GentleKeyboardAvoidingView` is gone):
+    - Go deeper, Tasks and Done sit in a block at the bottom that's always mounted. It fades as the keyboard covers it (`1 − progress` from `useReanimatedKeyboardAnimation`), and fades back as the keyboard goes.
+    - The tools ride on the keyboard (translateY = its height, as `KeyboardStickyView` does) and fade in with it. They hide only once the keyboard has gone (onEnd), or at once when the title takes the keyboard.
+    - The words end above whichever is higher: the block (measured, and followed with `settle` when it changes size) or the keyboard plus the tools.
+    - Interactivity switches when the keyboard starts to move (`useKeyboardHandler` onStart), not when it's done. Hidden parts are `aria-hidden`.
+    - In the web build, writing in the words stands in for the keyboard.
+  - **Nothing jumps:**
+    - Today's question keeps its tools' row for the visit, and only the icons fade.
+    - Word help's strip lies over the bottom of the words. While writing with AI help on, the editor keeps the room for it (`inset`: bottom padding, and the caret kept above it, ProseMirror's own scrolling included).
+  - **A new page opens to write:** its buttons wait under the keyboard until it first goes down (1.2 s if it never comes). It gets Go deeper once written (not on question pages, which have Next question).
+  - **In the editor page:** ticking a checklist row pops its check (Web Animations; ProseMirror redraws the row) and tells the app (`ticked`, which plays the haptic). The strike fades in. A new question rises into place and the page glides to it. A newer copy cross-fades in.
+  - **Opening:** the editor mounts at once and waits for the note (`NO_SEED_YET`). Its start limit counts from when the note is there. The placeholder lines breathe.
+    - The browser shows no difference (about 0.55 s either way). The development build logs `[note] … shown N ms after opening` to Metro's log (`/tmp/clarity-revamp-5/expo.log`), to decide on an editor prepared ahead.
+  - **Small things:**
+    - The ⋯ menu floats (raised, the one shadow), fades out, closes on a tap outside, and comes last in the tree.
+    - ⋯ fades in when a new note is first saved.
+    - A new page shows its time from the first frame, and the last page's area never shows (a layout effect).
+    - The list's note card fades in a title that changes (the AI's) and its "not sent" cloud.
+    - The keyboard-away tool ticks.
+    - Search puts its keyboard away when a note opens, so the note isn't left behind the keyboard without its buttons.
+  - **Checks:** `tests/checks/phase3-check.mjs` (23) and eight new editor-page tests (93 in `tests/editor` now). All the other checks pass, the account ones included.
+- **Next:** the user's phone look at phase 3 (the keyboard can only be judged there), then phase 4, ticking and lists.
 
 ## What's done
 

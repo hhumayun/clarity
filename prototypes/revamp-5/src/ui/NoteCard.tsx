@@ -1,8 +1,10 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
 import type { Note } from "../store/model";
 import { useUnsent } from "../data/sage";
 import { noteTime } from "../store/selectors";
+import { arrive, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { pad, space } from "../theme/tokens";
 import { Card } from "./Card";
@@ -14,7 +16,9 @@ import { Txt } from "./Txt";
  * (where it belongs and when it was written), the title in bold, then a
  * few lines of what it says. A thought parked during focus says so with a
  * small timer. No colour, and nothing measures it. `match` emphasises a
- * search's words.
+ * search's words. A title that changes while it's on screen (the AI's, for
+ * a note left untitled) fades in, and so does the cloud of a note not sent
+ * yet, and out; drawn as the list is, nothing animates.
  */
 export function NoteCard({ note, onPress, showArea = true, match, lines = 3 }: { note: Note; onPress?: () => void; showArea?: boolean; match?: string; lines?: number }) {
   const { colors } = useTheme();
@@ -27,48 +31,52 @@ export function NoteCard({ note, onPress, showArea = true, match, lines = 3 }: {
       accessibilityLabel={`${note.title}${note.area ? `, ${note.area}` : ""}${parked ? ", parked during focus" : ""}, ${noteTime(note.time)}`}
       style={styles.card}
     >
-      <View style={styles.top}>
-        {showArea && note.area ? (
-          <View style={styles.piece}>
-            <Icon name="tag" size={12} color={colors.ink3} weight="semibold" />
-            <Txt variant="footnote" tone="ink3" numberOfLines={1}>
-              {note.area}
-            </Txt>
-          </View>
-        ) : (
-          <View style={styles.piece}>
-            <Icon name="pen" size={13} color={colors.ink3} weight="medium" />
-            <Txt variant="footnote" tone="ink3">
-              Note
-            </Txt>
-          </View>
-        )}
-        {parked ? (
-          <View style={styles.piece}>
-            <Icon name="timer" size={13} color={colors.ink3} weight="medium" />
-            <Txt variant="footnote" tone="ink3">
-              Parked
-            </Txt>
-          </View>
+      <LayoutAnimationConfig skipEntering>
+        <View style={styles.top}>
+          {showArea && note.area ? (
+            <View style={styles.piece}>
+              <Icon name="tag" size={12} color={colors.ink3} weight="semibold" />
+              <Txt variant="footnote" tone="ink3" numberOfLines={1}>
+                {note.area}
+              </Txt>
+            </View>
+          ) : (
+            <View style={styles.piece}>
+              <Icon name="pen" size={13} color={colors.ink3} weight="medium" />
+              <Txt variant="footnote" tone="ink3">
+                Note
+              </Txt>
+            </View>
+          )}
+          {parked ? (
+            <View style={styles.piece}>
+              <Icon name="timer" size={13} color={colors.ink3} weight="medium" />
+              <Txt variant="footnote" tone="ink3">
+                Parked
+              </Txt>
+            </View>
+          ) : null}
+          <View style={styles.flex} />
+          {unsent ? (
+            <Animated.View entering={arrive} exiting={leave} accessible accessibilityLabel="Not sent yet">
+              <Icon name="cloudUp" size={13} color={colors.ink3} weight="medium" />
+            </Animated.View>
+          ) : null}
+          <Txt variant="footnote" tone="ink3">
+            {noteTime(note.time)}
+          </Txt>
+        </View>
+        <Animated.View key={note.title} entering={arrive}>
+          <Txt variant="cardTitle" numberOfLines={2}>
+            <Marked text={note.title} match={match} />
+          </Txt>
+        </Animated.View>
+        {note.excerpt ? (
+          <Txt variant="subhead" tone="ink2" numberOfLines={lines}>
+            <Marked text={note.excerpt} match={match} />
+          </Txt>
         ) : null}
-        <View style={styles.flex} />
-        {unsent ? (
-          <View accessible accessibilityLabel="Not sent yet">
-            <Icon name="cloudUp" size={13} color={colors.ink3} weight="medium" />
-          </View>
-        ) : null}
-        <Txt variant="footnote" tone="ink3">
-          {noteTime(note.time)}
-        </Txt>
-      </View>
-      <Txt variant="cardTitle" numberOfLines={2}>
-        <Marked text={note.title} match={match} />
-      </Txt>
-      {note.excerpt ? (
-        <Txt variant="subhead" tone="ink2" numberOfLines={lines}>
-          <Marked text={note.excerpt} match={match} />
-        </Txt>
-      ) : null}
+      </LayoutAnimationConfig>
     </Card>
   );
 }

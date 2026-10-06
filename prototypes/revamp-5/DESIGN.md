@@ -64,13 +64,14 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 
 ## The editor (2026-10-06)
 
-- **Rich notes:** the main app's Tiptap editor, with its page built into the app (`editor/`, `src/editor/`), drawn in Sage. Nunito Sans, the body at 17/27, and questions as quotes in the accent at the question size. Checklist rows tick with Sage's round check, and links take the accent.
-- **Writing:** the tools ride on the keyboard in a row that scrolls sideways. It holds every tool the main app has (checklist, bullets, numbers, indent, outdent, bold, italic, strike, heading, quote, link), then Next question on a question page, then the keyboard away. Each tool shows when it's on with the accent's soft fill.
-- **Reading:** Go deeper sits above Tasks and Done, and the menu by the title archives, or deletes after asking in place.
-- **Opening (2026-10-06):** the title and Go deeper are there from the first frame; three quiet lines stand where the words will be, and the words fade in over them, in Nunito Sans from the start, without moving. Before, the title filled in late, the words rose 8 points, and Go deeper popped in under them, which read as a jolt.
-- **Today's question:** the page opens with the question as a quote and the cursor under it. Before anything's written, it can be swapped for another or taken away.
+- **Rich notes:** the main app's Tiptap editor, with its page built into the app (`editor/`, `src/editor/`), drawn in Sage. Nunito Sans, the body at 17/27, and questions as quotes in the accent at the question size. Checklist rows tick with Sage's round check, which gives a little pop with a haptic as the line through the words fades in, and links take the accent. A new question comes down into place with a small rise as the page glides to it, and a newer copy of the note cross-fades in.
+- **Writing:** the tools ride on the keyboard in a row that scrolls sideways. It holds every tool the main app has (checklist, bullets, numbers, indent, outdent, bold, italic, strike, heading, quote, link), then Next question on a question page, then the keyboard away. Each tool shows when it's on with the accent's soft fill. The row rises with the keyboard on the keyboard's own curve, fading in as it comes, and goes down with it.
+- **Reading:** Go deeper sits above Tasks and Done (on a new note too, once it has words), and the menu by the title archives, or deletes after asking in place. The menu floats with the one shadow, fades as it closes, and a tap outside closes it.
+- **Opening (2026-10-06):** the title and Go deeper are there from the first frame; three quiet lines stand where the words will be, and the words fade in over them, in Nunito Sans from the start, without moving. Before, the title filled in late, the words rose 8 points, and Go deeper popped in under them, which read as a jolt. The editor starts as the page opens, while the note is read, and the three lines breathe until the words come.
+- **Today's question:** the page opens with the question as a quote and the cursor under it. Before anything's written, it can be swapped for another or taken away. Once there are words, those two fade but keep their place, so the line being written doesn't jump.
 - **If the editor can't start:** the note is shown to read, as Sage drew it before, with Try again.
-- **Quiet saving:** the note page says nothing about saving or syncing. With the keyboard up, whether for the title or the words, Tasks and Done stay down until it goes.
+- **Quiet saving:** the note page says nothing about saving or syncing.
+- **The keyboard (UX phase 3, 2026-10-06):** Go deeper, Tasks and Done are always there under the words. The keyboard covers them as they fade, and they fade back as it goes, while the tools ride it. The words end above whichever is higher, so they never jump, and nothing waits for the keyboard to finish. A new page opens straight to writing: its buttons wait under the keyboard until it first goes down.
 
 ## Moving between places (2026-10-06)
 
@@ -98,7 +99,7 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 
 - **Asked once, plainly.** The opening screens' second page, "Gentle help", says what AI help does and that what it reads goes to AI companies that don't keep it or train on it: Not now, or Turn on AI help. Skip the opening screens and the same page comes on its own once. Settings has an "AI help" switch; "Learn from my writing" only shows while it's on.
 - **Off means nothing is sent.** Sage's own questions, summary and first steps stand in, and a note's tasks say Find tasks needs AI help, with the way to Settings.
-- **Word help:** after a pause in writing, a quiet strip above the tools: up to five pale pills, ways to finish the sentence (they start with "…") and then ways to start the next, after a small sparkle. A tap puts the words in at the cursor, cased and spaced for where they land; typing on lets them go. It asks only after a pause and a few new words, and not more than every 20 seconds.
+- **Word help:** after a pause in writing, a quiet strip above the tools, lying over the bottom of the words (the line being written is kept clear of it, so nothing moves when it comes or goes): up to five pale pills, ways to finish the sentence (they start with "…") and then ways to start the next, after a small sparkle. A tap puts the words in at the cursor, cased and spaced for where they land; typing on lets them go. It asks only after a pause and a few new words, and not more than every 20 seconds.
 - **The AI's questions:** Next question on a question page, and Go deeper, use the AI's questions about what was just written. Go deeper on a note opened to read starts with Sage's own; "another question" then asks the AI about the note, the card reading with three dots at its usual size until it comes.
 - **On its own, quietly:** Find tasks the first time a note's tasks open; "How it's going" on a task; first steps in Focus; an untitled note is given a title as it's left.
 - **Failures are quiet.** Word help and questions simply don't come; How it's going and first steps fall back to Sage's own. Only Find tasks, which was asked for, says it couldn't read the note.
@@ -249,7 +250,7 @@ Revamp 2's and revamp 4's motion, which the user liked, kept and re-tuned for ca
 
 **Reduce Motion, and the presets (2026-10-06, branch revamp-5-ux).**
 - When Reduce Motion is on, Reanimated snaps every animation, and Sage never overrode that. So the fades meant to stand in for travel snapped too, and Hold to stop became a tap.
-- Now fades, colour and progress, presses and the timings that do a job all carry `keep` (`fadeTiming` for timings) and play either way. Those timings are Hold to stop's fill, the focus timer and the keyboard padding.
+- Now fades, colour and progress, presses and the timings that do a job all carry `keep` (`fadeTiming` for timings) and play either way. Those timings are Hold to stop's fill and the focus timer. (The note page's room for the keyboard now follows the keyboard itself.)
 - Travel keeps the default and snaps. Where something both moves and fades, Sage plays only the fade.
 - Shared presets replace the one-off builders: `arrive` (fade, base, ease-out), `arriveSlow` (enter), `leave` (quick), `settle` (layout), `riseIn` (`rise`, a fade under Reduce Motion) and `arriveAfter` (a delay).
 - Presses squash to `squash` (0.97), or `squashSmall` (0.9) for small round targets.

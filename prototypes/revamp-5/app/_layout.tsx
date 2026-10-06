@@ -104,8 +104,8 @@ export default function RootLayout() {
           onSuccess={() => void moveDocsOutOfLists(queryClient)}
         >
           <SafeAreaProvider>
-            {/* The note's tools ride on the keyboard, and the page makes room for it
-                on its own timing (react-native-keyboard-controller, in Expo Go). */}
+            {/* The note's tools ride on the keyboard, and its words make room as the
+                keyboard moves, on the keyboard's own curve (react-native-keyboard-controller, in Expo Go). */}
             <KeyboardProvider>
             <ThemeProvider>
               <AcknowledgementProvider>
