@@ -21,6 +21,7 @@ export type Palette = {
   sunken: string; // wells inside a card: a pressed row, a field, a track
   raised: string; // menus and capsules that float over cards
   ink: string; // text that matters
+  soft: string; // titles in a list of many (tasks): ink in light, a gentler ink in dark, so a list doesn't glare
   ink2: string; // secondary text
   ink3: string; // meta, placeholders, section names
   hairline: string; // the rule between rows inside a card
@@ -43,6 +44,7 @@ const lightBase: Palette = {
   sunken: "#F4F2EE",
   raised: "#FFFFFF",
   ink: "#1F1D1A",
+  soft: "#1F1D1A",
   ink2: "#57524B",
   ink3: "#6F6A62",
   hairline: "#EEEBE5",
@@ -84,6 +86,7 @@ const paper = (page: string, card: string, quiet: string, sunken: string, ink: s
   sunken,
   raised: card,
   ink,
+  soft: ink,
   ink2,
   ink3,
   hairline,
@@ -111,6 +114,7 @@ export const dark: Palette = {
   sunken: "#292724",
   raised: "#2A2825",
   ink: "#F2EFE9",
+  soft: "#E2DDD4",
   ink2: "#BCB6AC",
   ink3: "#959087",
   hairline: "#2B2926",

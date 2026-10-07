@@ -1,14 +1,14 @@
 import { useNavigation, useRouter, useScrollToTop } from "expo-router";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeInLeft, FadeInRight, FadeOutLeft, FadeOutRight, useAnimatedRef } from "react-native-reanimated";
+import Animated, { FadeInLeft, FadeInRight, FadeOutLeft, FadeOutRight, LayoutAnimationConfig, useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Tea } from "../../src/art/Pictures";
 import { addDays, dateOf, dayLabel, daysBetween, today, weekStart } from "../../src/lib/dates";
 import { comingUp, doneOn, notesOn, openOn, slipped } from "../../src/store/selectors";
 import { getSage, useSage, useSageStatus, useWhenEditable } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
-import { arrive, arriveSlow, duration, easeIn, easeOut, leave, reducedAtLaunch, squashSmall } from "../../src/theme/motion";
+import { arrive, arriveSlow, duration, easeIn, easeOut, leave, reducedAtLaunch, settle, squashSmall } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, radius, space } from "../../src/theme/tokens";
 import { Button, ButtonPair } from "../../src/ui/Button";
@@ -40,6 +40,8 @@ export default function Today() {
   const router = useRouter();
   const whenEditable = useWhenEditable();
   const { ready } = useSageStatus();
+  // Done, open or folded: kept here so the page redraws as it opens (see DoneFold).
+  const [doneOpen, setDoneOpen] = useState(false);
   // Whether the tasks were waited for (the placeholder showed): then they arrive with a fade.
   const loadedLate = useRef(!ready);
   if (!ready) loadedLate.current = true;
@@ -174,51 +176,62 @@ export default function Today() {
           {/* Loaded: the placeholder fades as the card arrives, only if it was waited for. */}
           {ready ? (
             <Animated.View entering={loadedLate.current ? arriveSlow : undefined}>
-              <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} />
+              <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} foldKey={viewDay} />
             </Animated.View>
           ) : (
             <Animated.View exiting={leave}>
               <SkeletonCards cards={1} rows={3} label="Loading your tasks" />
             </Animated.View>
           )}
-          <ButtonPair style={styles.actions}>
-            <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=${viewDay}`))} />
-            {late.length ? (
-              <Button label="Catch up" icon="rotate" variant="secondary" size="md" flex onPress={() => router.push("/catch-up")} accessibilityLabel="Catch up on what slipped" />
-            ) : (
-              <Button label="All tasks" icon="life" variant="secondary" size="md" flex onPress={() => router.navigate("/life")} />
-            )}
-          </ButtonPair>
-          {ready ? <DoneFold tasks={done} /> : null}
+          {/* Everything under the tasks moves with them: the card glides as a task leaves or lands,
+              and this followed in one frame, covering its edge or leaving a gap. Each block moves on
+              its own, at one level (moving boxes inside moving boxes doubled their movement in the
+              web build). Drawn as the day opens, nothing here animates in. */}
+          <LayoutAnimationConfig skipEntering>
+            <Animated.View layout={settle}>
+              <ButtonPair style={styles.actions}>
+                <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=${viewDay}`))} />
+                {late.length ? (
+                  <Button label="Catch up" icon="rotate" variant="secondary" size="md" flex onPress={() => router.push("/catch-up")} accessibilityLabel="Catch up on what slipped" />
+                ) : (
+                  <Button label="All tasks" icon="life" variant="secondary" size="md" flex onPress={() => router.navigate("/life")} />
+                )}
+              </ButtonPair>
+            </Animated.View>
+            {/* Kept here, so the page redraws as Done opens and what follows glides (in the web build, only what redraws moves). */}
+            {ready ? <DoneFold tasks={done} open={doneOpen} onOpen={setDoneOpen} /> : null}
 
-          {dayNotes.length ? (
-            <>
-              <SectionTitle title="Notes" />
-              <View style={styles.notes}>
-                {dayNotes.map((note) => (
-                  <NoteCard key={note.id} note={note} onPress={() => router.push(`/note/${note.id}`)} />
-                ))}
-              </View>
-            </>
-          ) : null}
+            {dayNotes.length ? (
+              <Animated.View key="notes" layout={settle} entering={arrive} exiting={leave}>
+                <SectionTitle title="Notes" />
+                <View style={styles.notes}>
+                  {dayNotes.map((note) => (
+                    <Animated.View key={note.id} entering={arrive} exiting={leave}>
+                      <NoteCard note={note} onPress={() => router.push(`/note/${note.id}`)} />
+                    </Animated.View>
+                  ))}
+                </View>
+              </Animated.View>
+            ) : null}
 
-          {next.length ? (
-            <>
-              <SectionTitle title="Coming up" onPress={() => router.navigate("/life")} accessibilityLabel="Coming up. See all tasks" />
-              <CardGroup>
-                {next.map((task) => (
-                  <CardRow key={task.id} onPress={() => router.push(`/task/${task.id}`)} accessibilityRole="button" accessibilityLabel={`${task.title}, ${task.day ? dayLabel(task.day) : ""}`} style={styles.coming}>
-                    <Txt variant="row" numberOfLines={1} style={styles.flex}>
-                      {task.title}
-                    </Txt>
-                    <Txt variant="footnote" tone="ink3">
-                      {task.day ? dayLabel(task.day) : ""}
-                    </Txt>
-                  </CardRow>
-                ))}
-              </CardGroup>
-            </>
-          ) : null}
+            {next.length ? (
+              <Animated.View key="next" layout={settle} entering={arrive} exiting={leave}>
+                <SectionTitle title="Coming up" onPress={() => router.navigate("/life")} accessibilityLabel="Coming up. See all tasks" />
+                <CardGroup moving>
+                  {next.map((task) => (
+                    <CardRow key={task.id} onPress={() => router.push(`/task/${task.id}`)} accessibilityRole="button" accessibilityLabel={`${task.title}, ${task.day ? dayLabel(task.day) : ""}`} style={styles.coming}>
+                      <Txt variant="row" numberOfLines={1} style={styles.flex}>
+                        {task.title}
+                      </Txt>
+                      <Txt variant="footnote" tone="ink3">
+                        {task.day ? dayLabel(task.day) : ""}
+                      </Txt>
+                    </CardRow>
+                  ))}
+                </CardGroup>
+              </Animated.View>
+            ) : null}
+          </LayoutAnimationConfig>
         </Animated.View>
       </Animated.ScrollView>
     </View>

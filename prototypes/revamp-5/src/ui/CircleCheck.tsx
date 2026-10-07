@@ -24,8 +24,10 @@ const CHECK_LENGTH = 17;
  * accent fills it from the middle, a white check draws itself, the circle
  * pops and a soft halo leaves it. Clearing it eases back. It animates only
  * on a change, never on first sight. `pressed` shows the finger is on it.
+ * `quiet`: a thin grey ring with no check inside while open, for a list of
+ * many (ticking is the same).
  */
-export function CircleCheck({ on, pressed = false, size = 28 }: { on: boolean; pressed?: boolean; size?: number }) {
+export function CircleCheck({ on, pressed = false, size = 28, quiet = false }: { on: boolean; pressed?: boolean; size?: number; quiet?: boolean }) {
   // Still until a finger is on it or it changes: a list draws dozens of these,
   // and the moving one is several layers and two drawings each. It takes over
   // in the same frame, starting from what the still one showed.
@@ -35,21 +37,21 @@ export function CircleCheck({ on, pressed = false, size = 28 }: { on: boolean; p
   useEffect(() => {
     if (goLive && !live) setLive(true);
   }, [goLive, live]);
-  if (!goLive) return <StillCheck on={on} size={size} />;
-  return <MovingCheck on={on} pressed={pressed} size={size} from={shown.current} />;
+  if (!goLive) return <StillCheck on={on} size={size} quiet={quiet} />;
+  return <MovingCheck on={on} pressed={pressed} size={size} from={shown.current} quiet={quiet} />;
 }
 
 /** The check at rest: a ring with a faint check, or the accent with a white one. */
-function StillCheck({ on, size }: { on: boolean; size: number }) {
+function StillCheck({ on, size, quiet }: { on: boolean; size: number; quiet: boolean }) {
   const { colors, accent } = useTheme();
   const r = size / 2;
   return (
     <View style={{ width: size, height: size }}>
-      <View style={[StyleSheet.absoluteFill, { borderRadius: r }, on ? { backgroundColor: accent.solid } : { borderWidth: 1.75, borderColor: colors.ink2 }]} />
+      <View style={[StyleSheet.absoluteFill, { borderRadius: r }, on ? { backgroundColor: accent.solid } : ringStyle(quiet, colors)]} />
       <Svg width={size} height={size} viewBox="0 0 28 28" style={StyleSheet.absoluteFill}>
         {on ? (
           <Path d={CHECK} stroke={accent.on} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        ) : (
+        ) : quiet ? null : (
           <Path d={CHECK} stroke={colors.ink3} strokeOpacity={0.55} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" fill="none" />
         )}
       </Svg>
@@ -57,7 +59,12 @@ function StillCheck({ on, size }: { on: boolean; size: number }) {
   );
 }
 
-function MovingCheck({ on, pressed, size, from }: { on: boolean; pressed: boolean; size: number; from: boolean }) {
+/** The open ring: Rosebud's, or the quiet one (thin, grey). */
+function ringStyle(quiet: boolean, colors: { ink2: string; ink3: string }) {
+  return quiet ? { borderWidth: 1.5, borderColor: colors.ink3 } : { borderWidth: 1.75, borderColor: colors.ink2 };
+}
+
+function MovingCheck({ on, pressed, size, from, quiet }: { on: boolean; pressed: boolean; size: number; from: boolean; quiet: boolean }) {
   const { colors, accent } = useTheme();
   const reduced = useReducedMotion();
   const fill = useSharedValue(from ? 1 : 0);
@@ -95,14 +102,16 @@ function MovingCheck({ on, pressed, size, from }: { on: boolean; pressed: boolea
     <View style={{ width: size, height: size }}>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: r, borderWidth: 2, borderColor: accent.solid }, ring]} />
       <Animated.View style={[styles.box, { width: size, height: size, borderRadius: r }, box]}>
-        <View style={[StyleSheet.absoluteFill, { borderRadius: r, borderWidth: 1.75, borderColor: colors.ink2 }]} />
+        <View style={[StyleSheet.absoluteFill, { borderRadius: r }, ringStyle(quiet, colors)]} />
         <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: r, backgroundColor: accent.soft }, well]} />
         <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: r, backgroundColor: accent.solid }, disc]} />
-        <Animated.View style={[StyleSheet.absoluteFill, hint]}>
-          <Svg width={size} height={size} viewBox="0 0 28 28">
-            <Path d={CHECK} stroke={colors.ink3} strokeOpacity={0.55} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </Svg>
-        </Animated.View>
+        {quiet ? null : (
+          <Animated.View style={[StyleSheet.absoluteFill, hint]}>
+            <Svg width={size} height={size} viewBox="0 0 28 28">
+              <Path d={CHECK} stroke={colors.ink3} strokeOpacity={0.55} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </Svg>
+          </Animated.View>
+        )}
         <Svg width={size} height={size} viewBox="0 0 28 28" style={StyleSheet.absoluteFill}>
           <AnimatedPath d={CHECK} stroke={accent.on} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" fill="none" strokeDasharray={CHECK_LENGTH} animatedProps={stroke} />
         </Svg>

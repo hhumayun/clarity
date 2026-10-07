@@ -1,7 +1,7 @@
 import React, { Children, Fragment, isValidElement } from "react";
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
-import { calm, duration, easeOut, fadeTiming, keep, spring, squash } from "../theme/motion";
+import { arrive, calm, duration, easeOut, fadeTiming, keep, leave, spring, squash } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, pad, radius } from "../theme/tokens";
 
@@ -50,15 +50,32 @@ export function Card({
  * Rows on one card, a hairline between each. Children that are null are
  * skipped, so a group can be built with conditions.
  */
-export function CardGroup({ children, style, inset = true }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; inset?: boolean }) {
+export function CardGroup({ children, style, inset = true, moving = false }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; inset?: boolean; moving?: boolean }) {
   const { colors } = useTheme();
   const items = Children.toArray(children).filter((child) => isValidElement(child));
   if (items.length === 0) return null;
+  const keyOf = (child: React.ReactNode, i: number) => (isValidElement(child) && child.key != null ? child.key : i);
+  const rule = <View style={[styles.rule, { backgroundColor: colors.hairline }]} />;
+  const cardStyle = [styles.card, styles.group, { backgroundColor: colors.card, boxShadow: colors.cardShadow }, inset && styles.inset, style];
+  // `moving`: rows that come and go fade, each carrying the hairline above it. The card's section
+  // moves it; a movement of its own as well would double it (in the web build).
+  if (moving) {
+    return (
+      <View style={cardStyle}>
+        {items.map((child, i) => (
+          <Animated.View key={keyOf(child, i)} entering={arrive} exiting={leave}>
+            {i > 0 ? rule : null}
+            {child}
+          </Animated.View>
+        ))}
+      </View>
+    );
+  }
   return (
-    <View style={[styles.card, styles.group, { backgroundColor: colors.card, boxShadow: colors.cardShadow }, inset && styles.inset, style]}>
+    <View style={cardStyle}>
       {items.map((child, i) => (
-        <Fragment key={isValidElement(child) && child.key != null ? child.key : i}>
-          {i > 0 ? <View style={[styles.rule, { backgroundColor: colors.hairline }]} /> : null}
+        <Fragment key={keyOf(child, i)}>
+          {i > 0 ? rule : null}
           {child}
         </Fragment>
       ))}

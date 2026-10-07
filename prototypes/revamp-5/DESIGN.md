@@ -73,6 +73,13 @@ Signing up on the **web build** shows Cloudflare's "Verify you are human" check,
 - **Quiet saving:** the note page says nothing about saving or syncing.
 - **The keyboard (UX phase 3, 2026-10-06):** Go deeper, Tasks and Done are always there under the words. The keyboard covers them as they fade, and they fade back as it goes, while the tools ride it. The words end above whichever is higher, so they never jump, and nothing waits for the keyboard to finish. A new page opens straight to writing: its buttons wait under the keyboard until it first goes down.
 
+## Ticking and lists (UX phase 4, 2026-10-07)
+
+- **What follows moves too.** On Today, Add task, Done, Notes and Coming up glide with the task card as a task leaves or lands, and when Done opens. On a task's page, ticking fades Start focus and the blocks below glide up. Each block moves on its own, at one level: a moving block inside a moving block doubles the movement in the web build.
+- **A tick holds until it lands.** The ticked row stays ticked (struck, the check full) until the task is done where it's kept, or a repeating task has moved on; it never shows un-ticked as it leaves. A repeating task ticked on its own page fills its check, then eases back, and the capsule says when it's next.
+- **What's next on Focus** cross-fades when the first task is ticked.
+- **How it's going** shows (and asks the AI) only when the task has notes or focus time to read; it comes and goes softly, and a newer summary fades in.
+
 ## Moving between places (2026-10-06)
 
 - **The new page fades in, on the page only.** A tap on a tab covers the old page in the page colour at once, and that veil lifts over 220 ms once the new page is drawn under it. Nothing slides, and the bar only changes which place is chosen. (Until the evening of 2026-10-06 the tab navigator did a fade-through itself. In expo-router 57 that left Life or Notes blank now and then, expo/expo#49681, so the navigator no longer animates.)
@@ -277,9 +284,9 @@ Revamp 2's and revamp 4's motion, which the user liked, kept and re-tuned for ca
 | Moment | What moves |
 |---|---|
 | The + dial | The + turns into ×, the page dims, and Note and Task spring out of the + in a little arc |
-| Ticking a task | The check fills from the middle and pops, a halo leaves it, a line draws through the words; after a beat the row leaves, the rows below close the gap, and Done gives a small bump |
+| Ticking a task | The check fills from the middle and pops, a halo leaves it, a line draws through the words; after a beat the row leaves, the rows below close the gap, and Done gives a small bump. Everything under the list (Add task, Done, Notes, Coming up) glides with it, and the row stays ticked until the change has landed (an account's answer comes a moment later). A repeating task's line fades as it moves to its next day |
 | Changing day | The week's ring stretches to the new day; the page slides in from that side; swiping the strip slides in the next week |
-| Today's page written | The card sinks into the page (white turns to page grey with an outline), the picture dims, and a check pops in |
+| Today's page written | The card settles into the page in one movement: the page's colour and an outline fade in over it, the picture dims, the greeting greys and the question gives way to a check that pops. Already written when the day's data arrives, it's simply settled |
 | Writing to questions | "Next question" brings a new question down under your answer; "another question" rolls the words |
 | Done on a note | The button turns into a check, the page closes, and "Saved" opens at the top of Today |
 | How it's going | Three dots rise and fall, then the summary writes itself in word by word and the steps fade up |
@@ -308,7 +315,7 @@ These are drawn for Clarity in Rosebud's manner: flat colour inside a dark outli
 
 - **Today:** one compact head ("Today", the date, the week) fixed at the top; the two ways in (today only, on a quieter surface); Tasks on the brightest card with Add task and Catch up; Done folded; Notes as cards; Coming up.
 - **Notes:** a card per note under day headings that sit on the left, in line with the words in the cards; the area filter is behind one icon.
-- **Life Center:** area chips under the bar; a single card when something slipped ("A few things slipped", then Catch up); Today, This week, Later and Someday as task cards; Done with Clear.
+- **Life Center:** area chips under the bar; a single card when something slipped ("A few things slipped", then Catch up); Today, This week, Later and Someday as task cards; Done with Clear. Done and "All clear" are rows of the list, so they move with the tasks; a section's name leaves with its last task; a task that comes back (unticked, added) fades in where it lands.
 - **Search:** a white field under the bar and area chips; results as note cards and a task card, with your words picked out in the accent.
 - **Note:** a white page with the area chip, the date line, the title and the words. Checklists can be ticked. "Go deeper" offers a question that can join the note. The tools sit above the keyboard; under them are Tasks and Done.
 - **New note from Today's card:** the question in the accent, your answer, and Next question; Done saves it as today's page.

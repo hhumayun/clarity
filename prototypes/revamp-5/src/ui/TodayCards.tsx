@@ -1,22 +1,22 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
+import Animated, { interpolateColor, LayoutAnimationConfig, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Hourglass } from "../art/Pictures";
 import { TimeOfDay } from "../art/TimeOfDay";
 import { greetings, questions } from "../data/prompts";
 import { today } from "../lib/dates";
 import { noteTime, openOn } from "../store/selectors";
 import { useDevice } from "../state/device";
-import { useSage, useWhenEditable } from "../data/sage";
-import { arrive, leave } from "../theme/motion";
+import { useSage, useSageStatus, useWhenEditable } from "../data/sage";
+import { arrive, duration, fadeTiming, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
 import { edge, radius, space } from "../theme/tokens";
 import { Card } from "./Card";
 import { CircleCheck } from "./CircleCheck";
 import { tap } from "./haptics";
 import { Icon } from "./Icon";
-import { Txt } from "./Txt";
+import { Txt, useType } from "./Txt";
 
 /**
  * Today's two ways in, side by side, in the shape of Rosebud's pair of
@@ -77,23 +77,28 @@ export function TodayCards() {
         <Txt variant="headline" center style={styles.title}>
           Focus
         </Txt>
-        {next ? (
-          <>
-            <Txt variant="subhead" tone="ink2" center numberOfLines={2} style={styles.sub}>
-              {next.title}
-            </Txt>
-            <View style={styles.meta}>
-              <Icon name="timer" size={13} color={colors.ink3} weight="semibold" />
-              <Txt variant="footnote" tone="ink3">
-                {focusLength} min
+        {/* What's next changes (the first task ticked): the words cross-fade, as they swapped in one frame. */}
+        <LayoutAnimationConfig skipEntering>
+          <Animated.View key={next?.id ?? "none"} entering={arrive} exiting={leave} style={styles.next}>
+            {next ? (
+              <>
+                <Txt variant="subhead" tone="ink2" center numberOfLines={2} style={styles.sub}>
+                  {next.title}
+                </Txt>
+                <View style={styles.meta}>
+                  <Icon name="timer" size={13} color={colors.ink3} weight="semibold" />
+                  <Txt variant="footnote" tone="ink3">
+                    {focusLength} min
+                  </Txt>
+                </View>
+              </>
+            ) : (
+              <Txt variant="subhead" tone="ink2" center numberOfLines={2} style={styles.sub}>
+                Add something to work on
               </Txt>
-            </View>
-          </>
-        ) : (
-          <Txt variant="subhead" tone="ink2" center numberOfLines={2} style={styles.sub}>
-            Add something to work on
-          </Txt>
-        )}
+            )}
+          </Animated.View>
+        </LayoutAnimationConfig>
       </Card>
     </View>
   );
@@ -101,46 +106,73 @@ export function TodayCards() {
 
 function WriteCard({ title, question, written, onPress }: { title: string; question: string; written: string | null; onPress: () => void }) {
   const { colors, phase } = useTheme();
-  // The check pops in once you're back on Today, not while the note is still covering it.
+  const { ready } = useSageStatus();
+  const headline = useType("headline");
+  // Written, the card settles into the page in one movement: it takes the page's colour and a
+  // quiet outline, the picture dims, the greeting greys and the question gives way to a check.
+  // That starts once you're back on Today (not while the note still covers it). Already written
+  // when the day's tasks and notes arrived, it's simply settled, with no show.
   const [shown, setShown] = useState(!!written);
+  const sink = useSharedValue(written ? 1 : 0);
   const before = useRef(!!written);
+  const wasReady = useRef(ready);
   useEffect(() => {
+    const arriving = !wasReady.current;
+    wasReady.current = ready;
     if (!!written === before.current) return;
     before.current = !!written;
-    const timer = setTimeout(() => setShown(!!written), written ? 520 : 0);
+    if (arriving) {
+      setShown(!!written);
+      sink.value = written ? 1 : 0;
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        setShown(!!written);
+        sink.value = withTiming(written ? 1 : 0, fadeTiming(duration.enter));
+      },
+      written ? 520 : 0,
+    );
     return () => clearTimeout(timer);
-  }, [written]);
+  }, [written, ready, sink]);
+  const pageStyle = useAnimatedStyle(() => ({ opacity: sink.value }));
+  const pictureStyle = useAnimatedStyle(() => ({ opacity: 1 - 0.4 * sink.value }));
+  const titleStyle = useAnimatedStyle(() => ({ color: interpolateColor(sink.value, [0, 1], [colors.ink, colors.ink2]) }));
   return (
     <Card
       inset={false}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={written ? `${title}. Today's page, written at ${written}` : `${title}. ${question}`}
-      style={[styles.card, { backgroundColor: colors.quiet, boxShadow: "none" }, shown && { backgroundColor: colors.page, borderWidth: 1.5, borderColor: colors.line }]}
+      style={[styles.card, { backgroundColor: colors.quiet, boxShadow: "none" }]}
     >
+      {/* The page's colour and the outline fade in over the card, drawn over its edge so nothing inside moves. */}
+      <Animated.View pointerEvents="none" testID="page-settled" style={[styles.sunk, { backgroundColor: colors.page, borderColor: colors.line }, pageStyle]} />
       {/* A new time of day: the picture and greeting cross-fade (they swapped in one frame), but not on first sight. */}
       <LayoutAnimationConfig skipEntering>
         <Animated.View key={phase} entering={arrive} exiting={leave} style={styles.phase}>
-          <View style={[styles.picture, shown && styles.resting]}>
+          <Animated.View style={[styles.picture, pictureStyle]}>
             <TimeOfDay phase={phase} size={76} />
-          </View>
-          <Txt variant="headline" tone={shown ? "ink2" : "ink"} center style={styles.title}>
-            {title}
-          </Txt>
+          </Animated.View>
+          <Animated.Text style={[headline, styles.title, styles.center, titleStyle]}>{title}</Animated.Text>
         </Animated.View>
       </LayoutAnimationConfig>
-      {shown ? (
-        <View style={styles.done}>
-          <PopCheck size={24} />
-          <Txt variant="footnote" tone="ink3">
-            Written at {written}
-          </Txt>
-        </View>
-      ) : (
-        <Txt variant="subhead" tone="ink2" center numberOfLines={3} style={styles.sub}>
-          {question}
-        </Txt>
-      )}
+      <LayoutAnimationConfig skipEntering>
+        {shown ? (
+          <Animated.View key="done" entering={arrive} exiting={leave} style={styles.done}>
+            <PopCheck size={24} />
+            <Txt variant="footnote" tone="ink3">
+              Written at {written}
+            </Txt>
+          </Animated.View>
+        ) : (
+          <Animated.View key="question" entering={arrive} exiting={leave}>
+            <Txt variant="subhead" tone="ink2" center numberOfLines={3} style={styles.sub}>
+              {question}
+            </Txt>
+          </Animated.View>
+        )}
+      </LayoutAnimationConfig>
     </Card>
   );
 }
@@ -161,7 +193,9 @@ const styles = StyleSheet.create({
   card: { flex: 1, minHeight: 150, borderRadius: radius.card + 2, alignItems: "center", paddingHorizontal: space[3], paddingTop: space[3], paddingBottom: space[4], gap: 2 },
   picture: { height: 58, justifyContent: "center", marginBottom: 2 },
   title: { fontSize: 16, lineHeight: 21 },
-  resting: { opacity: 0.6 },
+  center: { textAlign: "center" },
+  sunk: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius.card + 2, borderCurve: "continuous", borderWidth: 1.5 },
+  next: { alignItems: "center", alignSelf: "stretch" },
   sub: { paddingHorizontal: 2, fontSize: 14, lineHeight: 19 },
   meta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   corner: { position: "absolute", top: 10, right: 10 },

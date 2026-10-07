@@ -116,7 +116,24 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - In the web build the strip shows about 2 s after typing stops.
   - The model sometimes offers completions after a full stop; the app drops them.
 - **A possible next step (not built):** cache the writer's context on the server for a minute per note. That would save about 0.22 s per ask.
-- **Next:** the user's phone look at word help (the 0.8 s pause is a first guess), then phase 4.
+- **Next (then):** the user's phone look at word help (the 0.8 s pause is a first guess), then phase 4.
+- **Phase 4, ticking and lists, is built (2026-10-07):**
+  - **Today:** everything under the task card (Add task, Done, Notes, Coming up) glides with it. Notes and Coming up fade in and out. Done fades out when emptied, and its open state is kept on Today so the page redraws as it opens. The Focus card's words cross-fade when what's next changes. Today's page, written, settles in one movement (`page-settled`), and not when the data simply arrives.
+  - **The tick (T2):** a ticked row holds its tick until the task is done where it's kept, or a repeat has moved on (2.5 s at most). A repeat's strike lines fade instead of vanishing. `tests/checks/tick-account.mjs` holds the server's answer back 600 ms and shows the row never un-ticks.
+  - **The task page:** Start focus fades and the blocks below glide; a repeat's check fills, then eases back; the check shows the finger on it. How it's going needs something to read (no card, no AI ask), comes and goes softly, and a newer summary fades in. Its card now grows in steps.
+  - **Life:** Done and "All clear" are list rows (they jumped as the footer). A section's name fades with its last task. A task that comes back fades in, only as it lands (`cameBack`, 0.8 s), never when scrolled into view.
+  - **The web build** (Reanimated's layout animations there) mishandles a moving box inside a moving box. It doubles the movement, and a resizing box stretches what's in it. It also only moves boxes that redraw. So every block moves at one level, and in the web build a leaving list row (Life) goes without fading.
+  - **Checks:** `tests/checks/phase4-check.mjs` (15) and `tick-account.mjs` (4). All the others pass.
+- **Calmer task rows (waiting for the user's choice, 2026-10-07):**
+  - On 6 October the user found options A–E "not sophisticated enough". A new round is built in the real app behind a switch, `src/ui/rowLook.ts`:
+    - "card": quieter rows on the card, the time under the title;
+    - "sequence": a time column;
+    - "journal": lines on the page with the check first.
+  - All three show five, then "The rest of today", use a quiet ring (`CircleCheck quiet`), and take the `soft` title ink in dark mode.
+  - The web build takes `?rows=` (try it on the web link). Everywhere else it's "now", so the phone is unchanged.
+  - Screenshots are made by `tests/checks/rows-shots.mjs` and shown at `/root/projects/uximprove/page/tasks-round2.html` (the plan page's link).
+  - Once the user picks: make that look the only one, decide about Life's list, and delete the switch.
+- **Next:** the user's choice of rows, their phone look at phase 4, then phase 5, Focus.
 
 ## What's done
 

@@ -3,7 +3,7 @@ import { useAiOn, useAiReady } from "../../src/data/ai";
 import { useTaskSummary } from "../../src/core/hooks/useTasks";
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import Animated from "react-native-reanimated";
+import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { addDays, dayLabel, durationLabel, today } from "../../src/lib/dates";
 import { useFocusHistory, useTask } from "../../src/data/hooks";
@@ -59,6 +59,14 @@ export default function TaskScreen() {
   const titleType = useType("title2");
   const bodyType = useType("callout");
   const [asking, setAsking] = useState(false);
+  // Ticked here, the check fills at once and stays so until the change lands (an account's answer
+  // comes a moment later); a repeating task's check fills too, then eases back as it moves to its
+  // next day.
+  const [ticked, setTicked] = useState(false);
+  const [checkDown, setCheckDown] = useState(false);
+  useEffect(() => {
+    if (live?.done) setTicked(false);
+  }, [live?.done]);
 
   if (!task) {
     return (
@@ -86,8 +94,12 @@ export default function TaskScreen() {
       return;
     }
     doneHaptic();
+    setTicked(true);
     const next = setDone(task.id, true);
     if (next) acknowledge(`Next: ${dayLabel(next)}`, "repeat");
+    // A repeating task stays open (at its next day): its check eases back after a beat. Otherwise
+    // it waits for the change, at most a moment (if it failed and was put back, it shows as it is).
+    setTimeout(() => setTicked(false), next ? 900 : 2_500);
   };
 
   // A delete isn't a success: a light tap, not the done haptic.
@@ -138,8 +150,17 @@ export default function TaskScreen() {
             style={[titleType, styles.title, { color: task.done ? colors.ink3 : colors.ink, textDecorationLine: task.done ? "line-through" : "none" }]}
             accessibilityLabel="Task"
           />
-          <Pressable onPress={toggle} hitSlop={10} accessibilityRole="checkbox" aria-checked={task.done} accessibilityLabel={task.done ? "Mark not done" : "Mark done"} style={styles.check}>
-            <CircleCheck on={task.done} size={32} />
+          <Pressable
+            onPress={toggle}
+            onPressIn={() => setCheckDown(true)}
+            onPressOut={() => setCheckDown(false)}
+            hitSlop={10}
+            accessibilityRole="checkbox"
+            aria-checked={task.done || ticked}
+            accessibilityLabel={task.done ? "Mark not done" : "Mark done"}
+            style={styles.check}
+          >
+            <CircleCheck on={task.done || ticked} pressed={checkDown} size={32} />
           </Pressable>
         </Card>
         <Card style={styles.detailsCard}>
@@ -174,56 +195,63 @@ export default function TaskScreen() {
           ))}
         </CardGroup>
 
-        {!task.done ? (
-          <View style={styles.focus}>
-            {leftOff ? (
-              <Card style={styles.leftOff}>
-                <Txt variant="eyebrow" tone="ink3">
-                  {leftOff.outcome === "stuck" ? "Where you got stuck" : "Where you left off"}
-                </Txt>
-                <Txt variant="callout">{leftOff.leftOff}</Txt>
-              </Card>
+        {/* What follows the settings moves together: ticked, Start focus fades and the blocks below
+            glide up (they jumped while one card glided). Each block moves on its own, at one level:
+            moving boxes inside moving boxes doubled their movement in the web build. */}
+        <LayoutAnimationConfig skipEntering>
+          {!task.done ? (
+            <Animated.View entering={arrive} exiting={leave} style={styles.focus}>
+              {leftOff ? (
+                <Card style={styles.leftOff}>
+                  <Txt variant="eyebrow" tone="ink3">
+                    {leftOff.outcome === "stuck" ? "Where you got stuck" : "Where you left off"}
+                  </Txt>
+                  <Txt variant="callout">{leftOff.leftOff}</Txt>
+                </Card>
+              ) : null}
+              <Button label="Start focus" icon="play" onPress={() => (tap(), router.push(`/focus/${task.id}`))} style={styles.focusButton} />
+            </Animated.View>
+          ) : null}
+
+          <HowItsGoing task={task} history={history} notes={linked} />
+
+          <Animated.View layout={settle}>
+            <SectionTitle title="Notes" />
+            {linked.length ? (
+              <View style={styles.notes}>
+                {linked.map((note) => (
+                  <NoteCard key={note.id} note={note} lines={2} onPress={() => router.push(`/note/${note.id}`)} />
+                ))}
+              </View>
             ) : null}
-            <Button label="Start focus" icon="play" onPress={() => (tap(), router.push(`/focus/${task.id}`))} style={styles.focusButton} />
-          </View>
-        ) : null}
+            <View style={styles.linkWrap}>
+              <Button label="Link a note" icon="link" variant="secondary" size="md" onPress={() => router.push(`/sheet/link-note?task=${task.id}`)} />
+            </View>
 
-        <HowItsGoing task={task} history={history} notes={linked} />
-
-        <SectionTitle title="Notes" />
-        {linked.length ? (
-          <View style={styles.notes}>
-            {linked.map((note) => (
-              <NoteCard key={note.id} note={note} lines={2} onPress={() => router.push(`/note/${note.id}`)} />
-            ))}
-          </View>
-        ) : null}
-        <View style={styles.linkWrap}>
-          <Button label="Link a note" icon="link" variant="secondary" size="md" onPress={() => router.push(`/sheet/link-note?task=${task.id}`)} />
-        </View>
-
-        <View style={styles.footer}>
-          <Txt variant="footnote" tone="ink3" center>
-            {provenance}
-          </Txt>
-          <Animated.View layout={settle} style={styles.deleteWrap}>
-            {asking ? (
-              <Animated.View key="ask" entering={arrive} style={styles.ask}>
-                <Txt variant="subhead" tone="ink2" center>
-                  Delete it? It won't come back, even if its note is read again.
-                </Txt>
-                <ButtonPair>
-                  <Button label="Keep" variant="secondary" size="md" flex onPress={() => (tick(), setAsking(false))} />
-                  <Button label="Delete" icon="trash" variant="danger" size="md" flex onPress={remove} />
-                </ButtonPair>
+            <View style={styles.footer}>
+              <Txt variant="footnote" tone="ink3" center>
+                {provenance}
+              </Txt>
+              <Animated.View layout={settle} style={styles.deleteWrap}>
+                {asking ? (
+                  <Animated.View key="ask" entering={arrive} style={styles.ask}>
+                    <Txt variant="subhead" tone="ink2" center>
+                      Delete it? It won't come back, even if its note is read again.
+                    </Txt>
+                    <ButtonPair>
+                      <Button label="Keep" variant="secondary" size="md" flex onPress={() => (tick(), setAsking(false))} />
+                      <Button label="Delete" icon="trash" variant="danger" size="md" flex onPress={remove} />
+                    </ButtonPair>
+                  </Animated.View>
+                ) : (
+                  <Animated.View key="delete" entering={arrive} exiting={leave}>
+                    <Button label="Delete task" icon="trash" variant="danger" size="sm" onPress={() => (tick(), setAsking(true))} style={styles.deleteButton} />
+                  </Animated.View>
+                )}
               </Animated.View>
-            ) : (
-              <Animated.View key="delete" entering={arrive} exiting={leave}>
-                <Button label="Delete task" icon="trash" variant="danger" size="sm" onPress={() => (tick(), setAsking(true))} style={styles.deleteButton} />
-              </Animated.View>
-            )}
+            </View>
           </Animated.View>
-        </View>
+        </LayoutAnimationConfig>
       </ScrollView>
     </View>
   );
@@ -241,8 +269,10 @@ function HowItsGoing({ task, history, notes }: { task: Task; history: FocusHisto
   const account = useDataMode((state) => state.mode) === "account";
   const aiOn = useAiOn();
   const own = summarise(task, history, notes);
+  // Nothing to read (no notes, no focus time): no card, and nothing asked of the AI.
+  if (!own) return null;
   if (account && aiOn) return <AiHowItsGoing task={task} own={own} />;
-  return own ? <SummaryCard id={task.id} text={own.text} steps={own.steps} pace /> : null;
+  return <SummaryCard id={task.id} text={own.text} steps={own.steps} pace />;
 }
 
 /** The AI's summary, with Sage's own standing in offline (nothing kept yet) or if it can't be had. */
@@ -269,9 +299,10 @@ function SummaryCard({ id, text, steps, pace = false }: { id: string; text: stri
     return () => clearTimeout(timer);
   }, [phase, text, pace]);
   return (
-    <>
+    // It comes and goes softly (the AI may have nothing to say), never in one frame, and moves with what's above it.
+    <Animated.View layout={settle} entering={arrive} exiting={leave}>
       <SectionTitle title="How it's going" icon="sparkles" />
-      <Animated.View layout={settle} style={[styles.reflection, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>
+      <View style={[styles.reflection, { backgroundColor: colors.card, boxShadow: colors.cardShadow }]}>
         {phase === "reading" || text === null ? (
           <Animated.View exiting={leave} style={styles.reading}>
             <ThinkingDots />
@@ -286,7 +317,12 @@ function SummaryCard({ id, text, steps, pace = false }: { id: string; text: stri
             }}
           />
         ) : (
-          <Txt variant="callout">{text}</Txt>
+          // A newer summary (asked again since) fades in rather than swapping in one frame.
+          <LayoutAnimationConfig skipEntering>
+            <Animated.View key={text} entering={arrive}>
+              <Txt variant="callout">{text}</Txt>
+            </Animated.View>
+          </LayoutAnimationConfig>
         )}
         {phase === "done" && text !== null && steps.length ? (
           <Animated.View entering={seen ? undefined : riseIn} style={[styles.steps, { borderTopColor: colors.hairline }]}>
@@ -306,8 +342,8 @@ function SummaryCard({ id, text, steps, pace = false }: { id: string; text: stri
             ))}
           </Animated.View>
         ) : null}
-      </Animated.View>
-    </>
+      </View>
+    </Animated.View>
   );
 }
 

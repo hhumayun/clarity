@@ -1,5 +1,5 @@
 import { useRouter, useScrollToTop } from "expo-router";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View, type ListRenderItem } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import type { Task } from "../../src/store/model";
@@ -8,7 +8,7 @@ import { Sprout } from "../../src/art/Pictures";
 import { groupTasks } from "../../src/store/selectors";
 import { useSage, useSageStatus } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
-import { arriveSlow, settle } from "../../src/theme/motion";
+import { arriveSlow, leave, settle } from "../../src/theme/motion";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { edge, pad, radius, space } from "../../src/theme/tokens";
 import { useAcknowledge } from "../../src/ui/Acknowledgement";
@@ -33,11 +33,18 @@ const SECTIONS = [
   { key: "undated", title: "Someday" },
 ] as const;
 
-/** The list, flat: what slipped, then each section's name and its tasks, one slice of the card each. */
+/**
+ * The list, flat: what slipped, then each section's name and its tasks, one
+ * slice of the card each, then "All clear" or Done. Done and the empty state
+ * are rows too, so they move with the rest (as the list's footer they jumped
+ * while the rows glided).
+ */
 type Row =
   | { kind: "slipped"; key: string }
   | { kind: "title"; key: string; title: string; first: boolean }
-  | { kind: "task"; key: string; task: Task; variant: TaskVariant; first: boolean; last: boolean };
+  | { kind: "task"; key: string; task: Task; variant: TaskVariant; first: boolean; last: boolean }
+  | { kind: "empty"; key: string }
+  | { kind: "done"; key: string };
 
 /**
  * Life Center: every task in one calm place, sorted by when, the way
@@ -79,8 +86,18 @@ export default function LifeCenter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areas, chosen]);
   const groups = useMemo(() => groupTasks(tasks, area), [tasks, area]);
-  const anySlipped = useMemo(() => groupTasks(tasks, null).slipped.length > 0, [tasks]);
+  const everywhere = useMemo(() => groupTasks(tasks, null), [tasks]);
+  const anySlipped = everywhere.slipped.length > 0;
   const anyOpen = groups.today.length + groups.week.length + groups.later.length + groups.undated.length > 0;
+  // Tasks that come back (unticked, added, back from elsewhere) fade in where they land; not on
+  // first sight, nor when they're only scrolled into view or shown by choosing an area.
+  const open = useMemo(() => new Set([...everywhere.today, ...everywhere.week, ...everywhere.later, ...everywhere.undated].map((task) => task.id)), [everywhere]);
+  const knownOpen = useRef<Set<string> | null>(null);
+  // When each came back: it fades in only then (drawn again later, scrolled back into view, it doesn't).
+  const cameBack = useRef(new Map<string, number>());
+  useEffect(() => {
+    if (ready) knownOpen.current = open;
+  }, [open, ready]);
 
   const rows = useMemo(() => {
     const list: Row[] = [];
@@ -90,10 +107,16 @@ export default function LifeCenter() {
       if (!tasks.length) return;
       list.push({ kind: "title", key: `title:${section.key}`, title: section.title, first: i === 0 && !anySlipped });
       const variant: TaskVariant = section.key === "today" ? "day" : "list";
-      tasks.forEach((task, n) => list.push({ kind: "task", key: task.id, task, variant, first: n === 0, last: n === tasks.length - 1 }));
+      const known = knownOpen.current;
+      tasks.forEach((task, n) => {
+        if (known && !known.has(task.id)) cameBack.current.set(task.id, Date.now());
+        list.push({ kind: "task", key: task.id, task, variant, first: n === 0, last: n === tasks.length - 1 });
+      });
     });
+    if (ready && !anyOpen) list.push({ kind: "empty", key: "empty" });
+    if (groups.done.length) list.push({ kind: "done", key: "done" });
     return list;
-  }, [groups, anySlipped]);
+  }, [groups, anySlipped, anyOpen, ready]);
 
   const clear = async () => {
     const ok = await confirm({
@@ -108,8 +131,37 @@ export default function LifeCenter() {
 
   const renderRow = useCallback<ListRenderItem<Row>>(
     ({ item }) => {
-      if (item.kind === "title") return <SectionTitle title={item.title} first={item.first} />;
-      if (item.kind === "task") return <TaskSlice task={item.task} variant={item.variant} first={item.first} last={item.last} showArea={!area} quiet={quiet} />;
+      // A section emptied: its name leaves with its last task, not in one frame before it.
+      if (item.kind === "title")
+        return (
+          <Animated.View exiting={quiet ? undefined : leave}>
+            <SectionTitle title={item.title} first={item.first} />
+          </Animated.View>
+        );
+      if (item.kind === "task") {
+        const at = cameBack.current.get(item.task.id);
+        const fresh = at !== undefined && Date.now() - at < 800;
+        if (at !== undefined && !fresh) cameBack.current.delete(item.task.id);
+        return <TaskSlice task={item.task} variant={item.variant} first={item.first} last={item.last} showArea={!area} quiet={quiet} fresh={fresh} />;
+      }
+      if (item.kind === "empty")
+        return (
+          <Animated.View entering={arriveSlow} exiting={quiet ? undefined : leave} style={styles.empty}>
+            <Sprout size={104} />
+            <Txt variant="headline" center>
+              {tasks.length === 0 ? "Nothing here yet" : area ? `Nothing waiting in ${area}` : "All clear"}
+            </Txt>
+            <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
+              {tasks.length === 0 ? "Tasks you add, or find in your notes, gather here." : "Enjoy the quiet."}
+            </Txt>
+          </Animated.View>
+        );
+      if (item.kind === "done")
+        return (
+          <View style={styles.fold}>
+            <DoneFold tasks={groups.done} onClear={clear} showArea={!area} quiet={quiet} scope={area ?? ""} inList />
+          </View>
+        );
       return (
         <Card style={styles.slipped}>
           <View style={[styles.slippedIcon, { backgroundColor: colors.warmSoft }]}>
@@ -125,7 +177,8 @@ export default function LifeCenter() {
         </Card>
       );
     },
-    [area, quiet, colors, router],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [area, quiet, colors, router, groups.done, tasks.length],
   );
 
   return (
@@ -161,24 +214,6 @@ export default function LifeCenter() {
           <>
             <LoadProblem />
             {ready ? null : <SkeletonCards cards={2} rows={3} label="Loading your tasks" />}
-          </>
-        }
-        ListFooterComponent={
-          <>
-            {ready && !anyOpen ? (
-              <Animated.View entering={arriveSlow} style={styles.empty}>
-                <Sprout size={104} />
-                <Txt variant="headline" center>
-                  {tasks.length === 0 ? "Nothing here yet" : area ? `Nothing waiting in ${area}` : "All clear"}
-                </Txt>
-                <Txt variant="subhead" tone="ink3" center style={styles.emptyText}>
-                  {tasks.length === 0 ? "Tasks you add, or find in your notes, gather here." : "Enjoy the quiet."}
-                </Txt>
-              </Animated.View>
-            ) : null}
-            <View style={styles.fold}>
-              <DoneFold tasks={groups.done} onClear={clear} showArea={!area} quiet={quiet} scope={area ?? ""} />
-            </View>
           </>
         }
       />
