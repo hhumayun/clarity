@@ -52,15 +52,35 @@ type Excerpt = { title: string; excerpt: string };
 /** A fast flash model keeps this short, structured suggestion task responsive. */
 const MODEL = DEFAULT_MODEL;
 
+/**
+ * What a caller asks for. "all" (the main app): completions, two stems per
+ * mood and questions in one answer. "words": three completions and one stem
+ * per mood, for word help typed against; about a third of the answer, so
+ * it comes in about half the time (measured 2026-10-07: 0.5–0.7 s against
+ * 1.1–1.4 s for the model's part). "questions": questions only.
+ */
+export type SuggestionsMode = "all" | "words" | "questions";
+
+// Word help is typed against: an answer that stalls has missed its moment,
+// so it gives up sooner and isn't tried again on the same model.
+const LIMITS: Record<SuggestionsMode, { maxOutputTokens: number; timeoutMs?: number; attemptsPerModel?: number }> = {
+  all: { maxOutputTokens: 2_000 },
+  words: { maxOutputTokens: 300, timeoutMs: 5_000, attemptsPerModel: 1 },
+  questions: { maxOutputTokens: 400, timeoutMs: 8_000, attemptsPerModel: 1 },
+};
+// Word help doesn't wait long for the writer's history and related notes: past this, it goes without.
+const CONTEXT_WAIT_MS = 400;
+
 async function askForStems(
   systemPrompt: string,
   userPrompt: string,
+  mode: SuggestionsMode,
 ): Promise<string> {
   return aiChatJson({
     model: MODEL,
     systemPrompt,
     userPrompt,
-    maxOutputTokens: 2_000,
+    ...LIMITS[mode],
   });
 }
 
@@ -274,6 +294,32 @@ Rules:
 - Respond ONLY with JSON:
 {"complete": ["...", "...", "...", "...", "..."], "deeper": ["...", "..."], "continue": ["...", "..."], "forward": ["...", "..."], "questions": ["...", "...", "...", "..."]}`;
 
+const WORDS_PROMPT = `You help people who sometimes have trouble finding words while writing personal notes.
+Given the text a person has written so far, offer short word help: phrases that complete the current unfinished sentence, and sentence-starter stems that open the next sentence.
+
+Completions ("complete"):
+- When the cursor is inside an unfinished sentence, return exactly 3 short fragments. Each is 1 to 5 everyday words and attaches naturally DIRECTLY after the final words at the cursor, in casing and grammar that fit that exact position. Do not repeat words already written and do not start a new sentence.
+- If the text is empty or already ends in . ! ? or a paragraph break, return an empty "complete" array.
+
+Stems: exactly one for each mood:
+- "deeper" — reflect on meaning or feeling
+- "continue" — keep the story going
+- "forward" — look ahead
+Each stem is 1 to 5 everyday words: an opener, not a full sentence, that reads naturally as the start of the writer's NEXT sentence and clearly connects to THIS writer's words (their subject, moment or feeling). Never filler that could fit any note.
+
+Plain, warm, simple language. Never advice or corrections. Never repeat a phrase the writer dismissed.
+Respond ONLY with JSON: {"complete": ["...", "...", "..."], "deeper": ["..."], "continue": ["..."], "forward": ["..."]}`;
+
+const QUESTIONS_PROMPT = `You help people reflect while writing personal notes.
+Given the text a person has written so far, offer 4 short, gentle, open questions about what they just wrote: curious, never probing or clinical. Each asks about something different (a moment, a person, a feeling, a detail), in under 12 words, and can be answered by writing more. Never advice or corrections. Never repeat a phrase the writer dismissed.
+Respond ONLY with JSON: {"questions": ["...", "...", "...", "..."]}`;
+
+const PROMPTS: Record<SuggestionsMode, string> = {
+  all: SYSTEM_PROMPT,
+  words: WORDS_PROMPT,
+  questions: QUESTIONS_PROMPT,
+};
+
 function buildPrompt(
   title: string,
   textBeforeCursor: string,
@@ -306,33 +352,60 @@ function normalize(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
 
+async function loadContext(
+  userId: number,
+  noteId: string | undefined,
+  contextText: string,
+): Promise<Context> {
+  if (!(await isPersonalizationEnabled(userId))) return EMPTY_CONTEXT;
+  const [history, excerpts] = await Promise.all([
+    loadHistory(userId),
+    loadEntityExcerpts(userId, noteId, contextText),
+  ]);
+  return { ...history, excerpts };
+}
+
 export async function generateSuggestions(opts: {
   userId: number;
   noteId?: string;
   title?: string;
   textBeforeCursor: string;
+  mode?: SuggestionsMode;
+  /** Filled in with how long the parts took, in ms (for a Server-Timing header). */
+  timings?: { context?: number; model?: number };
 }): Promise<SuggestionsResult> {
   const { userId, noteId, textBeforeCursor } = opts;
   const title = opts.title ?? "";
+  const mode = opts.mode ?? "all";
+  const timings = opts.timings ?? {};
+  let mark = Date.now();
 
   let ctx: Context = EMPTY_CONTEXT;
   try {
-    if (await isPersonalizationEnabled(userId)) {
-      const [history, excerpts] = await Promise.all([
-        loadHistory(userId),
-        loadEntityExcerpts(userId, noteId, `${title} ${textBeforeCursor}`),
+    const loading = loadContext(userId, noteId, `${title} ${textBeforeCursor}`);
+    if (mode === "all") {
+      ctx = await loading;
+    } else {
+      // Typed against: the context comes if it's quick, and otherwise is let go.
+      loading.catch(() => {});
+      ctx = await Promise.race([
+        loading,
+        new Promise<Context>((resolve) => setTimeout(() => resolve(EMPTY_CONTEXT), CONTEXT_WAIT_MS)),
       ]);
-      ctx = { ...history, excerpts };
     }
   } catch {
     // Personalization is optional — never block suggestions on it.
     console.warn("personalization context failed; continuing without it");
   }
+  timings.context = Date.now() - mark;
+  mark = Date.now();
 
   const raw = await askForStems(
-    SYSTEM_PROMPT,
+    PROMPTS[mode],
     buildPrompt(title, textBeforeCursor, ctx),
+    mode,
   );
+  timings.model = Date.now() - mark;
   const parsed = parseModelJson(raw);
 
   const seen = new Set<string>();

@@ -10,6 +10,12 @@ export const schema = z.object({
   noteId: z.string().min(1).optional(),
   title: z.string().max(300).optional(),
   textBeforeCursor: z.string().max(4_000),
+  /**
+   * Ask for less, sooner: "words" (three completions and one stem per mood,
+   * no questions) or "questions" (questions only). Omitted, everything, as
+   * the main app has always had it.
+   */
+  mode: z.enum(["words", "questions"]).optional(),
 });
 
 export type InputType = z.infer<typeof schema>;
