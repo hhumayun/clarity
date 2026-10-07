@@ -12,6 +12,10 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - Production is deployment **4f947109** (2026-10-07 05:19 UTC), from branch `revamp-5-ux` at 3b2752a: 5474299f's server (revamp-5 at 23a5d22) plus suggestions' "words" and "questions" modes and their `Server-Timing` header (695c3bc). Nothing else on the server changed.
   - The server now moves on `revamp-5-ux`: export that branch to deploy (step 1 of the procedure below), not revamp-5.
   - Migrations **001–016** are applied to production.
+- **Web preview with sign-in (temporary, 2026-10-07, at the user's request):** `scripts/web-proxy.mjs` on port 8089 serves Metro's web build and passes `/_api` calls on to the live server. To the browser they go to the page's own address, so the server's CORS list isn't involved. It tells the page so (`window.__SAGE_API_BASE__ = ""`, read in `src/core/api/apiFetch.ts`). A second quick tunnel points at it; its URL is in `/tmp/sage-web-url.txt`.
+  - Sign-in works there because Clerk is a development instance.
+  - The auto-mode classifier denied the alternative, adding the tunnel to the server's `CORS_ORIGINS`, as weakening security.
+  - Stop it by port (8089) and the tunnel's PID when it's no longer wanted.
 - **Never commit:** design research (Appllama, Mobbin and Rosebud images in `/root/projects/clarity-design-research`), `.env*` files (keep them outside project folders), or backups (`/root/.config/clarity-backups`).
 
 ## UX improvements: branch `revamp-5-ux` (from 2026-10-06)

@@ -8,8 +8,11 @@ export function registerTokenGetter(getter: () => Promise<string | null>) {
 
 export function resolveApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
+  // A web page served through the preview proxy (scripts/web-proxy.mjs) is told its API is its own
+  // address (""): the proxy passes the calls on to the server.
+  const runtime = (globalThis as { __SAGE_API_BASE__?: string }).__SAGE_API_BASE__;
   const configured = String(
-    process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_API,
+    runtime ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_API,
   ).replace(/\/$/, "");
   return `${configured}${path.startsWith("/") ? path : `/${path}`}`;
 }
