@@ -12,7 +12,34 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - Production is deployment **4f947109** (2026-10-07 05:19 UTC), from branch `revamp-5-ux` at 3b2752a: 5474299f's server (revamp-5 at 23a5d22) plus suggestions' "words" and "questions" modes and their `Server-Timing` header (695c3bc). Nothing else on the server changed.
   - The server now moves on `revamp-5-ux`: export that branch to deploy (step 1 of the procedure below), not revamp-5.
   - Migrations **001–016** are applied to production.
+  - **Dev** (from 2026-10-07) is a separate server and database for trying changes first. See "Dev" below.
 - **Never commit:** design research (Appllama, Mobbin and Rosebud images in `/root/projects/clarity-design-research`), `.env*` files (keep them outside project folders), or backups (`/root/.config/clarity-backups`).
+
+## Dev: its own server and database (from 2026-10-07)
+
+Set up from a cloud session (Claude Code on the web) on branch `revamp-5-cloud-exp`, so work there never touches production or the data in it. Try server changes and migrations on Dev first.
+
+- **Server:** Railway project clarity-notes, environment **Dev** (`0a2f2bc8-9117-4058-8a10-0200bed44f7c`), service clarity-notes, at https://clarity-notes-dev.up.railway.app.
+  - It deploys by itself on every push to `revamp-5-cloud-exp` (a GitHub source set on Dev only). First good deployment: 9a6bb36f, at 6922de9.
+  - Production is unchanged: no GitHub source, deployed only by hand (the procedure under "Running it"). Code reaches production only once it is on `revamp-5-ux`. On 2026-10-07, `revamp-5-cloud-exp` was `revamp-5-ux` (c182c1d) plus 6922de9.
+  - Check it as production is checked: `/` gives 200 and `/_api/notes/list` gives 401 unsigned.
+- **Database:** Neon project Myproj (`still-dream-66134277`), branch **dev** (`br-restless-cake-aei2ueyj`). A full copy of production made 2026-10-07 at 14:01 UTC (the user's choice: production holds only their own notes), so the test account and the user's account are there as they were then.
+  - What's written on Dev stays on Dev. Neon's "reset from parent" brings the branch back to production's current state and throws away everything written on Dev: ask first.
+  - Migrations: the dev branch first (Neon's SQL editor or connector, or `railway run --environment Dev`), check, then production with the user's OK as before.
+- **Dev's variables** were copied from production when the environment was made: the same Clerk instance, and the same OpenRouter and Gemini keys, so AI use on Dev counts against them. Two differ:
+  - `DATABASE_URL`: the dev branch's pooled connection string, without Neon's `channel_binding=require` (postgres.js would pass it to Postgres as a setting).
+  - `CORS_ORIGINS=http://localhost:8081`, for a web build served by Metro on port 8081.
+- **Builder:** `railway.json` says Railpack since 6922de9. It said Nixpacks, which `railway up` builds never used. A GitHub deploy follows the file, so Dev's first build ran Nixpacks on Node 18, `npm ci` left out devDependencies under `NODE_ENV=production`, and it stopped at "vite: not found".
+
+### Using Dev from a cloud session
+
+- **Point the app at Dev:** `EXPO_PUBLIC_API_BASE_URL=https://clarity-notes-dev.up.railway.app` and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<the pk_test_ key>`. Set them in the cloud environment's variables rather than a `.env` in the project. Serve the web build on 8081, the port Dev allows: `CI=1 npx expo start --web --port 8081`.
+- **Network:** the environment's Allowed domains need `*.clerk.accounts.dev` and the Dev domain (or `*.up.railway.app`).
+  - Neon's Postgres port (5432) can't be reached from the container: use the Neon connector for SQL.
+  - Node's own `fetch` ignores the proxy: run Node scripts that call the server with `NODE_USE_ENV_PROXY=1`.
+- **Signing in:** the test account (`tests/checks/README.md`), code 424242. Google sign-in can't be done in a headless browser. `mobile/` signs in only with a password or Google, so it can't use the test account.
+- **Installing:** `npm ci` stops with EOVERRIDE. The tiptap packages are devDependencies at `^3.27.1` and overrides at `3.27.1`, which npm 10 and 11 refuse. Until `package.json` is fixed, write each such override as `"$<its name>"` for the install, then put `package.json` back.
+- **The checks still talk to production:** `LIVE` and `APP` (port 8087) are fixed in the scripts. Only `api-check.mjs` (`API=<url>`), `words-account.mjs` and `suggest-timing.mjs` (`SERVER=<url>`) can be pointed at Dev.
 
 ## UX improvements: branch `revamp-5-ux` (from 2026-10-06)
 
