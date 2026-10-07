@@ -1,5 +1,9 @@
 // Interaction checks for revamp 5 ("Sage"), in headless Chrome against Metro's web build.
 // node interact.js [light|dark]
+// Another day in this week's strip with a task of its own in the samples: tomorrow, or on a Sunday
+// (the strip runs Monday to Sunday) yesterday.
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const OTHER = new Date().getDay() === 0 ? { day: "Saturday", task: "Pay the window cleaner" } : { day: DAYS[(new Date().getDay() + 1) % 7], task: "Ask Sam about the brackets" };
 const { chromium } = require(process.env.PLAYWRIGHT_CORE || "playwright-core");
 const OUT = "/root/projects/clarity-design-research/revamp-5/motion";
 const BASE = process.env.BASE || "http://localhost:8087";
@@ -71,12 +75,11 @@ const demo = (path) => `${path}${path.includes("?") ? "&" : "?"}demo`;
     await shot("done_open");
 
     // Another day from the week
-    const wed = page.getByRole("button", { name: /^Wednesday/ }).first();
-    await wed.click();
+    await page.getByRole("button", { name: new RegExp(`^${OTHER.day}`) }).first().click();
     await page.waitForTimeout(120); await shot("day_mid");
     await page.waitForTimeout(700); await shot("day_wed");
     ok("another day shows Back to today", await visible(btn("Back to today")));
-    ok("the day's heading changes", (await texts()).includes("Wednesday"));
+    ok("the day's heading changes", (await texts()).includes(OTHER.day));
     await btn("Back to today").click();
     await page.waitForTimeout(900);
 

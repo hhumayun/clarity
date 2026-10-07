@@ -25,6 +25,8 @@ export type NoteEditorProps = {
   onFocusChange?: (focused: boolean) => void;
   /** A checklist row ticked by a tap (true) or unticked (false). */
   onTicked?: (on: boolean) => void;
+  /** Words from the strip went in: the text now before the cursor, and how many characters went in. */
+  onInserted?: (before: string, length: number) => void;
   /** The note is on screen. */
   onShown?: () => void;
   /** The page didn't start, or broke before showing the note. */
@@ -117,6 +119,9 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
         break;
       case "ticked":
         current.onTicked?.(message.on);
+        break;
+      case "inserted":
+        current.onInserted?.(message.before, message.length);
         break;
       case "error":
         if (!shown.current) fail(message.message);

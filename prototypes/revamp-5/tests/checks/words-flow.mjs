@@ -1,6 +1,7 @@
-// Word help and Go deeper in Sage's web build, demo mode: after a pause at the end of a sentence,
-// a strip of ways to start the next one; a tap puts the words in, cased and spaced; typing on lets
-// it go; nothing comes mid-sentence. Go deeper offers the sample's own questions. Sends nothing.
+// Word help and Go deeper in Sage's web build, demo mode: after a short pause at the end of a sentence,
+// a strip of ways to start the next one; a tap puts the words in, cased and spaced; nothing comes
+// mid-sentence (the samples only start sentences). Go deeper offers the sample's own questions.
+// Sends nothing.
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 const require = createRequire(import.meta.url);
@@ -45,10 +46,14 @@ try {
   await btn("New note").click();
   const frame = await waitEditor();
   await frame.locator(".ProseMirror").click();
-  await page.keyboard.type("We walked by the canal for an hour.", { delay: 15 });
-  await page.waitForTimeout(1000);
-  ok("no strip while writing", (await chips().count()) === 0);
-  await page.waitForTimeout(3000);
+  // While typing, nothing: checked after every word.
+  let whileTyping = 0;
+  for (const word of "We walked by the canal for an hour.".split(" ")) {
+    await page.keyboard.type(word.endsWith(".") ? word : `${word} `, { delay: 40 });
+    whileTyping += await chips().count();
+  }
+  ok("no strip while writing", whileTyping === 0, `${whileTyping} chips seen`);
+  await page.waitForFunction(() => document.querySelectorAll('[aria-label^="Add “"]').length > 0, null, { timeout: 4000 }).catch(() => {});
   const offered = await chips().count();
   ok("after a pause at a sentence's end, a strip of ways to start the next", offered === 3, `${offered} chips`);
   await page.screenshot({ path: `${OUT}/strip.png` });
@@ -60,7 +65,8 @@ try {
   await page.waitForTimeout(800);
   const after = await words();
   ok("a tap puts the words in at the cursor, spaced and capitalised", after.includes(`We walked by the canal for an hour. ${first}`), JSON.stringify(after));
-  ok("…and the strip goes", (await chips().count()) === 0);
+  // (With an account, the strip stays while new words come; the samples only start sentences, so here there are none.)
+  ok("…and, with nothing more to offer mid-sentence, the strip goes", (await chips().count()) === 0);
   ok("the editor still has the cursor", await frame.evaluate(() => document.activeElement?.classList.contains("ProseMirror") ?? false));
   await page.keyboard.type("calm and slow,", { delay: 15 });
   ok("typing on goes straight after the words", (await words()).includes(`${first} calm and slow,`), JSON.stringify(await words()));

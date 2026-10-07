@@ -697,7 +697,9 @@ function check(name, got, want) {
         focus: "end",
       }),
     );
-    await pause(page, 150);
+    // A later copy cross-fades in (about a third of a second): typing starts once it's there.
+    await page.waitForFunction(() => document.querySelector(".ProseMirror blockquote") && document.activeElement?.classList.contains("ProseMirror"), null, { timeout: 5000 });
+    await pause(page, 250);
     await type(page, "A long walk");
     await pause(page);
     check("sage: today's page opens with the cursor under its question", await last(page, "onChange"), "> What would make today good?\n\nA long walk");
@@ -766,6 +768,13 @@ function check(name, got, want) {
     const mid = await page.evaluate(() => new Promise((r) => setTimeout(() => r(Number(getComputedStyle(document.querySelector(".ProseMirror")).opacity)), 60)));
     await pause(page, 500);
     check("sage: a later copy cross-fades in (dims, then shows)", mid < 1 && (await page.evaluate(() => document.querySelector(".ProseMirror").innerText.trim())) === "A newer copy.", true);
+    // Typed into while it dims: the writer's words are newer, and stay.
+    await page.click(".ProseMirror");
+    await page.keyboard.press("Control+End");
+    await page.evaluate(() => window.clarityEditor.receive({ type: "seed", seed: "3", markdown: "A third copy.", doc: null, focus: null }));
+    await page.keyboard.type(" Mine", { delay: 5 });
+    await pause(page, 700);
+    check("sage: …and words typed while it dims stay (the copy doesn't replace them)", await page.evaluate(() => document.querySelector(".ProseMirror").innerText.trim()), "A newer copy. Mine");
     await page.close();
 
     // Word help's strip lies over the bottom of the words: with its inset, the words can scroll up
@@ -796,6 +805,42 @@ function check(name, got, want) {
     await run(page, "inset", "0");
     await pause(page, 200);
     check("sage: …and the room goes with it", await roomUnder(), roomBefore);
+    await page.close();
+
+    // Words from the strip are fitted here, against what's really typed: the app's idea of it can be
+    // a moment behind (the cursor is reported once it rests), so a word begun just before the tap
+    // isn't put in twice.
+    const ANCHOR = "The light on the water was";
+    const inserted = (p) => p.evaluate(() => window.__msgs.filter((m) => m.type === "inserted").at(-1));
+    const text = (p) => p.evaluate(() => document.querySelector(".ProseMirror").innerText.replace(/\s+$/, ""));
+    page = await open(browser, `${ANCHOR} so`);
+    await page.click(".ProseMirror");
+    await page.keyboard.press("Control+End");
+    await run(page, "insertWords", JSON.stringify({ text: "so soft and golden", kind: "finish", anchor: ANCHOR }));
+    await pause(page, 200);
+    check("sage: words begun before the tap: only the rest goes in", await text(page), `${ANCHOR} so soft and golden`);
+    check("sage: …and the app is told where they end", (await inserted(page))?.before.endsWith("so soft and golden "), true);
+    await page.close();
+
+    page = await open(browser, ANCHOR);
+    await page.click(".ProseMirror");
+    await page.keyboard.press("Control+End");
+    await run(page, "insertWords", JSON.stringify({ text: "so soft and golden", kind: "finish", anchor: ANCHOR }));
+    await pause(page, 200);
+    check("sage: nothing begun: all of it, spaced", await text(page), `${ANCHOR} so soft and golden`);
+    await type(page, "grey.");
+    await run(page, "insertWords", JSON.stringify({ text: "Then we stopped", kind: "start", anchor: ANCHOR }));
+    await pause(page, 200);
+    check("sage: a start after a full stop typed since: spaced and capitalised", await text(page), `${ANCHOR} so soft and golden grey. Then we stopped`);
+    await page.close();
+
+    page = await open(browser, `${ANCHOR} so soft and golden`);
+    await page.click(".ProseMirror");
+    await page.keyboard.press("Control+End");
+    await run(page, "insertWords", JSON.stringify({ text: "so soft and golden", kind: "finish", anchor: ANCHOR }));
+    await pause(page, 200);
+    check("sage: words typed out already before the tap: nothing more goes in", await text(page), `${ANCHOR} so soft and golden`);
+    check("sage: …and the app is told so", (await inserted(page))?.length, 0);
     await page.close();
   } finally {
     await browser.close();

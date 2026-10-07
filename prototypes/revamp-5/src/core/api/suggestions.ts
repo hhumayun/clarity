@@ -8,8 +8,13 @@ import type {
   SuggestionSource,
 } from "../types";
 
+/**
+ * Word help from the AI. `mode` asks for less, sooner: "words" (ways to
+ * finish the sentence and one start per mood) or "questions". Servers older
+ * than it ignore it and answer everything, as they did before.
+ */
 export async function postSuggestionsGenerate(
-  body: { noteId?: string; title?: string; textBeforeCursor: string },
+  body: { noteId?: string; title?: string; textBeforeCursor: string; mode?: "words" | "questions" },
   init?: RequestInit,
 ): Promise<{
   suggestions: Suggestion[];

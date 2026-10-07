@@ -8,6 +8,10 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_CORE || "playwright-core");
 
 const BASE = process.env.BASE || "http://localhost:8087";
+// Another day in this week's strip with a task of its own in the samples: tomorrow, or on a Sunday
+// (the strip runs Monday to Sunday) yesterday.
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const OTHER = new Date().getDay() === 0 ? { day: "Saturday", task: "Pay the window cleaner" } : { day: DAYS[(new Date().getDay() + 1) % 7], task: "Ask Sam about the brackets" };
 let failures = 0;
 const ok = (name, pass, detail = "") => {
   if (!pass) failures++;
@@ -54,12 +58,13 @@ try {
   let { context, page } = await phone({ reducedMotion: "reduce" });
 
   // Another day fades in, without sliding.
-  await btn(page, "Wednesday", false).click().catch(async () => (await page.getByText("We", { exact: true }).first()).click());
+  await page.evaluate((task) => (window.__probeTask = task), OTHER.task);
+  await btn(page, OTHER.day, false).click();
   const days = await frames(
     page,
     () => {
-      // A task of the day arriving (Wednesday's), not the one leaving.
-      const row = document.querySelector('[data-testid="today"] [aria-label="Mark Ask Sam about the brackets done"]');
+      // A task of the day arriving, not the one leaving.
+      const row = document.querySelector(`[data-testid="today"] [aria-label="Mark ${window.__probeTask} done"]`);
       let opacity = row ? 1 : 0;
       let slid = false;
       for (let el = row; el && el !== document.body; el = el.parentElement) {

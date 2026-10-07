@@ -35,7 +35,7 @@ import { PressableScale } from "../../src/ui/PressableScale";
 import { Roll } from "../../src/ui/Roll";
 import { ThinkingDots } from "../../src/ui/Thinking";
 import { Txt, useType } from "../../src/ui/Txt";
-import { WORD_STRIP_HEIGHT, WordStrip } from "../../src/ui/WordStrip";
+import { WORD_ROW_HEIGHT, WORD_STRIP_MAX_HEIGHT, WordStrip } from "../../src/ui/WordStrip";
 
 /** The tools while writing: every one the main app has, in its order. */
 const TOOLS: { name: EditorCommand; icon: IconName; label: string; on?: (formats: EditorFormats) => boolean }[] = [
@@ -225,10 +225,18 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
 
   // With word help on, its strip's room is kept at the bottom of the words
   // while writing: the editor keeps the line being written above it, so
-  // nothing moves when the strip comes or goes. The strip lies over the words.
+  // nothing moves when the strip comes or goes. The strip lies over the
+  // words. One row is kept from the start; a second (ways to finish the
+  // sentence over ways to start the next) adds its room, kept until writing stops.
+  const stripRows = help.strip && help.strip.finishes.length && help.strip.starts.length ? 2 : 1;
+  const [insetRows, setInsetRows] = useState(1);
   useEffect(() => {
-    editor.current?.run("inset", String(focused && aiReady ? WORD_STRIP_HEIGHT : 0));
-  }, [focused, aiReady]);
+    if (!focused) setInsetRows(1);
+    else if (stripRows > insetRows) setInsetRows(stripRows);
+  }, [focused, stripRows, insetRows]);
+  useEffect(() => {
+    editor.current?.run("inset", String(focused && aiReady ? insetRows * WORD_ROW_HEIGHT : 0));
+  }, [focused, aiReady, insetRows]);
   // The words as the editor last sent them.
   const textRef = useRef<string | null>(null);
 
@@ -288,11 +296,12 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
     return pool.find((question) => !seen.includes(question)) ?? pool[seen.length % pool.length];
   };
 
+  // A word from the strip: the editor page fits it to what's really typed, and says where it ends.
   const takeWords = (word: WordIdea) => {
-    const fitted = help.take(word);
-    if (!fitted) return;
+    const words = help.take(word);
+    if (!words) return;
     tick();
-    editor.current?.run("insertText", JSON.stringify(fitted));
+    editor.current?.run("insertWords", JSON.stringify(words));
   };
 
   const finish = () => {
@@ -470,6 +479,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
                 toolsOn.value = withTiming(1, fadeTiming(duration.quick));
               }}
               onTicked={(on) => (on ? doneHaptic() : tick())}
+              onInserted={help.onInserted}
               onShown={() => {
                 setShown(true);
                 if (__DEV__) console.log(`[note] ${isNew ? "new page" : "note"} shown ${Date.now() - openedMs.current} ms after opening`);
@@ -561,7 +571,10 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
         testID="note-tools"
         style={[styles.dock, toolsStyle]}
       >
-        {focused && help.strip ? <WordStrip words={help.strip} onTake={takeWords} /> : null}
+        {/* Word help's room: empty (and passing touches to the words) until the strip shows. */}
+        <View style={styles.stripRoom} pointerEvents="box-none">
+          {focused && help.strip ? <WordStrip {...help.strip} onTake={takeWords} /> : null}
+        </View>
         <View style={[styles.toolbar, { backgroundColor: colors.card, borderTopColor: colors.hairline }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.tools}>
             {TOOLS.map((tool) => {
@@ -842,6 +855,7 @@ const styles = StyleSheet.create({
   questionTools: { flexDirection: "row", gap: space[4], paddingBottom: space[1] },
   qtool: { paddingVertical: 2 },
   dock: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  stripRoom: { height: WORD_STRIP_MAX_HEIGHT },
   toolbar: { flexDirection: "row", alignItems: "center", height: TOOLS_HEIGHT, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: edge - 10 },
   tools: { alignItems: "center", gap: 2 },
   tool: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.button, borderCurve: "continuous" },

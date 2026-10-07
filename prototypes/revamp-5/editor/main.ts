@@ -36,6 +36,8 @@ import {
   shiftIndent,
   shiftInList,
 } from "./extensions";
+import { fitWords, type WordKind } from "../src/editor/wordFit";
+import { fitsNow, insertionFor, typedSince } from "../src/editor/wordOffer";
 import bold from "./fonts/NunitoSans-Bold.woff2";
 import italic from "./fonts/NunitoSans-Italic.woff2";
 import regular from "./fonts/NunitoSans-Regular.woff2";
@@ -370,6 +372,16 @@ function reportFormats(current: Editor) {
 
 // ---- What comes from the app ------------------------------------------------
 
+/** Text in at the cursor; `trimBefore` takes the spaces before it out first (a full stop goes there). */
+function insertAtCursor(text: string, trimBefore: boolean) {
+  const at = editor.state.selection.from;
+  const before = editor.state.doc.textBetween(Math.max(0, at - 40), at, "\n", " ");
+  const spaces = trimBefore ? before.length - before.trimEnd().length : 0;
+  let next = editor.chain().focus();
+  if (spaces > 0) next = next.deleteRange({ from: at - spaces, to: at });
+  next.insertContent({ type: "text", text }).run();
+}
+
 let seedNow = "boot";
 // A note has been put on the page once: later copies cross-fade in.
 let hasShown = false;
@@ -399,7 +411,9 @@ function takeSeed(message: Extract<ToPage, { type: "seed" }>) {
   if (hasShown && !reducedMotion()) {
     const page = editor.view.dom;
     page.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 110, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }).onfinish = () => {
-      put();
+      // Typed into while it dimmed: those words are newer than this copy, and stay.
+      if (changeTimer) sendChange(editor);
+      else put();
       page.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "forwards" });
     };
     send({ type: "shown", seed: message.seed });
@@ -528,13 +542,26 @@ function run(name: EditorCommand, value?: string) {
     // whether to drop the spaces before the cursor first.
     case "insertText": {
       const { text, trimBefore } = JSON.parse(value ?? "{}") as { text: string; trimBefore?: boolean };
-      if (!text) break;
-      const at = editor.state.selection.from;
-      const before = editor.state.doc.textBetween(Math.max(0, at - 40), at, "\n", " ");
-      const spaces = trimBefore ? before.length - before.trimEnd().length : 0;
-      let next = chain();
-      if (spaces > 0) next = next.deleteRange({ from: at - spaces, to: at });
-      next.insertContent({ type: "text", text }).run();
+      if (text) insertAtCursor(text, Boolean(trimBefore));
+      break;
+    }
+    case "insertWords": {
+      const { text, kind, anchor } = JSON.parse(value ?? "{}") as { text?: string; kind?: WordKind; anchor?: string };
+      if (!text || (kind !== "finish" && kind !== "start")) break;
+      const { before, after } = cursorOf(editor);
+      const typed = typedSince(anchor ?? before, before);
+      // Typed out already, in the moment before the tap: nothing more goes in.
+      if (!(typed !== null && typed.trim().toLowerCase().endsWith(text.toLowerCase()))) {
+        const idea = { text, kind, source: "ai" as const };
+        const fits = fitsNow({ id: 0, anchor: anchor ?? before, finishes: kind === "finish" ? [idea] : [], starts: kind === "start" ? [idea] : [] }, before);
+        const fit = fits ? [...fits.finishes, ...fits.starts][0] : undefined;
+        // Begun: only the rest. Otherwise all of it, cased and spaced for where the cursor is.
+        const put = fit ? insertionFor(fit, before, after) : fitWords(text, kind, before, after);
+        insertAtCursor(put.text, put.trimBefore);
+        send({ type: "inserted", before: cursorOf(editor).before, length: put.text.length });
+      } else {
+        send({ type: "inserted", before, length: 0 });
+      }
       break;
     }
     // `value` is JSON: the question, and whether it goes at the end.

@@ -49,6 +49,8 @@ const text = () => page.evaluate(() => document.body.innerText);
 const words = async () => (await page.frames().filter((frame) => frame.url() === "about:srcdoc" && !frame.isDetached()).at(-1)?.evaluate(() => document.querySelector(".ProseMirror")?.innerText ?? "")) ?? "";
 const chips = () => page.getByRole("button", { name: /^Add “/ });
 const asks = (from) => calls.slice(from).filter((call) => call.path === "/_api/suggestions/generate").length;
+// Asks for word help itself (not the questions asked for in the background).
+const wordAsks = (from) => calls.slice(from).filter((call) => call.path === "/_api/suggestions/generate" && superjson.parse(call.body).mode !== "questions").length;
 const OWN_FIRST = "What would you tell a friend who wrote this?";
 const aiCalls = (from = 0) => calls.slice(from).filter((call) => AI_PATHS.includes(call.path));
 const waitFor = async (check, ms = 20000) => {
@@ -230,7 +232,8 @@ try {
   const extract = calls.slice(from).filter((call) => call.path === "/_api/tasks/extract");
   ok("on: read once, not again and again", extract.length === 1, `${extract.length} reads`);
 
-  // Word help: a pause after some words brings one ask and a strip; a tap puts the words in.
+  // Word help: a short pause after some words brings one ask and a strip; a tap puts the words in and
+  // asks for more at once; nothing is asked while typing.
   const prefs = (await api("GET", "/_api/preferences")).data;
   await openAt("/notes");
   await btn("New note or task").click();
@@ -240,10 +243,9 @@ try {
   await frame.locator(".ProseMirror").click();
   from = calls.length;
   await page.keyboard.type("Sage check: this morning I walked to the market with Sam and we", { delay: 15 });
-  await page.waitForTimeout(1200);
-  ok("on: nothing is asked while writing", asks(from) === 0);
-  ok("on: a pause brings one ask for word help", await waitFor(async () => asks(from) === 1, 10000));
-  ok("on: …and a strip of words", await waitFor(async () => (await chips().count()) > 0, 25000));
+  ok("on: nothing is asked while writing", wordAsks(from) === 0);
+  ok("on: a short pause brings one ask for word help", await waitFor(async () => wordAsks(from) === 1, 5000));
+  ok("on: …and a strip of words", await waitFor(async () => (await chips().count()) > 0, 15000));
   await page.screenshot({ path: `${OUT}/on-strip.png` });
   const offeredWords = await chips().evaluateAll((list) => list.map((chip) => chip.getAttribute("aria-label")));
   console.log("  offered:", JSON.stringify(offeredWords));
@@ -251,10 +253,13 @@ try {
   await chips().first().click();
   await page.waitForTimeout(1000);
   ok("on: a tap puts the words in", (await words()).toLowerCase().includes(taken.toLowerCase()), JSON.stringify(await words()));
+  ok("on: …and asks for more words at once", wordAsks(from) === 2, `${wordAsks(from)} asks`);
   if (prefs?.usePersonalization !== false) ok("on: words taken are kept, for Learn from my writing", await waitFor(async () => calls.slice(from).some((call) => call.path === "/_api/suggestions/event" && call.body.includes("accepted") && call.reply.includes('"recorded":true'))));
+  const beforeTyping = wordAsks(from);
   await page.keyboard.type(" and then bought some bread for later", { delay: 15 });
+  ok("on: nothing more is asked while typing", wordAsks(from) === beforeTyping, `${wordAsks(from) - beforeTyping} asks`);
   await page.waitForTimeout(4500);
-  ok("on: no second ask so soon after", asks(from) === 1, `${asks(from)} asks`);
+  ok("on: the pause after brings at most one more", wordAsks(from) <= beforeTyping + 1, `${wordAsks(from) - beforeTyping} asks`);
   await btn("Put the keyboard away").click();
   await page.waitForTimeout(400);
   await press("Done");

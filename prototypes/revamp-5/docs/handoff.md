@@ -80,7 +80,32 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
     - The keyboard-away tool ticks.
     - Search puts its keyboard away when a note opens, so the note isn't left behind the keyboard without its buttons.
   - **Checks:** `tests/checks/phase3-check.mjs` (23) and eight new editor-page tests (93 in `tests/editor` now). All the other checks pass, the account ones included.
-- **Next:** the user's phone look at phase 3 (the keyboard can only be judged there), then phase 4, ticking and lists.
+- **The user liked phase 3 on the phone (2026-10-07).** Then asked for word help to be flawless. They saw:
+  1. topic suggestions (the ways to start the next sentence) never appearing;
+  2. completions slow, and appearing at random or not at all;
+  3. the strip changing with every key typed;
+  4. the strip going as soon as a word was picked.
+- **Why** (measured with `tests/checks/suggest-timing.mjs`):
+  - The app asked only after 2.5 s of stillness, 30 new characters and 20 s since the last ask.
+  - It dropped an answer if anything was typed while it came, and hid the strip on any key or pick.
+  - The live server took 2–4.6 s per answer (up to 7 s). The model's part of that is 1.1–1.4 s, for a big answer: five completions, six stems and four questions.
+  - Starts were the strip's last two chips, off the edge of the screen mid-sentence.
+- **Built (app):**
+  - `src/editor/wordOffer.ts` (`fitsNow`, `insertionFor`, `wantsNew`, `typedSince`) decides what of an offer still fits as the writer types on. Tested by `src/editor/wordOffer.test.ts`.
+  - `useWritingHelp` was rewritten around it: asks after 0.8 s of stillness when what's shown no longer fits and 6 new characters are written, at most every 3 s, at once after a pick. Answers that come mid-flow wait for a 450 ms rest. A pick holds the strip with dots (`loading`) until new words come.
+  - The editor page does the final fitting (`insertWords`, answered by `inserted`). The app's cursor can be 120 ms behind, so a word begun just before the tap was put in twice before.
+  - `WordStrip`: two rows in a fixed room above the tools (finishes over starts), chips fading in and out and closing up with `settle`.
+  - Go deeper asks for questions only.
+  - Found on the way: a newer copy of a note fading in could overwrite words typed during its 110 ms dim. Now those words win.
+- **Built (server, branch only, NOT deployed):** `suggestions/generate` takes an optional `mode`:
+  - `"words"`: three completions and one stem per mood, about half the model's time. It waits at most 0.4 s for the writer's context, and stalls are given up after 5 s with no retry.
+  - `"questions"`: questions only.
+  - Omitted, it answers as before, so the main app is unchanged.
+  - A `Server-Timing` header gives `context` and `model` times.
+  - Run locally with production's environment (`railway run … tsx server.ts` on port 3399, suggestion calls only), words take 0.5–0.7 s against 1.1 s for everything.
+  - The app works with either server: an older one ignores `mode` and answers everything.
+- **Checks:** `tests/checks/words-account.mjs` (14; `SERVER=` points the suggestion asks at another server). It passes against both the live server and the local one. `words-flow` and `ai-account` were brought up to the new timing. `phase1-check` and `interact` no longer assume today isn't Wednesday. There are seven more editor-page tests (100).
+- **Next:** with the user's OK, deploy the server change (the procedure is below), then check `Server-Timing` on the live server. Then the user's phone look at word help, and phase 4.
 
 ## What's done
 
@@ -233,7 +258,7 @@ The plan it was built from:
 - **Memory:** Metro is about 400 MB. With less memory, pause it (kill it by port) for `npx tsc --noEmit -p .`.
   - Never `pkill -f` a pattern that also matches your own shell command.
   - Headless Chrome crashes when memory is short, so the browser checks move around by taps.
-- **Unit tests:** `for t in src/store/boundary.test.ts src/data/outbox.test.ts src/editor/noteCopies.test.ts src/editor/wordFit.test.ts src/data/reminders.test.ts src/lib/parseTask.test.ts; do /opt/node24/bin/node --import ./scripts/ts-resolve.mjs $t; done`
+- **Unit tests:** `for t in src/store/boundary.test.ts src/data/outbox.test.ts src/editor/noteCopies.test.ts src/editor/wordFit.test.ts src/editor/wordOffer.test.ts src/data/reminders.test.ts src/lib/parseTask.test.ts; do /opt/node24/bin/node --import ./scripts/ts-resolve.mjs $t; done`
 - **The editor page:** `npm run editor` after changing `editor/`, then `tests/editor/editor.test.js` (see its README).
 - **Checks:** `tests/checks/README.md` (setup, the test account, which scripts touch the live server).
 - **Deploying the server (only with the user's OK):**

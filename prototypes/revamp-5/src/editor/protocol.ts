@@ -60,6 +60,13 @@ export type EditorCommand =
   | "outdent"
   | "link"
   | "insertText"
+  /**
+   * `value` is JSON `{ text, kind, anchor }`: words from word help's strip, fitted
+   * here against what's really typed (the app's idea of it can be a moment
+   * behind): only the rest of words already begun, cased and spaced. Answered
+   * with "inserted".
+   */
+  | "insertWords"
   | "insertQuestion"
   | "flush"
   | "tray"
@@ -97,6 +104,8 @@ export type FromPage =
   | { type: "focus"; focused: boolean }
   /** A checklist row ticked (or unticked) by a tap: the app answers with a haptic. */
   | { type: "ticked"; on: boolean }
+  /** Words from the strip went in (insertWords): the text now before the cursor, and how many characters went in. */
+  | { type: "inserted"; before: string; length: number }
   | { type: "error"; message: string };
 
 /** The global the page listens on; the app calls it with `injectJavaScript`. */
