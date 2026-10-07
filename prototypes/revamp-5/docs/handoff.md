@@ -9,7 +9,8 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - To commit: `rsync -a --delete --exclude node_modules --exclude .metro-cache --exclude dist --exclude .expo --exclude .gitignore --exclude README.md --exclude '.env*' /root/projects/clarity-revamp-5/ /root/projects/clarity-revamp-5-branch/prototypes/revamp-5/`. That skips every README.md, so copy `tests/*/README.md` across by hand. Then commit in the worktree.
   - Never switch branches in `/root/projects/clarity`: the user's Clarity Dev build runs from `dev-build-editor-lab` there.
 - **Server:** the same branch (root `endpoints/`, `helpers/`, `migrations/`).
-  - Production is deployment **5474299f** (2026-10-06 12:06 UTC), revamp-5 at 23a5d22: 130b109e's server plus suggestion events kept only with Learn from my writing on.
+  - Production is deployment **4f947109** (2026-10-07 05:19 UTC), from branch `revamp-5-ux` at 3b2752a: 5474299f's server (revamp-5 at 23a5d22) plus suggestions' "words" and "questions" modes and their `Server-Timing` header (695c3bc). Nothing else on the server changed.
+  - The server now moves on `revamp-5-ux`: export that branch to deploy (step 1 of the procedure below), not revamp-5.
   - Migrations **001–016** are applied to production.
 - **Never commit:** design research (Appllama, Mobbin and Rosebud images in `/root/projects/clarity-design-research`), `.env*` files (keep them outside project folders), or backups (`/root/.config/clarity-backups`).
 
@@ -97,7 +98,7 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - `WordStrip`: two rows in a fixed room above the tools (finishes over starts), chips fading in and out and closing up with `settle`.
   - Go deeper asks for questions only.
   - Found on the way: a newer copy of a note fading in could overwrite words typed during its 110 ms dim. Now those words win.
-- **Built (server, branch only, NOT deployed):** `suggestions/generate` takes an optional `mode`:
+- **Built (server, deployed with the user's OK on 2026-10-07 as 4f947109):** `suggestions/generate` takes an optional `mode`:
   - `"words"`: three completions and one stem per mood, about half the model's time. It waits at most 0.4 s for the writer's context, and stalls are given up after 5 s with no retry.
   - `"questions"`: questions only.
   - Omitted, it answers as before, so the main app is unchanged.
@@ -105,7 +106,13 @@ First written as a session ended on 2026-10-06 (the dev machine was getting more
   - Run locally with production's environment (`railway run … tsx server.ts` on port 3399, suggestion calls only), words take 0.5–0.7 s against 1.1 s for everything.
   - The app works with either server: an older one ignores `mode` and answers everything.
 - **Checks:** `tests/checks/words-account.mjs` (14; `SERVER=` points the suggestion asks at another server). It passes against both the live server and the local one. `words-flow` and `ai-account` were brought up to the new timing. `phase1-check` and `interact` no longer assume today isn't Wednesday. There are seven more editor-page tests (100).
-- **Next:** with the user's OK, deploy the server change (the procedure is below), then check `Server-Timing` on the live server. Then the user's phone look at word help, and phase 4.
+- **Live, measured from this machine (network to Railway included):**
+  - Words: 0.75–1.2 s, where the full answer the app used to ask for takes 1.3–2.5 s.
+  - In the timing header: about 0.22 s reading the writer's context, then 0.3–0.8 s of model time for words, against 0.85–2.1 s for everything.
+  - In the web build the strip shows about 2 s after typing stops.
+  - The model sometimes offers completions after a full stop; the app drops them.
+- **A possible next step (not built):** cache the writer's context on the server for a minute per note. That would save about 0.22 s per ask.
+- **Next:** the user's phone look at word help (the 0.8 s pause is a first guess), then phase 4.
 
 ## What's done
 
@@ -262,7 +269,7 @@ The plan it was built from:
 - **The editor page:** `npm run editor` after changing `editor/`, then `tests/editor/editor.test.js` (see its README).
 - **Checks:** `tests/checks/README.md` (setup, the test account, which scripts touch the live server).
 - **Deploying the server (only with the user's OK):**
-  1. `git -C /root/projects/clarity-revamp-5-branch archive HEAD | tar -x -C /root/projects/clarity-deploy`.
+  1. `mkdir -p /root/projects/clarity-deploy && git -C /root/projects/clarity-revamp-5-ux archive HEAD | tar -x -C /root/projects/clarity-deploy` (the branch that carries the live server; it was revamp-5's worktree until 2026-10-07). First check what would ship: `git diff --stat <live commit> HEAD -- . ':(exclude)prototypes'`.
   2. `cd /root/projects/clarity-deploy && pwd`, in its own call.
   3. `railway up /root/projects/clarity-deploy --ci --project bd49cfaa-74d4-4888-ba84-36185f6bd626 --environment production --service clarity-notes`, alone, with no `cd`, `timeout` or pipe ("prefix not found" otherwise).
   4. Check: `/` gives 200 and `/_api/notes/list` gives 401 unsigned.
