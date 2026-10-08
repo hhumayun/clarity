@@ -5,7 +5,7 @@ import Animated, { FadeInLeft, FadeInRight, FadeOutLeft, FadeOutRight, LayoutAni
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Tea } from "../../src/art/Pictures";
 import { addDays, dateOf, dayLabel, daysBetween, today, weekStart } from "../../src/lib/dates";
-import { comingUp, doneOn, notesOn, openOn, slipped } from "../../src/store/selectors";
+import { byPlan, comingUp, doneOn, notesOn, openOn, slipped } from "../../src/store/selectors";
 import { getSage, useSage, useSageStatus, useWhenEditable } from "../../src/data/sage";
 import { LoadProblem, SkeletonCards, usePullToRefresh } from "../../src/ui/Loading";
 import { arrive, arriveSlow, duration, easeIn, easeOut, leave, reducedAtLaunch, settle, squashSmall } from "../../src/theme/motion";
@@ -20,6 +20,8 @@ import { IconButton } from "../../src/ui/IconButton";
 import { NoteCard } from "../../src/ui/NoteCard";
 import { PressableScale } from "../../src/ui/PressableScale";
 import { SectionTitle } from "../../src/ui/SectionTitle";
+import { calmRows, rowLook } from "../../src/ui/rowLook";
+import { looks } from "../../src/ui/rows";
 import { DoneFold, TaskCard } from "../../src/ui/TaskCard";
 import { TodayCards } from "../../src/ui/TodayCards";
 import { TopBar } from "../../src/ui/TopBar";
@@ -93,7 +95,14 @@ export default function Today() {
 
   const dayNotes = notesOn(notes, viewDay);
   const open = openOn(tasks, viewDay);
-  const done = doneOn(tasks, viewDay);
+  const doneThatDay = doneOn(tasks, viewDay);
+  // A round-3 look that keeps the day's finished tasks in place (src/ui/rows, ownsDone): it lists the day's
+  // planned tasks, open and done, in plan order; Done holds only what was finished but planned elsewhere.
+  const ownsDone = calmRows(isToday ? "today" : "day") && !!looks[rowLook]?.ownsDone;
+  const planned = ownsDone ? [...open, ...tasks.filter((task) => task.done && task.day === viewDay)].sort(byPlan) : open;
+  const done = ownsDone ? doneThatDay.filter((task) => task.day !== viewDay) : doneThatDay;
+  // A round-3 look may ask the buttons under the list to step back (Lamplight: only its card is lit).
+  const quietActions = calmRows(isToday ? "today" : "day") && looks[rowLook]?.actionsSurface === "quiet";
   const late = isToday ? slipped(tasks) : [];
   const next = isToday ? comingUp(tasks) : [];
   const offset = daysBetween(t, viewDay);
@@ -172,11 +181,12 @@ export default function Today() {
             </View>
           ) : null}
 
-          <SectionTitle title="Tasks" first={!isToday} />
+          {/* A round-3 look may draw its own heading (src/ui/rows). */}
+          {calmRows(isToday ? "today" : "day") && looks[rowLook]?.heading === "none" && open.length ? null : <SectionTitle title="Tasks" first={!isToday} />}
           {/* Loaded: the placeholder fades as the card arrives, only if it was waited for. */}
           {ready ? (
             <Animated.View entering={loadedLate.current ? arriveSlow : undefined}>
-              <TaskCard tasks={open} variant={isToday ? "today" : "day"} empty={empty} foldKey={viewDay} />
+              <TaskCard tasks={planned} variant={isToday ? "today" : "day"} empty={empty} foldKey={viewDay} />
             </Animated.View>
           ) : (
             <Animated.View exiting={leave}>
@@ -190,16 +200,16 @@ export default function Today() {
           <LayoutAnimationConfig skipEntering>
             <Animated.View layout={settle}>
               <ButtonPair style={styles.actions}>
-                <Button label="Add task" icon="plus" variant="secondary" size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=${viewDay}`))} />
+                <Button label="Add task" icon="plus" variant={quietActions ? "quiet" : "secondary"} size="md" flex onPress={() => whenEditable(() => router.push(`/quick-add?day=${viewDay}`))} />
                 {late.length ? (
-                  <Button label="Catch up" icon="rotate" variant="secondary" size="md" flex onPress={() => router.push("/catch-up")} accessibilityLabel="Catch up on what slipped" />
+                  <Button label="Catch up" icon="rotate" variant={quietActions ? "quiet" : "secondary"} size="md" flex onPress={() => router.push("/catch-up")} accessibilityLabel="Catch up on what slipped" />
                 ) : (
-                  <Button label="All tasks" icon="life" variant="secondary" size="md" flex onPress={() => router.navigate("/life")} />
+                  <Button label="All tasks" icon="life" variant={quietActions ? "quiet" : "secondary"} size="md" flex onPress={() => router.navigate("/life")} />
                 )}
               </ButtonPair>
             </Animated.View>
             {/* Kept here, so the page redraws as Done opens and what follows glides (in the web build, only what redraws moves). */}
-            {ready ? <DoneFold tasks={done} open={doneOpen} onOpen={setDoneOpen} /> : null}
+            {ready ? <DoneFold tasks={done} open={doneOpen} onOpen={setDoneOpen} pill={quietActions ? "quiet" : "card"} /> : null}
 
             {dayNotes.length ? (
               <Animated.View key="notes" layout={settle} entering={arrive} exiting={leave}>

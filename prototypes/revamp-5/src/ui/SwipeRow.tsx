@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -25,8 +25,11 @@ export function SwipeRow({
   onToggle,
   onFocus,
   onSwipe,
+  inset,
   children,
 }: {
+  /** The part of the row that's its card (insets, corners): the swipe's colour covers only that. */
+  inset?: StyleProp<ViewStyle>;
   done: boolean;
   onToggle: () => void;
   /** Left swipe; omitted for finished tasks. */
@@ -89,13 +92,13 @@ export function SwipeRow({
 
   return (
     <View style={styles.wrap}>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.right, { backgroundColor: done ? colors.sunken : accent.soft }, right]}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.right, inset, { backgroundColor: done ? colors.sunken : accent.soft }, right]}>
         <Animated.View style={[styles.disc, { backgroundColor: done ? colors.card : accent.solid }, checkGlyph]}>
           <Icon name={done ? "undo" : "check"} size={18} color={done ? colors.ink2 : accent.on} weight="bold" />
         </Animated.View>
       </Animated.View>
       {canFocus ? (
-        <Animated.View style={[StyleSheet.absoluteFill, styles.left, { backgroundColor: colors.sunken }, left]}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.left, inset, { backgroundColor: colors.sunken }, left]}>
           <Animated.View style={[styles.disc, { backgroundColor: colors.card }, timerGlyph]}>
             <Icon name="timer" size={18} color={colors.ink} weight="semibold" />
           </Animated.View>

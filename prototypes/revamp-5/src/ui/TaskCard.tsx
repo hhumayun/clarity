@@ -9,6 +9,7 @@ import { edge, pad, radius, space } from "../theme/tokens";
 import { tick } from "./haptics";
 import { Icon } from "./Icon";
 import { calmRows, rowLook } from "./rowLook";
+import { looks } from "./rows";
 import { TaskRow, TIME_COLUMN, type TaskVariant } from "./TaskRow";
 import { Txt } from "./Txt";
 
@@ -54,9 +55,28 @@ export function TaskCard({
   const { colors } = useTheme();
   const lastAdded = useSage((state) => state.lastAdded);
   const calm = calmRows(variant);
-  const journal = calm && rowLook === "journal";
+  const journal = calm && (rowLook === "journal" || looks[rowLook]?.surface === "page");
   const [unfolded, setUnfolded] = useState(() => (foldKey ? unfoldedDays.has(foldKey) : false));
   if (tasks.length === 0 && !empty) return null;
+  // A round-3 look with a list of its own: it lays the rows out; each comes with its movement (it arrives,
+  // leaves and closes up), drawn by the look's Row.
+  const look = calm ? looks[rowLook] : undefined;
+  if (look?.List && tasks.length) {
+    return (
+      <LayoutAnimationConfig skipEntering>
+        <look.List
+          tasks={tasks}
+          variant={variant}
+          foldKey={variant === "today" ? foldKey : undefined}
+          renderRow={(task, i, opts) => (
+            <Animated.View key={task.id} layout={quiet ? undefined : settle} entering={quiet ? undefined : ((opts?.entering as typeof arrive | undefined) ?? arrive)} exiting={quiet ? undefined : leave}>
+              <TaskRow task={task} variant={variant} showArea={showArea} noteId={noteId} highlight={task.id === (highlightId ?? lastAdded)} index={i} />
+            </Animated.View>
+          )}
+        />
+      </LayoutAnimationConfig>
+    );
+  }
   const ordered = calm && rowLook === "sequence" ? byTime(tasks) : tasks;
   const folded = calm && variant === "today" && !!foldKey && !unfolded && ordered.length > FOLD_AT;
   const shown = folded ? ordered.slice(0, FOLD_AT) : ordered;
@@ -68,7 +88,7 @@ export function TaskCard({
         {shown.map((task, i) => (
           <Animated.View key={task.id} layout={quiet ? undefined : settle} entering={quiet ? undefined : arrive} exiting={quiet ? undefined : leave}>
             {i > 0 ? <View style={rule} /> : null}
-            <TaskRow task={task} variant={variant} showArea={showArea} noteId={noteId} highlight={task.id === (highlightId ?? lastAdded)} />
+            <TaskRow task={task} variant={variant} showArea={showArea} noteId={noteId} highlight={task.id === (highlightId ?? lastAdded)} index={i} />
           </Animated.View>
         ))}
       </LayoutAnimationConfig>
@@ -148,7 +168,7 @@ export const TaskSlice = React.memo(function TaskSlice({
     <Animated.View entering={fresh && !quiet ? arrive : undefined} exiting={fadeOut} style={[styles.sliceClip, first && styles.sliceFirst, last && styles.sliceLast]}>
       <View style={[styles.sliceCard, { backgroundColor: colors.card, boxShadow: colors.cardShadow }, first ? styles.cardTop : styles.reachUp, last ? styles.cardBottom : styles.reachDown]}>
         {first ? null : <View style={[styles.rule, { backgroundColor: colors.hairline }]} />}
-        <TaskRow task={task} variant={variant} showArea={showArea} highlight={highlight} />
+        <TaskRow task={task} variant={variant} showArea={showArea} highlight={highlight} plain />
       </View>
     </Animated.View>
   );
@@ -171,7 +191,10 @@ export function DoneFold({
   inList = false,
   open: openGiven,
   onOpen,
+  pill = "card",
 }: {
+  /** The toggle's surface: the card (as usual) or the quiet one (beside a round-3 look's lit card). */
+  pill?: "card" | "quiet";
   tasks: Task[];
   label?: string;
   showArea?: boolean;
@@ -211,7 +234,7 @@ export function DoneFold({
       <View style={styles.foldHead}>
         <Pressable onPress={() => setOpen((v) => !v)} accessibilityRole="button" accessibilityLabel={open ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} aria-expanded={open} hitSlop={10}>
           {({ pressed }) => (
-            <Animated.View style={[styles.foldToggle, { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 }, bumpStyle]}>
+            <Animated.View style={[styles.foldToggle, { backgroundColor: pill === "quiet" ? colors.quiet : colors.card, opacity: pressed ? 0.6 : 1 }, bumpStyle]}>
               <Icon name="checkCircle" size={15} color={colors.ink2} weight="semibold" />
               <Txt variant="footnote" tone="ink2" weight="semibold">
                 {label}
@@ -226,7 +249,7 @@ export function DoneFold({
           <Animated.View entering={arrive} exiting={leave} style={styles.clear}>
             <Pressable onPress={onClear} accessibilityRole="button" accessibilityLabel="Clear finished tasks" hitSlop={10}>
               {({ pressed }) => (
-                <View style={[styles.foldToggle, { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 }]}>
+                <View style={[styles.foldToggle, { backgroundColor: pill === "quiet" ? colors.quiet : colors.card, opacity: pressed ? 0.6 : 1 }]}>
                   <Icon name="trash" size={14} color={colors.ink2} weight="semibold" />
                   <Txt variant="footnote" tone="ink2" weight="semibold">
                     Clear

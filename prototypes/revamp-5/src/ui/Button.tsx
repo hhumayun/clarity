@@ -20,7 +20,7 @@ import { Txt } from "./Txt";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "soft" | "plain" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "soft" | "plain" | "danger" | "quiet";
 export type ButtonState = "idle" | "busy" | "done";
 
 const HEIGHTS = { lg: 54, md: 48, sm: 38 } as const;
@@ -71,6 +71,8 @@ export function Button({
     soft: { bg: accent.soft, fg: accent.onSoft, border: "transparent" },
     plain: { bg: "transparent", fg: colors.ink2, border: "transparent" },
     danger: { bg: colors.card, fg: colors.danger, border: "transparent" },
+    // A secondary that steps back (on the quiet surface, grey words): beside something lit (a round-3 look).
+    quiet: { bg: colors.quiet, fg: colors.ink2, border: "transparent" },
   }[variant];
   const press = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const height = HEIGHTS[size];

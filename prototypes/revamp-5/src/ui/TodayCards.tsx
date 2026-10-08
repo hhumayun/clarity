@@ -18,6 +18,10 @@ import { tap } from "./haptics";
 import { Icon } from "./Icon";
 import { Txt, useType } from "./Txt";
 
+// For the round-3 rows (2026-10-07): the web build's `?focusline=short` shows the Focus card without the
+// task's name, since some looks name it again just below. Asked of the user before anything changes.
+const FOCUS_SHORT = process.env.EXPO_OS === "web" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("focusline") === "short";
+
 /**
  * Today's two ways in, side by side, in the shape of Rosebud's pair of
  * cards but holding Clarity's own two activities: writing to the day's
@@ -82,9 +86,11 @@ export function TodayCards() {
           <Animated.View key={next?.id ?? "none"} entering={arrive} exiting={leave} style={styles.next}>
             {next ? (
               <>
-                <Txt variant="subhead" tone="ink2" center numberOfLines={2} style={styles.sub}>
-                  {next.title}
-                </Txt>
+                {FOCUS_SHORT ? null : (
+                  <Txt variant="subhead" tone="ink2" center numberOfLines={2} style={styles.sub}>
+                    {next.title}
+                  </Txt>
+                )}
                 <View style={styles.meta}>
                   <Icon name="timer" size={13} color={colors.ink3} weight="semibold" />
                   <Txt variant="footnote" tone="ink3">

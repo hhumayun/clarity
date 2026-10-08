@@ -97,3 +97,7 @@ export const settle = LinearTransition.duration(duration.enter).easing(easeOut);
 export const riseIn = reducedAtLaunch ? arriveSlow : FadeInDown.duration(duration.enter).easing(easeOut).withInitialValues({ transform: [{ translateY: rise }] });
 /** An arrival that waits, or takes its own time: a new builder each call. */
 export const arriveAfter = (delay: number, ms: number = duration.enter) => FadeIn.delay(delay).duration(ms).easing(easeOut).reduceMotion(keep);
+
+/** `riseIn` after a delay: the next thing stepping into a place another just left (fresh each call). */
+export const riseInAfter = (delay: number, ms: number = duration.enter) =>
+  reducedAtLaunch ? arriveAfter(delay, ms) : FadeInDown.delay(delay).duration(ms).easing(easeOut).withInitialValues({ transform: [{ translateY: rise }] });

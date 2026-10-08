@@ -2,6 +2,7 @@ import { ClerkProvider } from "@clerk/clerk-expo";
 import { resourceCache } from "@clerk/clerk-expo/resource-cache";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import {
+  NunitoSans_300Light,
   NunitoSans_400Regular,
   NunitoSans_400Regular_Italic,
   NunitoSans_500Medium,
@@ -72,6 +73,7 @@ export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: Math.min(OFFLINE_MAX_AGE_MS, MAX_TIMER_MS) }, mutations: { networkMode: "always" } } }));
   // A face that fails to load falls back to the system's, rather than leaving the splash up for good.
   const [fontsLoaded, fontError] = useFonts({
+    NunitoSans_300Light,
     NunitoSans_400Regular,
     NunitoSans_400Regular_Italic,
     NunitoSans_500Medium,

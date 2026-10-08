@@ -1,22 +1,27 @@
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, View, type NativeSyntheticEvent, type TextLayoutEventData } from "react-native";
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
+import React, { useContext, useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View, type NativeSyntheticEvent, type StyleProp, type TextLayoutEventData, type TextStyle } from "react-native";
+import Animated, { interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
 import { useFocusHistory } from "../data/hooks";
 import type { Task } from "../store/model";
 import { clockLabel, dueMeta, shortDate, whenLabel } from "../store/selectors";
 import { useSage, useUnsent } from "../data/sage";
 import { duration, easeOut, fadeTiming, leave } from "../theme/motion";
 import { useTheme } from "../theme/ThemeProvider";
-import { pad, space } from "../theme/tokens";
+import { face, pad, space, type TypeName, type Weight } from "../theme/tokens";
 import { useAcknowledge } from "./Acknowledgement";
 import { CircleCheck } from "./CircleCheck";
 import { done as doneHaptic, tap, tick } from "./haptics";
 import { Icon, type IconName } from "./Icon";
 import { SwipeRow } from "./SwipeRow";
 import { calmRows, rowLook, type RowLook } from "./rowLook";
+import { looks } from "./rows";
+import { RowPlace } from "./rows/place";
+import type { LookRowProps } from "./rows/types";
 import { useTaskMenu } from "./TaskMenu";
-import { Txt, type Tone } from "./Txt";
+import { Txt, useType, type Tone } from "./Txt";
+
+const AnimatedText = Animated.createAnimatedComponent(Text);
 
 /** A ticked row rests this long, struck through, before it moves to Done. */
 const SETTLE_MS = 640;
@@ -42,10 +47,16 @@ export const TaskRow = React.memo(function TaskRow({
   showArea = true,
   noteId,
   highlight,
+  index = 0,
+  plain = false,
 }: {
+  /** Drawn as rows always were, whatever the web build's look (Life's slices). */
+  plain?: boolean;
   task: Task;
   variant?: TaskVariant;
   showArea?: boolean;
+  /** Where it sits in its list as drawn (the round-3 looks may use it). */
+  index?: number;
   /** Set inside a note's tasks, so the menu can offer "Remove from this note". */
   noteId?: string;
   /** A row just added: it glows twice where it landed. */
@@ -70,6 +81,8 @@ export const TaskRow = React.memo(function TaskRow({
 
   const [ticking, setTicking] = useState(false);
   const [checkDown, setCheckDown] = useState(false);
+  // A round-3 look's List may say where this row sits (its surface).
+  const place = useContext(RowPlace);
   const checked = task.done || ticking;
   // Once ticked, the row keeps its tick until the change has landed: the task is done where it's
   // kept (for an account, a moment later), or a repeating task has moved on to its next day. Letting
@@ -175,30 +188,81 @@ export const TaskRow = React.memo(function TaskRow({
     );
   const leftOff = variant === "today" && history?.leftOff && history.outcome !== "finished" ? history.leftOff : null;
   // The calmer looks (see rowLook): no meta line; the time and small marks by the check, or in a column.
-  const calm = calmRows(variant);
+  const calm = calmRows(variant) && !plain;
   const look: RowLook = calm ? rowLook : "now";
   const journal = look === "journal";
 
+  // Opening the task: a tap; the quick menu: a long press; the wash while pressed.
+  const openProps = {
+    onPress: () => !swiping.current && router.push(`/task/${task.id}`),
+    onLongPress: showMenu,
+    delayLongPress: 380,
+    onPressIn: () => (wash.value = withTiming(1, fadeTiming(duration.press))),
+    onPressOut: () => (wash.value = withTiming(0, fadeTiming(duration.base))),
+    accessibilityRole: "button" as const,
+    accessibilityHint: "Opens the task. Long-press for quick actions.",
+    accessibilityActions: [
+      { name: "toggle", label: task.done ? "Mark not done" : "Mark done" },
+      { name: "longpress", label: "Quick actions" },
+    ],
+    onAccessibilityAction: (event: { nativeEvent: { actionName: string } }) => {
+      if (event.nativeEvent.actionName === "toggle") toggle();
+      if (event.nativeEvent.actionName === "longpress") showMenu();
+    },
+  };
+  const checkProps = {
+    onPress: toggle,
+    onPressIn: () => setCheckDown(true),
+    onPressOut: () => setCheckDown(false),
+    accessibilityRole: "checkbox" as const,
+    "aria-checked": checked,
+    accessibilityLabel: checked ? `Mark ${task.title} not done` : `Mark ${task.title} done`,
+  };
+
+  // A round-3 look (src/ui/rows): it draws the row from these parts, already wired.
+  const custom = calm ? looks[rowLook] : undefined;
+  if (custom) {
+    const parts: LookRowProps = {
+      task,
+      variant,
+      index,
+      checked,
+      ticking,
+      leftOff,
+      unsent,
+      noteTitle: fromNote,
+      title: (titleLook) => <Struck text={task.title} on={checked} animate={ticking} {...titleLook} />,
+      check: ({ size = 24, quiet = true, style, hitSlop = 8, draw, ringColor, ringWidth, fill } = {}) => (
+        <Pressable {...checkProps} hitSlop={hitSlop} style={[styles.lookCheck, style]}>
+          {draw ? draw({ on: checked, pressed: checkDown }) : <CircleCheck on={checked} pressed={checkDown} size={size} quiet={quiet} ringColor={ringColor} ringWidth={ringWidth} fill={fill} />}
+        </Pressable>
+      ),
+      open: (children, style, opts) => (
+        <Pressable {...openProps} accessibilityLabel={opts?.accessibilityLabel} style={style}>
+          {children}
+        </Pressable>
+      ),
+      wash,
+    };
+    const surface = place?.surface ?? custom.surface;
+    const paint = surface === "none" ? null : { backgroundColor: { card: colors.card, quiet: colors.quiet, lit: colors.lit, page: colors.page }[surface] };
+    // The row's card part (its inset) and corners: the swipe's colour and the wash follow them.
+    const r = place?.radius ?? 18;
+    const corners = place?.corners === "all" ? { borderRadius: r } : place?.corners === "top" ? { borderTopLeftRadius: r, borderTopRightRadius: r } : place?.corners === "bottom" ? { borderBottomLeftRadius: r, borderBottomRightRadius: r } : null;
+    const part = [custom.rowInset, corners, { overflow: "hidden" as const }];
+    return (
+      <SwipeRow done={task.done} onToggle={toggle} onFocus={task.done ? undefined : focus} onSwipe={onSwipe} inset={part}>
+        <View ref={row} collapsable={false} style={paint}>
+          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, part, { backgroundColor: colors.sunken }, washStyle]} />
+          <custom.Row {...parts} />
+        </View>
+      </SwipeRow>
+    );
+  }
+
   const words = (
-    <Pressable
-      onPress={() => !swiping.current && router.push(`/task/${task.id}`)}
-      onLongPress={showMenu}
-      delayLongPress={380}
-      onPressIn={() => (wash.value = withTiming(1, fadeTiming(duration.press)))}
-      onPressOut={() => (wash.value = withTiming(0, fadeTiming(duration.base)))}
-      accessibilityRole="button"
-      accessibilityHint="Opens the task. Long-press for quick actions."
-      accessibilityActions={[
-        { name: "toggle", label: task.done ? "Mark not done" : "Mark done" },
-        { name: "longpress", label: "Quick actions" },
-      ]}
-      onAccessibilityAction={(event) => {
-        if (event.nativeEvent.actionName === "toggle") toggle();
-        if (event.nativeEvent.actionName === "longpress") showMenu();
-      }}
-      style={styles.words}
-    >
-      <Struck text={task.title} on={checked} animate={ticking} look={look} suffix={journal && task.time !== null && !task.done ? clockLabel(task.time) : null} />
+    <Pressable {...openProps} style={styles.words}>
+      <Struck text={task.title} on={checked} animate={ticking} {...titleOf(look, colors.soft)} suffix={journal && task.time !== null && !task.done ? <InlineTime text={clockLabel(task.time)} /> : null} />
       {!calm && meta.length ? <View style={styles.meta}>{meta}</View> : null}
       {look === "card" ? <Marks task={task} time unsent={unsent} /> : null}
       {leftOff ? (
@@ -212,16 +276,7 @@ export const TaskRow = React.memo(function TaskRow({
     </Pressable>
   );
   const check = (
-    <Pressable
-      onPress={toggle}
-      onPressIn={() => setCheckDown(true)}
-      onPressOut={() => setCheckDown(false)}
-      hitSlop={journal ? 12 : 8}
-      accessibilityRole="checkbox"
-      aria-checked={checked}
-      accessibilityLabel={checked ? `Mark ${task.title} not done` : `Mark ${task.title} done`}
-      style={journal ? styles.journalCheck : styles.check}
-    >
+    <Pressable {...checkProps} hitSlop={journal ? 12 : 8} style={journal ? styles.journalCheck : styles.check}>
       <CircleCheck on={checked} pressed={checkDown} size={journal ? 20 : calm ? 22 : 28} quiet={calm} />
     </Pressable>
   );
@@ -263,6 +318,17 @@ export const TaskRow = React.memo(function TaskRow({
   );
 });
 
+/** The title's type in the round-2 looks. */
+function titleOf(look: RowLook, soft: string): TitleLook {
+  if (look === "now") return {};
+  return { variant: look === "journal" ? "row" : "callout", weight: look === "card" ? "medium" : "regular", color: soft, numberOfLines: 2 };
+}
+
+/** A time after the words, inline: it stays whole, with its dot, and the line breaks before it, never inside it. */
+export function InlineTime({ text }: { text: string }) {
+  return <Txt variant="row" tone="ink3">{` \u00A0·\u00A0${text.replace(/ /g, "\u00A0")}`}</Txt>;
+}
+
 /** In the calmer looks, what the meta line said, as small marks: the time (in the card look, under the title), a reminder, a repeat. */
 function Marks({ task, time, unsent }: { task: Task; time: boolean; unsent: boolean }) {
   const { colors } = useTheme();
@@ -289,9 +355,27 @@ function Marks({ task, time, unsent }: { task: Task; time: boolean; unsent: bool
  * line is drawn across each line of text in turn, from the left; the web
  * build, which can't measure lines, uses the type's own strikethrough.
  */
-function Struck({ text, on, animate, look = "now", suffix = null }: { text: string; on: boolean; animate: boolean; look?: RowLook; suffix?: string | null }) {
+export type TitleLook = {
+  variant?: TypeName;
+  weight?: Weight;
+  /** Its colour while open (ticked, it's always ink3). */
+  color?: string;
+  numberOfLines?: number;
+  style?: StyleProp<TextStyle>;
+  /** After the words, inline (the journal look's time). */
+  suffix?: React.ReactNode;
+};
+
+function Struck({ text, on, animate, variant = "row", weight = "semibold", color, numberOfLines, style, suffix = null }: { text: string; on: boolean; animate: boolean } & TitleLook) {
   const { colors } = useTheme();
-  const calm = look !== "now";
+  const sized = useType(variant);
+  // Ticked, the words ease to ink3 as the line draws through them (they jumped); otherwise they're simply so.
+  const open = color ?? colors.ink;
+  const struck = useSharedValue(on ? 1 : 0);
+  useEffect(() => {
+    struck.value = animate ? withTiming(on ? 1 : 0, fadeTiming(duration.base)) : on ? 1 : 0;
+  }, [on, animate, struck]);
+  const ink = useAnimatedStyle(() => ({ color: interpolateColor(struck.value, [0, 1], [open, colors.ink3]) }), [open, colors.ink3]);
   const [lines, setLines] = useState<{ x: number; y: number; width: number; height: number }[]>([]);
   const native = process.env.EXPO_OS !== "web";
   const onTextLayout = (event: NativeSyntheticEvent<TextLayoutEventData>) => {
@@ -300,19 +384,15 @@ function Struck({ text, on, animate, look = "now", suffix = null }: { text: stri
   };
   return (
     <View style={styles.title}>
-      <Txt
-        variant={calm && look !== "journal" ? "callout" : "row"}
-        tone={on ? "ink3" : "ink"}
+      <AnimatedText
         // One face either way: a thinner one shrank the title and could rewrap it mid-tick.
-        weight={look === "card" ? "medium" : calm ? "regular" : "semibold"}
-        numberOfLines={calm ? 2 : undefined}
+        numberOfLines={numberOfLines}
         onTextLayout={native ? onTextLayout : undefined}
-        style={[calm && !on ? { color: colors.soft } : null, on && !native ? [styles.struck, { textDecorationColor: colors.ink3 }] : null]}
+        style={[sized, { fontFamily: face[weight] }, style, ink, on && !native ? [styles.struck, { textDecorationColor: colors.ink3 }] : null]}
       >
         {text}
-        {/* The time stays whole, with its dot: the line breaks before it, never inside it. */}
-        {suffix ? <Txt variant="row" tone="ink3">{` \u00A0·\u00A0${suffix.replace(/ /g, "\u00A0")}`}</Txt> : null}
-      </Txt>
+        {suffix}
+      </AnimatedText>
       {native && on
         ? lines.map((line, i) => <StrikeLine key={i} line={line} delay={animate ? i * 90 : 0} animate={animate} color={colors.ink3} />)
         : null}
@@ -349,6 +429,7 @@ const styles = StyleSheet.create({
   pieceText: { flexShrink: 1, maxWidth: 190 },
   leftOff: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 4 },
   check: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  lookCheck: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   calmRow: { minHeight: 52, paddingVertical: 10, gap: space[2] },
   journalRow: { alignItems: "flex-start", minHeight: 50, paddingLeft: 0, paddingRight: 0, paddingVertical: 13, gap: space[3] },
   journalCheck: { width: 20, height: 23, alignItems: "center", justifyContent: "center" },

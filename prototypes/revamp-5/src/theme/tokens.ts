@@ -33,6 +33,12 @@ export type Palette = {
   glass: string; // the veil under bars when content scrolls beneath
   shadow: string; // the one elevation: things that float
   cardShadow: string; // the faint lift under a card
+  // Round 3 of the calmer task rows (2026-10-07), for the user to choose from:
+  ringQuiet: string; // a quiet open check: at least 3:1 on card, quiet and page
+  lit: string; // the brightest surface on Today ("Lamplight"): the card in light, a lifted step in dark
+  litShadow: string; // its lift, a touch deeper than cardShadow (none in dark)
+  threadOnPage: string; // a fine decorative line on the page, joining checks (never the only cue)
+  threadOnCard: string; // the same on a card
   // Illustration strokes and fills follow the theme.
   art: { line: string; sun: string; sunDeep: string; sky: string; cloud: string; leaf: string; leafDeep: string; soil: string; paper: string; moon: string; sand: string };
 };
@@ -56,6 +62,11 @@ const lightBase: Palette = {
   glass: "rgba(242, 240, 235, 0.9)",
   shadow: "0px 12px 32px rgba(48, 40, 28, 0.16), 0px 2px 8px rgba(48, 40, 28, 0.08)",
   cardShadow: "0px 1px 2px rgba(64, 44, 24, 0.06), 0px 4px 14px rgba(64, 44, 24, 0.05)",
+  ringQuiet: "#88837C",
+  lit: "#FFFFFF",
+  litShadow: "0px 1px 2px rgba(48, 40, 28, 0.08), 0px 6px 18px rgba(48, 40, 28, 0.09)",
+  threadOnPage: "#C8C4BD",
+  threadOnCard: "#CCC8C1",
   art: {
     line: "#2B2722",
     sun: "#F6C453",
@@ -78,7 +89,7 @@ const lightBase: Palette = {
  * has one page.
  */
 export type PaperName = "stone" | "linen" | "oat" | "clay";
-const paper = (page: string, card: string, quiet: string, sunken: string, ink: string, ink2: string, ink3: string, hairline: string, line: string, shadowTint: string): Palette => ({
+const paper = (page: string, card: string, quiet: string, sunken: string, ink: string, ink2: string, ink3: string, hairline: string, line: string, shadowTint: string, ringQuiet: string, threadOnPage: string, threadOnCard: string): Palette => ({
   ...lightBase,
   page,
   card,
@@ -95,13 +106,18 @@ const paper = (page: string, card: string, quiet: string, sunken: string, ink: s
   glass: `${page}E6`,
   shadow: `0px 12px 32px rgba(${shadowTint}, 0.16), 0px 2px 8px rgba(${shadowTint}, 0.08)`,
   cardShadow: `0px 1px 2px rgba(${shadowTint}, 0.07), 0px 4px 14px rgba(${shadowTint}, 0.06)`,
+  ringQuiet,
+  lit: card,
+  litShadow: `0px 1px 2px rgba(${shadowTint}, 0.08), 0px 6px 18px rgba(${shadowTint}, 0.09)`,
+  threadOnPage,
+  threadOnCard,
   art: { ...lightBase.art, paper: card },
 });
 export const papers: Record<PaperName, { label: string; palette: Palette }> = {
   stone: { label: "Stone", palette: lightBase },
-  linen: { label: "Linen", palette: paper("#F3ECE2", "#FFFCF7", "#FAF5EE", "#F7F1E8", "#2A231C", "#5C5146", "#74685B", "#EFE7DC", "#E4D9CA", "72, 50, 28") },
-  oat: { label: "Oat", palette: paper("#EEE4D5", "#FFFAF2", "#F7F0E5", "#F6EEE2", "#2B2219", "#5D5043", "#716352", "#ECE2D2", "#DED0BC", "78, 54, 26") },
-  clay: { label: "Clay", palette: paper("#F1E5DC", "#FFFAF6", "#F9F1EB", "#F8EEE7", "#2C211C", "#62524A", "#706258", "#EFE3D9", "#E3D1C5", "84, 48, 32") },
+  linen: { label: "Linen", palette: paper("#F3ECE2", "#FFFCF7", "#FAF5EE", "#F7F1E8", "#2A231C", "#5C5146", "#74685B", "#EFE7DC", "#E4D9CA", "72, 50, 28", "#8A7E72", "#C9BDAD", "#CDC4BA") },
+  oat: { label: "Oat", palette: paper("#EEE4D5", "#FFFAF2", "#F7F0E5", "#F6EEE2", "#2B2219", "#5D5043", "#716352", "#ECE2D2", "#DED0BC", "78, 54, 26", "#887A6A", "#C9BCA8", "#CEC1AE") },
+  clay: { label: "Clay", palette: paper("#F1E5DC", "#FFFAF6", "#F9F1EB", "#F8EEE7", "#2C211C", "#62524A", "#706258", "#EFE3D9", "#E3D1C5", "84, 48, 32", "#897B71", "#CBBCB1", "#D0C2B8") },
 };
 export const paperOrder: PaperName[] = ["stone", "linen", "oat", "clay"];
 /** The default light page. */
@@ -126,6 +142,11 @@ export const dark: Palette = {
   glass: "rgba(18, 17, 16, 0.9)",
   shadow: "0px 12px 32px rgba(0, 0, 0, 0.55), 0px 2px 8px rgba(0, 0, 0, 0.35)",
   cardShadow: "0px 0px 0px rgba(0, 0, 0, 0)",
+  ringQuiet: "#7A756D",
+  lit: "#262421",
+  litShadow: "0px 0px 0px rgba(0, 0, 0, 0)",
+  threadOnPage: "#423E3A",
+  threadOnCard: "#4A4641",
   art: {
     line: "#ECE6DC",
     sun: "#F2C14E",
@@ -213,6 +234,8 @@ export const radius = { xs: 8, sm: 12, button: 14, card: 18, lg: 28, pill: 999 }
 
 /** One family. The weight is in the face's name: custom fonts don't synthesise weights. */
 export const face = {
+  // Light 300: only for a large headline in dark mode (round 3's "The front page"), never below 21 pt.
+  light: "NunitoSans_300Light",
   regular: "NunitoSans_400Regular",
   italic: "NunitoSans_400Regular_Italic",
   medium: "NunitoSans_500Medium",
@@ -245,6 +268,7 @@ export const type = {
   headline: { fontFamily: face.bold, fontSize: 17, lineHeight: 22 },
   cardTitle: { fontFamily: face.bold, fontSize: 17, lineHeight: 23 },
   prompt: { fontFamily: face.semibold, fontSize: 18, lineHeight: 25 },
+  lead: { fontFamily: face.regular, fontSize: 21, lineHeight: 27, letterSpacing: -0.2 },
   row: { fontFamily: face.regular, fontSize: 17, lineHeight: 23 },
   body: { fontFamily: face.regular, fontSize: 17, lineHeight: 27 },
   callout: { fontFamily: face.regular, fontSize: 16, lineHeight: 22 },
