@@ -1,0 +1,2365 @@
+<title>Life Center Directions</title>
+<meta name="description" content="Five UX directions for Clarity's Life Center, for holding a long list of tasks without the weight of it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=IBM+Plex+Mono:wght@400;500&family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap">
+<style>
+/* Layout: a studio wall. A reading column carries the argument; each direction is a spread, its working phone held beside the thinking. */
+:root {
+  --ground: #ECE8E1;
+  --panel: #F5F2EC;
+  --ink: #221E1A;
+  --ink-2: #554B41;
+  --ink-3: #6A6055;
+  --rule: #D5CEC3;
+  --accent: #47775B;
+  --accent-ink: #3B6A4F;
+  --accent-soft: #DCE8DF;
+  --warm: #A84D27;
+  --frame: #1F1C19;
+  --frame-hi: #3A3530;
+
+  --p-page: #F3ECE2;
+  --p-card: #FFFCF7;
+  --p-quiet: #FAF5EE;
+  --p-sunken: #ECE3D6;
+  --p-ink: #2A231C;
+  --p-ink2: #5C5146;
+  --p-ink3: #74685B;
+  --p-line: #E6DCCD;
+  --p-accent: #47775B;
+  --p-accent-soft: #E1ECE4;
+  --p-on-accent: #FFFFFF;
+  --p-warm: #B4532A;
+  --p-warm-soft: #F6E3D8;
+  --p-capsule: #2A231C;
+  --p-on-capsule: #FFFCF7;
+  --p-shadow: 0 1px 2px rgba(74,52,30,.06), 0 4px 14px rgba(74,52,30,.07);
+  --p-float: 0 12px 32px rgba(40,28,16,.20);
+  --p-scrim: rgba(42,35,28,.28);
+
+  --sky-top: #E7DAC6;
+  --sky-low: #F3ECE2;
+  --stone-1: #DDD3C5;
+  --stone-2: #CFC3B2;
+  --stone-3: #C0B29F;
+  --stone-ink: #362C23;
+  --room: #FFFCF7;
+  --room-line: #3A3027;
+  --roof: #E6D8C4;
+  --lawn: #DCE4D0;
+  --note: #FFF4D9;
+  --sun: #E9B44C;
+
+  --f-display: "Bricolage Grotesque", "Nunito Sans", system-ui, sans-serif;
+  --f-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0F0E0D; --panel: #171614; --ink: #F2EFE9; --ink-2: #C4BEB4; --ink-3: #A39D93; --rule: #2F2C28;
+    --accent: #8DC6A5; --accent-ink: #8DC6A5; --accent-soft: #1F3328; --warm: #F0956C; --frame: #2B2825; --frame-hi: #45403A;
+    --p-page: #121110; --p-card: #1E1C1A; --p-quiet: #191816; --p-sunken: #292724; --p-ink: #F2EFE9; --p-ink2: #BCB6AC; --p-ink3: #959087;
+    --p-line: #34312D; --p-accent: #8DC6A5; --p-accent-soft: #22352B; --p-on-accent: #10231A; --p-warm: #F0956C; --p-warm-soft: #3A2418;
+    --p-capsule: #F2EFE9; --p-on-capsule: #1E1C1A;
+    --p-shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25); --p-float: 0 12px 32px rgba(0,0,0,.55); --p-scrim: rgba(0,0,0,.45);
+    --sky-top: #1D1B1F; --sky-low: #121110;
+    --stone-1: #3B3733; --stone-2: #48433E; --stone-3: #57514A; --stone-ink: #F2EFE9;
+    --room: #1E1C1A; --room-line: #CFC8BD; --roof: #2B2723; --lawn: #1E2A20; --note: #3A3426; --sun: #E3B158;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0F0E0D; --panel: #171614; --ink: #F2EFE9; --ink-2: #C4BEB4; --ink-3: #A39D93; --rule: #2F2C28;
+  --accent: #8DC6A5; --accent-ink: #8DC6A5; --accent-soft: #1F3328; --warm: #F0956C; --frame: #2B2825; --frame-hi: #45403A;
+  --p-page: #121110; --p-card: #1E1C1A; --p-quiet: #191816; --p-sunken: #292724; --p-ink: #F2EFE9; --p-ink2: #BCB6AC; --p-ink3: #959087;
+  --p-line: #34312D; --p-accent: #8DC6A5; --p-accent-soft: #22352B; --p-on-accent: #10231A; --p-warm: #F0956C; --p-warm-soft: #3A2418;
+  --p-capsule: #F2EFE9; --p-on-capsule: #1E1C1A;
+  --p-shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25); --p-float: 0 12px 32px rgba(0,0,0,.55); --p-scrim: rgba(0,0,0,.45);
+  --sky-top: #1D1B1F; --sky-low: #121110;
+  --stone-1: #3B3733; --stone-2: #48433E; --stone-3: #57514A; --stone-ink: #F2EFE9;
+  --room: #1E1C1A; --room-line: #CFC8BD; --roof: #2B2723; --lawn: #1E2A20; --note: #3A3426; --sun: #E3B158;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--ground); color: var(--ink);
+  font-family: var(--f-body); font-size: 1.0625rem; line-height: 1.6;
+  font-optical-sizing: auto;
+  padding-inline: 20px; padding-block: 0 64px;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 1120px; margin-inline: auto; }
+.read { max-width: 680px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; color: var(--ink); }
+p { margin: 0; text-wrap: pretty; }
+.eyebrow { font-family: var(--f-mono); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.ic { width: 1em; height: 1em; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.125em; }
+
+/* ---------- top nav ---------- */
+.toc {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  margin-inline: -20px; padding: 10px 20px;
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.toc-in { max-width: 1120px; margin-inline: auto; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.toc-in::-webkit-scrollbar { display: none; }
+.toc a {
+  flex: none; text-decoration: none; color: var(--ink-2); font-size: .875rem; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+}
+.toc a:hover { background: var(--panel); color: var(--ink); }
+.toc a.here { background: var(--ink); color: var(--ground); }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 64px 40px; }
+.hero h1 { font-size: clamp(2.5rem, 6.4vw, 4.6rem); line-height: .98; letter-spacing: -0.025em; font-weight: 640; max-width: 14ch; margin-top: 18px; }
+.hero h1 em { font-style: normal; color: var(--accent-ink); }
+.lede { font-size: 1.25rem; line-height: 1.55; color: var(--ink-2); max-width: 40em; margin-top: 22px; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 24px; font-family: var(--f-mono); font-size: .8rem; color: var(--ink-3); }
+
+.questions5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 44px; }
+.q5 {
+  display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: var(--ink);
+  background: var(--panel); border-radius: 18px; padding: 16px 16px 18px; border: 1px solid transparent;
+  transition: border-color .2s, transform .2s;
+}
+.q5:hover { border-color: var(--rule); transform: translateY(-2px); }
+.q5 .glyph { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; font-size: 22px; }
+.q5 .ask { font-size: .9rem; color: var(--ink-3); line-height: 1.35; }
+.q5 .name { font-family: var(--f-display); font-weight: 650; font-size: 1.35rem; line-height: 1.1; }
+.q5 .one { font-size: .9rem; color: var(--ink-2); line-height: 1.4; }
+@media (max-width: 900px) { .questions5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .q5:last-child { grid-column: 1 / -1; } }
+@media (max-width: 460px) { .questions5 { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- sections ---------- */
+section.block { padding-block: 72px 24px; border-top: 1px solid var(--rule); margin-top: 48px; scroll-margin-top: 60px; }
+.sec-head { display: grid; gap: 10px; margin-bottom: 32px; }
+.sec-head h2 { font-size: clamp(1.9rem, 4.2vw, 2.9rem); font-weight: 640; letter-spacing: -0.02em; line-height: 1.05; }
+.sec-head p { color: var(--ink-2); font-size: 1.125rem; max-width: 40em; }
+
+.two { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 56px; align-items: start; }
+.stage { position: sticky; top: 72px; display: grid; justify-items: center; gap: 14px; }
+@media (max-width: 880px) { .two { grid-template-columns: minmax(0, 1fr); gap: 32px; } .stage { position: static; } }
+
+.causes { display: grid; gap: 0; counter-reset: c; }
+.cause { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 4px 14px; padding-block: 16px; border-bottom: 1px solid var(--rule); }
+.cause:first-child { border-top: 1px solid var(--rule); }
+.cause::before { counter-increment: c; content: counter(c); font-family: var(--f-display); font-weight: 600; font-size: 1.6rem; line-height: 1; color: var(--accent-ink); grid-row: span 2; }
+.cause b { font-family: var(--f-display); font-weight: 620; font-size: 1.15rem; line-height: 1.25; }
+.cause span { color: var(--ink-2); font-size: 1rem; }
+.callout { margin-top: 24px; padding: 18px 20px; border-radius: 16px; background: var(--panel); color: var(--ink-2); font-size: 1rem; }
+.callout b { color: var(--ink); }
+
+.principles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pr { background: var(--panel); border-radius: 18px; padding: 18px 18px 20px; display: grid; gap: 6px; align-content: start; }
+.pr b { font-family: var(--f-display); font-weight: 640; font-size: 1.2rem; line-height: 1.2; }
+.pr span { color: var(--ink-2); font-size: .975rem; line-height: 1.5; }
+@media (max-width: 820px) { .principles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .principles { grid-template-columns: minmax(0, 1fr); } }
+
+.built-on { margin-top: 22px; font-size: .95rem; color: var(--ink-3); max-width: 46em; }
+
+/* ---------- a direction ---------- */
+.direction .d-head { display: grid; gap: 8px; margin-bottom: 36px; }
+.d-ask { display: inline-flex; align-items: center; gap: 10px; font-family: var(--f-mono); font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.d-ask .glyph { width: 30px; height: 30px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; font-size: 17px; }
+.direction h2 { font-size: clamp(2.6rem, 6vw, 4.2rem); font-weight: 680; letter-spacing: -0.03em; line-height: .98; }
+.d-big { font-family: var(--f-display); font-weight: 400; font-size: clamp(1.3rem, 2.6vw, 1.75rem); line-height: 1.25; color: var(--ink-2); max-width: 26em; letter-spacing: -0.01em; }
+
+.thinking { display: grid; gap: 28px; min-width: 0; }
+.thinking h3 { font-size: 1.15rem; font-weight: 640; margin-bottom: 8px; }
+.insight { font-size: 1.15rem; line-height: 1.6; color: var(--ink); }
+.thinking ul { margin: 0; padding-left: 1.1em; display: grid; gap: 8px; color: var(--ink-2); }
+.thinking ul b { color: var(--ink); font-weight: 700; }
+.thinking li::marker { color: var(--accent-ink); }
+.scale { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.scale div { background: var(--panel); border-radius: 14px; padding: 12px 14px; display: grid; gap: 4px; align-content: start; }
+.scale .n { font-family: var(--f-mono); font-size: .75rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.scale span { font-size: .925rem; line-height: 1.45; color: var(--ink-2); }
+@media (max-width: 520px) { .scale { grid-template-columns: minmax(0, 1fr); } }
+.rt { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rt > div { border-radius: 16px; padding: 16px 18px; border: 1px solid var(--rule); display: grid; gap: 8px; align-content: start; }
+.rt h4 { margin: 0; font-family: var(--f-mono); font-size: .75rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.rt ul { padding-left: 1.1em; gap: 6px; font-size: .95rem; }
+@media (max-width: 560px) { .rt { grid-template-columns: minmax(0, 1fr); } }
+
+/* try buttons under a phone */
+.try { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 360px; }
+.try-label { width: 100%; text-align: center; font-family: var(--f-mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.try button {
+  border: 1px solid var(--rule); background: var(--panel); border-radius: 999px; padding: 7px 13px;
+  font-size: .85rem; font-weight: 600; cursor: pointer; color: var(--ink); transition: background .15s, border-color .15s;
+}
+.try button:hover { border-color: var(--accent); }
+.try button:active { transform: scale(.97); }
+.try .reset { background: transparent; color: var(--ink-3); }
+.hint-under { font-size: .85rem; color: var(--ink-3); text-align: center; max-width: 330px; line-height: 1.45; }
+
+/* ======================================================================
+   The phone: Sage's language (Linen page, warm-white cards, one accent).
+   ====================================================================== */
+.phone {
+  --pw: 340px;
+  width: var(--pw); max-width: 100%; height: 700px; position: relative; overflow: hidden;
+  border-radius: 46px; background: var(--p-page); color: var(--p-ink);
+  border: 9px solid var(--frame); box-shadow: 0 0 0 1px var(--frame-hi), 0 30px 60px -30px rgba(30,20,10,.35);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.35;
+  display: flex; flex-direction: column; isolation: isolate;
+}
+.phone button { cursor: pointer; border: 0; background: none; padding: 0; text-align: inherit; }
+.ph-status { height: 40px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 26px 0; font-size: 13px; font-weight: 700; }
+.ph-status .notch { position: absolute; top: 8px; left: 50%; translate: -50% 0; width: 92px; height: 24px; border-radius: 14px; background: var(--frame); }
+.ph-status .bat { display: inline-flex; gap: 5px; align-items: center; }
+.ph-status .bat i { display: block; width: 22px; height: 11px; border-radius: 3px; border: 1.5px solid currentColor; position: relative; opacity: .9; }
+.ph-status .bat i::after { content: ""; position: absolute; inset: 1.5px 5px 1.5px 1.5px; background: currentColor; border-radius: 1px; }
+.ph-top { flex: none; height: 40px; display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; padding: 0 10px; }
+.ph-top b { text-align: center; font-weight: 800; font-size: 15.5px; }
+.ph-top .ib { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--p-ink2); font-size: 19px; }
+.ph-body { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.ph-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 14px 24px; scrollbar-width: none; overscroll-behavior: contain; }
+.ph-scroll::-webkit-scrollbar { display: none; }
+.ph-tabs { flex: none; height: 74px; display: grid; grid-template-columns: repeat(5, 1fr); align-items: start; padding: 8px 6px 0; background: var(--p-page); border-top: 1px solid var(--p-line); position: relative; z-index: 6; }
+.ph-tabs span { display: grid; justify-items: center; gap: 2px; font-size: 10px; color: var(--p-ink3); font-weight: 600; }
+.ph-tabs span .ic { font-size: 21px; }
+.ph-tabs span.on { color: var(--p-ink); }
+.ph-tabs .plus { width: 46px; height: 46px; border-radius: 50%; background: var(--p-accent); color: var(--p-on-accent); display: grid; place-items: center; font-size: 22px; margin-top: -14px; box-shadow: var(--p-shadow); justify-self: center; }
+.ph-tabs .plus .ic { stroke-width: 2.4; }
+.ph-home { position: absolute; bottom: 7px; left: 50%; translate: -50% 0; width: 120px; height: 4.5px; border-radius: 4px; background: var(--p-ink); opacity: .85; z-index: 7; }
+
+/* shared phone parts */
+.p-sec { text-align: center; color: var(--p-ink3); font-weight: 700; font-size: 13px; margin: 18px 0 8px; }
+.p-card { background: var(--p-card); border-radius: 18px; box-shadow: var(--p-shadow); }
+.p-chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 14px 8px; scrollbar-width: none; flex: none; }
+.p-chips::-webkit-scrollbar { display: none; }
+.p-chip { flex: none; padding: 5px 11px; border-radius: 999px; background: var(--p-card); font-size: 12px; font-weight: 700; color: var(--p-ink2); box-shadow: var(--p-shadow); white-space: nowrap; }
+.p-chip.on { box-shadow: inset 0 0 0 1.5px var(--p-ink); color: var(--p-ink); }
+.p-row { display: grid; grid-template-columns: minmax(0, 1fr) 28px; gap: 10px; align-items: center; padding: 11px 14px; }
+.p-row + .p-row { border-top: 1px solid var(--p-line); }
+.p-row .t { font-weight: 700; font-size: 14.5px; line-height: 1.3; }
+.p-row .m { display: flex; flex-wrap: wrap; gap: 3px 9px; font-size: 11.5px; color: var(--p-ink3); margin-top: 2px; }
+.p-row .m .ic { font-size: 12px; margin-right: 2px; }
+.ring { width: 24px; height: 24px; border-radius: 50%; border: 1.6px solid var(--p-ink3); display: grid; place-items: center; color: transparent; font-size: 13px; transition: background .25s, border-color .25s, color .25s, transform .25s; justify-self: end; }
+.ring .ic { stroke-width: 2.6; }
+.ring.on { background: var(--p-accent); border-color: var(--p-accent); color: var(--p-on-accent); transform: scale(1.06); }
+button.ring-btn { width: 36px; height: 36px; display: grid; place-items: center; margin: -6px -6px -6px 0; justify-self: end; }
+.struck .t { text-decoration: line-through; text-decoration-color: var(--p-ink3); color: var(--p-ink3); transition: color .25s; }
+.pic { width: 34px; height: 34px; border-radius: 11px; background: var(--p-sunken); color: var(--p-ink2); display: grid; place-items: center; font-size: 18px; flex: none; }
+.pic.today { background: var(--p-accent-soft); color: var(--p-accent); }
+.p-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 16px; border-radius: 14px; font-weight: 800; font-size: 14px; }
+.p-btn.primary { background: var(--p-accent); color: var(--p-on-accent); }
+.p-btn.soft { background: var(--p-accent-soft); color: var(--p-accent); }
+.p-btn.outline { box-shadow: inset 0 0 0 1.5px var(--p-line); color: var(--p-ink); background: var(--p-card); }
+.p-btn.plain { color: var(--p-ink2); }
+.p-btn:active { transform: scale(.97); }
+.capsule {
+  position: absolute; top: 6px; left: 50%; z-index: 30; translate: -50% -70px;
+  display: flex; align-items: center; gap: 7px; max-width: 92%;
+  background: var(--p-capsule); color: var(--p-on-capsule); padding: 8px 14px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; box-shadow: var(--p-float); transition: translate .45s cubic-bezier(.16,1,.3,1), opacity .3s; opacity: 0; white-space: nowrap;
+}
+.capsule .ic { color: var(--p-accent); font-size: 15px; stroke-width: 2.4; flex: none; }
+.capsule span { overflow: hidden; text-overflow: ellipsis; }
+.capsule.show { translate: -50% 0; opacity: 1; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes leaveup { to { opacity: 0; transform: translateY(-14px) scale(.97); } }
+.rise { animation: rise .42s cubic-bezier(.16,1,.3,1) both; }
+.fade-in { animation: fadein .35s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: fadein .2s ease-out both; }
+  .phone * { transition-duration: .01ms !important; }
+  .capsule { transition: opacity .2s !important; }
+}
+</style>
+<style>
+/* ---------- the current Life Center ---------- */
+.slip { display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 12px; margin-top: 4px; }
+.slip .pic { border-radius: 50%; background: var(--p-warm-soft); color: var(--p-warm); }
+.slip b { font-size: 14px; font-weight: 800; display: block; }
+.slip span { font-size: 12px; color: var(--p-ink2); line-height: 1.3; display: block; }
+.slip .p-btn { height: 30px; padding: 0 10px; font-size: 12px; border-radius: 10px; }
+.fadeout-bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 70px; background: linear-gradient(transparent, var(--p-page)); pointer-events: none; z-index: 3; }
+
+/* ---------- Stacks ---------- */
+.stk-list { display: grid; gap: 16px; padding-top: 6px; }
+.stk { position: relative; transition: opacity .3s, transform .3s; }
+.stk.gone { opacity: 0; transform: scale(.96); }
+.stk-card { position: relative; z-index: 4; background: var(--p-card); border-radius: 18px; box-shadow: var(--p-shadow); overflow: hidden; }
+.stk-edge { position: absolute; top: 12px; height: calc(100% - 12px); background: var(--p-card); border-radius: 16px; box-shadow: 0 1px 1.5px rgba(74,52,30,.10); transition: left .3s, right .3s, height .3s, opacity .3s; }
+.stk-head { display: flex; align-items: center; gap: 6px; width: 100%; padding: 11px 14px 0; font-size: 11.5px; color: var(--p-ink3); font-weight: 700; }
+.stk-head .ic { font-size: 13px; }
+.stk-head .nm { color: var(--p-ink2); font-weight: 800; }
+.stk-head .chev { margin-left: auto; transition: rotate .3s; font-size: 15px; }
+.stk.open .stk-head .chev { rotate: 180deg; }
+.stk-top { display: grid; grid-template-columns: 34px minmax(0,1fr) 28px; gap: 10px; align-items: center; padding: 8px 14px 13px; }
+.stk-top .t { font-weight: 800; font-size: 15.5px; line-height: 1.25; }
+.stk-top .m { font-size: 11.5px; color: var(--p-ink3); margin-top: 2px; display: flex; gap: 4px; align-items: center; }
+.stk-top .m.today { color: var(--p-accent); font-weight: 800; }
+.stk-top.ticking .t { text-decoration: line-through; color: var(--p-ink3); }
+.stk-top.leaving { animation: leaveup .34s ease-in forwards; }
+.stk-fan { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .38s cubic-bezier(.16,1,.3,1); }
+.stk.open .stk-fan { grid-template-rows: 1fr; }
+.stk-fan > div { overflow: hidden; min-height: 0; }
+.stk-fan .fr { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 10px; align-items: center; padding: 9px 14px 9px 20px; border-top: 1px solid var(--p-line); font-size: 13.5px; font-weight: 700; color: var(--p-ink2); }
+.stk-fan .fr .ic { font-size: 15px; color: var(--p-ink3); }
+.stk-fan .fr small { display: block; font-size: 11px; color: var(--p-ink3); font-weight: 600; }
+.stk-acts { display: flex; gap: 6px; padding: 9px 14px 12px; border-top: 1px solid var(--p-line); flex-wrap: wrap; }
+.q-btn { font-size: 12px; font-weight: 800; color: var(--p-ink2); padding: 6px 11px; border-radius: 999px; background: var(--p-sunken); display: inline-flex; gap: 5px; align-items: center; }
+.q-btn .ic { font-size: 13px; }
+.stk-clear { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px; color: var(--p-accent); font-weight: 800; font-size: 13.5px; }
+.aside { margin-top: 18px; }
+.aside-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; border-radius: 16px; background: var(--p-quiet); color: var(--p-ink2); font-size: 13px; font-weight: 800; }
+.aside-head .ic { font-size: 16px; }
+.aside-head small { font-weight: 600; color: var(--p-ink3); font-size: 11.5px; }
+.aside-head .chev { margin-left: auto; transition: rotate .3s; }
+.aside.open .aside-head .chev { rotate: 180deg; }
+.aside-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .38s cubic-bezier(.16,1,.3,1); }
+.aside.open .aside-body { grid-template-rows: 1fr; }
+.aside-body > div { overflow: hidden; min-height: 0; }
+.aside-row { padding: 9px 14px; font-size: 12.5px; color: var(--p-ink3); border-bottom: 1px dashed var(--p-line); }
+.aside-row b { color: var(--p-ink2); font-weight: 800; display: block; font-size: 13px; }
+.suggest { margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: var(--p-card); box-shadow: var(--p-shadow); display: grid; gap: 8px; font-size: 13px; color: var(--p-ink2); }
+.suggest .row { display: flex; gap: 8px; }
+.suggest .ic { color: var(--p-accent); font-size: 16px; flex: none; margin-top: 1px; }
+
+/* ---------- Near & Far ---------- */
+.wx { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 2px; padding: 0 10px 4px; flex: none; position: relative; z-index: 7; background: var(--sky-top); }
+.wx button { display: grid; justify-items: center; gap: 1px; padding: 5px 0 6px; border-radius: 14px; font-size: 10px; color: var(--p-ink3); font-weight: 700; text-align: center; transition: box-shadow .25s, background .25s; }
+.wx button .d { font-size: 13px; color: var(--p-ink); font-weight: 800; }
+.wx button .ic { font-size: 18px; color: var(--p-ink2); margin-top: 2px; }
+.wx button.today .d { color: var(--p-accent); }
+.wx button.on { box-shadow: inset 0 0 0 1.5px var(--p-ink); }
+.wx button.glow { background: var(--p-accent-soft); }
+.wx-note { position: absolute; left: 12px; right: 12px; top: 6px; z-index: 9; background: var(--p-card); border-radius: 16px; box-shadow: var(--p-float); padding: 12px 14px; font-size: 13px; color: var(--p-ink2); display: grid; gap: 10px; }
+.wx-note b { color: var(--p-ink); }
+.wx-note .acts { display: flex; gap: 8px; }
+.wx-note .p-btn { height: 34px; font-size: 12.5px; border-radius: 11px; padding: 0 12px; }
+.nf-scene { position: absolute; inset: 0; overflow: hidden; isolation: isolate; z-index: 0; background: linear-gradient(var(--sky-top), var(--sky-low) 46%); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.nf-scene.drag { cursor: grabbing; }
+@media (hover: hover) { .nf-scene { cursor: grab; } }
+.nf-haze { position: absolute; left: 0; right: 0; top: 0; height: 92px; background: linear-gradient(var(--sky-top) 18%, transparent); pointer-events: none; z-index: 20; }
+.nf-horizon { position: absolute; left: 0; right: 0; top: 22px; z-index: 21; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--p-ink3); letter-spacing: .04em; pointer-events: none; }
+.nf-horizon::before { content: ""; position: absolute; left: 24px; right: 24px; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, var(--p-ink3), transparent); opacity: .35; }
+.nf-horizon span { position: relative; background: var(--sky-top); padding: 0 8px; }
+.nf-band { position: absolute; left: 12px; right: 12px; top: 0; transform-origin: 50% 100%; will-change: transform, opacity; }
+.nf-band > div { position: absolute; left: 0; right: 0; top: 0; }
+.nf-lab { text-align: center; font-weight: 800; font-size: 12.5px; color: var(--p-ink3); margin-bottom: 6px; display: flex; justify-content: center; gap: 6px; align-items: center; }
+.nf-lab .ic { font-size: 14px; }
+.nf-line .words { text-align: center; font-size: 13.5px; color: var(--p-ink2); line-height: 1.55; font-weight: 600; padding-inline: 8px; }
+.nf-line .words i { font-style: normal; color: var(--p-ink3); padding: 0 4px; }
+.nf-full .p-row { padding: 9px 12px; }
+.nf-full .p-row .t { font-size: 14px; }
+.nf-feet { position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 6; display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 10px; background: var(--p-card); border-radius: 16px; padding: 8px 10px 8px 12px; box-shadow: var(--p-shadow); }
+.nf-feet .pic { width: 30px; height: 30px; border-radius: 50%; background: var(--p-warm-soft); color: var(--p-warm); font-size: 15px; }
+.nf-feet b { font-size: 12.5px; display: block; }
+.nf-feet span { font-size: 11px; color: var(--p-ink3); display: block; line-height: 1.3; }
+.nf-feet .p-btn { height: 30px; font-size: 12px; padding: 0 10px; border-radius: 10px; }
+.ghost { position: absolute; z-index: 20; pointer-events: none; }
+.travel { display: grid; gap: 10px; width: 100%; max-width: 340px; }
+.seg { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); background: var(--panel); border-radius: 12px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; border-radius: 9px; padding: 7px 0; font-size: .8rem; font-weight: 700; color: var(--ink-2); cursor: pointer; }
+.seg button.on { background: var(--ink); color: var(--ground); }
+.travel input[type=range] { width: 100%; accent-color: var(--accent); }
+.travel label { font-family: var(--f-mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); text-align: center; }
+
+/* ---------- Rooms ---------- */
+.rm-where { display: flex; gap: 6px; padding: 0 14px 8px; overflow-x: auto; scrollbar-width: none; flex: none; }
+.rm-where::-webkit-scrollbar { display: none; }
+.rm-where button { flex: none; padding: 5px 11px; border-radius: 999px; background: var(--p-card); font-size: 12px; font-weight: 700; color: var(--p-ink2); box-shadow: var(--p-shadow); display: inline-flex; gap: 5px; align-items: center; }
+.rm-where button .ic { font-size: 13px; }
+.rm-where button.on { box-shadow: inset 0 0 0 1.5px var(--p-ink); color: var(--p-ink); }
+.rm-draw-wrap { position: relative; margin: 0 12px; aspect-ratio: 300 / 330; max-height: 360px; overflow: hidden; border-radius: 20px; background: var(--sky-top); }
+.rm-draw { width: 100%; height: 100%; display: block; transition: transform .6s cubic-bezier(.16,1,.3,1), opacity .4s; transform-origin: 0 0; }
+.rm-draw .room { cursor: pointer; transition: opacity .35s; }
+.rm-draw .room.dim { opacity: .25; }
+.rm-draw .room .base { fill: var(--room); stroke: var(--room-line); stroke-width: 1.4; transition: fill .2s; }
+.rm-draw .room:hover .base, .rm-draw .room:focus-visible .base { fill: var(--p-quiet); }
+.rm-draw .room:focus { outline: none; }
+.rm-draw .room:focus-visible .base { stroke: var(--p-accent); stroke-width: 2.4; }
+.rm-draw .furn { stroke: var(--room-line); stroke-width: 1.15; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.rm-draw .furn-f { fill: var(--p-sunken); stroke: var(--room-line); stroke-width: 1.15; stroke-linejoin: round; }
+.rm-draw .notep { fill: var(--note); stroke: var(--room-line); stroke-width: .8; }
+.rm-draw .sunmark { fill: var(--sun); stroke: var(--room-line); stroke-width: .8; }
+.rm-draw .lbl { font: 800 8.4px var(--f-body); fill: var(--p-ink2); }
+.rm-draw .shell { fill: var(--roof); stroke: var(--room-line); stroke-width: 1.4; stroke-linejoin: round; }
+.rm-draw .lawn { fill: var(--lawn); }
+.rm-draw .gnd { stroke: var(--room-line); stroke-width: 1.4; }
+.rm-tip { margin: 10px 14px 0; font-size: 12.5px; color: var(--p-ink3); text-align: center; line-height: 1.4; min-height: 34px; }
+.rm-out { margin: 10px 12px 0; padding: 11px 13px; display: grid; gap: 6px; }
+.rm-out b { font-size: 13px; }
+.rm-out .li { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--p-ink2); font-weight: 700; }
+.rm-out .li .ic { color: var(--p-ink3); font-size: 15px; }
+.rm-sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 168px; background: var(--p-page); border-radius: 26px 26px 0 0; box-shadow: var(--p-float); transform: translateY(105%); transition: transform .55s cubic-bezier(.16,1,.3,1); z-index: 8; display: flex; flex-direction: column; }
+.rm-sheet.show { transform: none; }
+.rm-sheet .grab { width: 38px; height: 4.5px; border-radius: 4px; background: var(--p-line); margin: 8px auto 4px; flex: none; }
+.rm-sheet .hd { display: grid; grid-template-columns: 36px minmax(0,1fr); align-items: center; gap: 6px; padding: 2px 12px 6px; flex: none; }
+.rm-sheet .hd b { font-size: 17px; font-weight: 800; display: block; }
+.rm-sheet .hd small { font-size: 12px; color: var(--p-ink3); }
+.rm-sheet .ib { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; font-size: 19px; color: var(--p-ink2); }
+.rm-notes { flex: 1; overflow-y: auto; padding: 4px 14px 20px; display: grid; gap: 10px; align-content: start; scrollbar-width: none; }
+.rm-note { background: var(--note); border-radius: 6px 14px 14px 14px; padding: 11px 12px; display: grid; grid-template-columns: 22px minmax(0,1fr) 28px; gap: 9px; align-items: center; box-shadow: 0 1px 1px rgba(60,40,20,.08), 0 3px 8px rgba(60,40,20,.08); }
+.rm-note:nth-child(odd) { rotate: -.6deg; }
+.rm-note:nth-child(even) { rotate: .5deg; }
+.rm-note .ic { font-size: 17px; color: var(--p-ink2); }
+.rm-note .t { font-weight: 800; font-size: 14px; line-height: 1.25; }
+.rm-note .m { font-size: 11.5px; color: var(--p-ink3); margin-top: 1px; }
+.rm-note .m.today { color: var(--p-accent); font-weight: 800; }
+.rm-note .ring { border-color: var(--p-ink2); }
+
+/* ---------- Stones ---------- */
+.st-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.st-bowls { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 2px; padding: 4px 8px 0; flex: none; }
+.bowl { display: grid; justify-items: center; gap: 3px; padding: 4px 0 6px; border-radius: 14px; transition: background .3s; }
+.bowl.on { background: var(--p-quiet); box-shadow: inset 0 0 0 1.5px var(--p-ink); }
+.bowl.glow { background: var(--p-accent-soft); }
+.bowl .vessel { position: relative; width: 46px; height: 34px; }
+.bowl .vessel svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bowl .vessel .bw { fill: var(--p-card); stroke: var(--p-ink3); stroke-width: 1.3; }
+.bowl.full .vessel .bw { stroke: var(--p-ink2); }
+.bowl .peb { position: absolute; border-radius: 50%; background: var(--stone-2); box-shadow: inset 0 -1.5px 0 rgba(0,0,0,.1); transition: bottom .4s, left .4s; }
+.bowl .peb.p1 { width: 9px; height: 6px; background: var(--stone-1); }
+.bowl .peb.p2 { width: 12px; height: 8px; }
+.bowl .peb.p4 { width: 17px; height: 10px; background: var(--stone-3); }
+.bowl .peb.new { animation: plop .5s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes plop { from { transform: translateY(-14px) scale(.8); opacity: 0; } to { transform: none; opacity: 1; } }
+.bowl .lbl { font-size: 10.5px; font-weight: 800; color: var(--p-ink2); }
+.bowl .lbl.today { color: var(--p-accent); }
+.cairn { display: grid; justify-items: center; align-content: end; gap: 3px; padding: 4px 0 6px; }
+.cairn .stack { position: relative; width: 40px; height: 34px; display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-start; }
+.cairn .stack i { display: block; border-radius: 50%; background: var(--stone-2); margin-top: -1px; box-shadow: inset 0 -1.5px 0 rgba(0,0,0,.1); }
+.cairn .stack i.new { animation: plop .5s cubic-bezier(.2,1.6,.4,1) both; }
+.st-hint { margin: 8px 12px 0; min-height: 46px; padding: 9px 12px; border-radius: 14px; background: var(--p-card); box-shadow: var(--p-shadow); font-size: 12.5px; color: var(--p-ink2); display: flex; gap: 9px; align-items: center; flex: none; line-height: 1.35; }
+.st-hint .ic { font-size: 17px; color: var(--p-accent); flex: none; }
+.st-hint b { color: var(--p-ink); }
+.st-hint .p-btn { height: 30px; font-size: 12px; padding: 0 10px; border-radius: 10px; flex: none; margin-left: auto; }
+.st-day { margin: 8px 12px 0; flex: none; display: grid; }
+.st-day .p-row { padding: 8px 12px; }
+.st-day .p-row .t { font-size: 13.5px; }
+.shore { flex: 1; min-height: 0; overflow-y: auto; margin-top: 10px; padding: 10px 10px 18px; background: linear-gradient(var(--p-page), var(--p-sunken) 70%); scrollbar-width: none; }
+.shore::-webkit-scrollbar { display: none; }
+.shore-lab { text-align: center; font-size: 11.5px; color: var(--p-ink3); font-weight: 700; margin: 2px 0 8px; }
+.stones { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 7px 6px; }
+.stone { padding: 6px 11px; border-radius: 46% 54% 50% 50% / 58% 52% 48% 42%; background: var(--stone-1); color: var(--stone-ink); font-size: 11.5px; font-weight: 800; line-height: 1.2; text-align: center; box-shadow: inset 0 -3px 0 rgba(0,0,0,.07), 0 2px 4px rgba(60,40,20,.12); transition: transform .25s cubic-bezier(.2,1.4,.4,1), box-shadow .2s, opacity .3s; max-width: 100%; }
+.stone.w1 { font-size: 11px; padding: 5px 10px; }
+.stone.w2 { padding: 9px 14px; background: var(--stone-2); font-size: 12px; }
+.stone.w4 { padding: 14px 18px; background: var(--stone-3); font-size: 12.5px; border-radius: 40% 60% 46% 54% / 55% 48% 52% 45%; }
+.stone.sel { transform: translateY(-4px) rotate(-1deg); box-shadow: 0 0 0 2px var(--p-accent), 0 8px 14px rgba(60,40,20,.22); }
+.stone.old { opacity: .5; }
+.stone.bounce { animation: bounceback .7s cubic-bezier(.3,1.5,.5,1); }
+@keyframes bounceback { 0% { transform: translateY(-4px); } 30% { transform: translateY(-16px) rotate(4deg); } 60% { transform: translateY(2px) rotate(-2deg); } 100% { transform: translateY(-4px); } }
+.stone.split { animation: crack .4s ease-in forwards; }
+@keyframes crack { to { transform: scale(1.12); opacity: 0; } }
+.legend-w { display: flex; justify-content: center; gap: 14px; font-size: 11px; color: var(--p-ink3); font-weight: 700; margin-top: 14px; align-items: center; }
+.legend-w i { display: inline-block; border-radius: 50%; background: var(--stone-2); vertical-align: -1px; margin-right: 4px; }
+
+/* ---------- Held ---------- */
+.hd-screen { position: absolute; inset: 0; overflow-y: auto; padding: 0 14px 24px; scrollbar-width: none; }
+.hd-screen::-webkit-scrollbar { display: none; }
+.hd-greet { padding: 6px 4px 0; }
+.hd-greet h4 { margin: 0; font-size: 25px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+.hd-greet p { font-size: 13px; color: var(--p-ink3); margin-top: 3px; }
+.hd-one { margin-top: 14px; padding: 16px; display: grid; gap: 12px; }
+.hd-one .eb { font-size: 10.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--p-ink3); }
+.hd-one .row { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 12px; align-items: center; }
+.hd-one .pic { width: 44px; height: 44px; border-radius: 14px; font-size: 22px; }
+.hd-one .t { font-size: 20px; font-weight: 800; line-height: 1.2; }
+.hd-one .m { font-size: 12px; color: var(--p-ink3); margin-top: 2px; }
+.hd-why { display: flex; gap: 8px; font-size: 12.5px; color: var(--p-ink2); background: var(--p-quiet); border-radius: 12px; padding: 9px 11px; line-height: 1.4; }
+.hd-why .ic { color: var(--p-accent); font-size: 15px; flex: none; margin-top: 1px; }
+.hd-one .btns { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.hd-doors { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+.door { padding: 7px 12px; border-radius: 999px; background: var(--p-card); box-shadow: var(--p-shadow); font-size: 12.5px; font-weight: 700; color: var(--p-ink2); display: inline-flex; gap: 5px; align-items: center; }
+.door .ic { font-size: 14px; }
+.hd-rit { display: grid; grid-template-columns: 34px minmax(0,1fr) 16px; gap: 10px; align-items: center; padding: 11px 14px; width: 100%; }
+.hd-rit + .hd-rit { border-top: 1px solid var(--p-line); }
+.hd-rit b { font-size: 14px; font-weight: 800; display: block; }
+.hd-rit small { font-size: 11.5px; color: var(--p-ink3); display: block; }
+.hd-rit > .ic { color: var(--p-ink3); }
+.hd-all { display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; margin-top: 16px; padding: 10px; font-size: 13px; font-weight: 800; color: var(--p-ink2); }
+.hd-all small { font-weight: 600; color: var(--p-ink3); }
+.energy { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+.energy button { background: var(--p-card); border-radius: 16px; box-shadow: var(--p-shadow); padding: 14px 6px 12px; display: grid; justify-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--p-ink); }
+.energy button .ic { font-size: 24px; color: var(--p-ink2); }
+.energy button small { font-weight: 600; color: var(--p-ink3); font-size: 11px; }
+.rit-bar { position: sticky; top: 0; height: 3px; background: var(--p-line); border-radius: 3px; margin: 6px 6px 14px; overflow: hidden; z-index: 2; }
+.rit-bar i { display: block; height: 100%; width: 0; background: var(--p-accent); border-radius: 3px; transition: width .5s cubic-bezier(.16,1,.3,1); }
+.rit-title { text-align: center; font-size: 13px; font-weight: 800; color: var(--p-ink3); }
+.rit-card { margin-top: 14px; padding: 22px 18px; display: grid; gap: 10px; text-align: center; justify-items: center; min-height: 230px; align-content: center; }
+.rit-card .pic { width: 48px; height: 48px; border-radius: 16px; font-size: 24px; }
+.rit-card .t { font-size: 21px; font-weight: 800; line-height: 1.2; }
+.rit-card .m { font-size: 12.5px; color: var(--p-ink3); line-height: 1.4; max-width: 240px; }
+.rit-card .q { font-size: 15px; color: var(--p-accent); font-weight: 800; margin-top: 4px; }
+.rit-acts { display: grid; gap: 8px; margin-top: 14px; }
+.rit-acts .p-btn { width: 100%; }
+.rit-acts .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hand { margin-top: 16px; padding: 10px 12px 12px; border-radius: 16px; background: var(--p-quiet); display: grid; gap: 8px; }
+.hand small { font-size: 11.5px; font-weight: 800; color: var(--p-ink3); text-align: center; }
+.hand .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 26px; }
+.hand .chips span { font-size: 12px; font-weight: 700; background: var(--p-card); box-shadow: var(--p-shadow); padding: 4px 10px; border-radius: 999px; }
+.hand .meter { height: 6px; border-radius: 6px; background: var(--p-line); overflow: hidden; }
+.hand .meter i { display: block; height: 100%; background: var(--p-accent); width: 0; transition: width .5s cubic-bezier(.16,1,.3,1); border-radius: 6px; }
+.rit-end { display: grid; justify-items: center; text-align: center; gap: 10px; padding-top: 50px; }
+.rit-end .t { font-size: 20px; font-weight: 800; }
+.rit-end p { font-size: 13px; color: var(--p-ink2); max-width: 250px; }
+.hd-sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 44px; background: var(--p-page); border-radius: 26px 26px 0 0; box-shadow: var(--p-float); transform: translateY(105%); transition: transform .5s cubic-bezier(.16,1,.3,1); z-index: 8; display: flex; flex-direction: column; }
+.hd-sheet.show { transform: none; }
+.hd-sheet .hd { display: grid; grid-template-columns: 36px minmax(0,1fr) 36px; align-items: center; padding: 8px 10px 2px; flex: none; }
+.hd-sheet .hd b { text-align: center; font-size: 15px; font-weight: 800; }
+.hd-sheet .ib { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; font-size: 18px; color: var(--p-ink2); }
+.hd-sheet .body { flex: 1; overflow-y: auto; padding: 0 14px 24px; scrollbar-width: none; }
+.scrim { position: absolute; inset: 0; background: var(--p-scrim); opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 7; }
+.scrim.show { opacity: 1; pointer-events: auto; }
+.line-list { font-size: 13px; color: var(--p-ink2); line-height: 1.5; padding: 0 4px; }
+.line-list div { padding: 7px 0; border-bottom: 1px solid var(--p-line); display: flex; gap: 8px; align-items: center; }
+.line-list div .ic { color: var(--p-ink3); font-size: 14px; flex: none; }
+
+/* ---------- a new card ---------- */
+.anat { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 48px; align-items: start; }
+@media (max-width: 880px) { .anat { grid-template-columns: minmax(0,1fr); gap: 28px; } }
+.card-stage { background: var(--p-page); border-radius: 28px; padding: 30px 26px 22px; display: grid; gap: 16px; color: var(--p-ink); font-family: var(--f-body); }
+.flip { perspective: 1200px; }
+.flip-in { display: grid; transition: transform .7s cubic-bezier(.16,1,.3,1); transform-style: preserve-3d; }
+.flip-in > * { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip.over .flip-in { transform: rotateY(180deg); }
+.tc { background: var(--p-card); border-radius: 20px; box-shadow: var(--p-shadow); padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 11px; position: relative; }
+.tc .origin { margin-top: auto; }
+.tc-back { transform: rotateY(180deg); }
+.tc .top { display: grid; grid-template-columns: 46px minmax(0,1fr) 30px; gap: 12px; align-items: start; }
+.tc .pic { width: 46px; height: 46px; border-radius: 15px; font-size: 23px; }
+.tc .kind { font-size: 10.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--p-ink3); display: flex; gap: 6px; align-items: center; }
+.tc .t { font-size: 20px; font-weight: 800; line-height: 1.2; margin-top: 2px; }
+.tc .ring { width: 28px; height: 28px; margin-top: 8px; }
+.tc .step { display: flex; gap: 8px; align-items: flex-start; background: var(--p-quiet); border-radius: 12px; padding: 9px 11px; font-size: 13.5px; color: var(--p-ink2); line-height: 1.4; }
+.tc .step .ic { color: var(--p-accent); font-size: 15px; margin-top: 2px; }
+.tc .step b { color: var(--p-ink); }
+.tc .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc .chip { display: inline-flex; gap: 5px; align-items: center; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--p-ink2); background: var(--p-sunken); }
+.tc .chip .ic { font-size: 13px; }
+.tc .origin { display: flex; gap: 7px; align-items: center; font-size: 12px; color: var(--p-ink3); border-top: 1px solid var(--p-line); padding-top: 10px; }
+.tc .origin .turn { margin-left: auto; font-weight: 800; color: var(--p-accent); display: inline-flex; gap: 4px; align-items: center; border: 0; background: none; cursor: pointer; font-size: 12px; padding: 2px 0; }
+.tc-back .q { font-size: 15px; line-height: 1.55; color: var(--p-ink); border-left: 3px solid var(--p-accent); padding-left: 12px; }
+.tc-back .src { font-size: 12px; color: var(--p-ink3); }
+.tc-back .links { display: grid; gap: 6px; }
+.tc-back .links div { display: flex; gap: 7px; align-items: center; font-size: 12.5px; color: var(--p-ink2); font-weight: 700; }
+.tc-back .links .ic { color: var(--p-ink3); }
+.mk { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--ground); font: 500 11px/22px var(--f-mono); text-align: center; flex: none; display: inline-block; }
+.tc .mk { position: absolute; }
+.ann { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.ann li { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 12px; }
+.ann b { font-family: var(--f-display); font-weight: 640; font-size: 1.05rem; display: block; line-height: 1.3; }
+.ann span { color: var(--ink-2); font-size: .975rem; }
+.sizes { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: 40px; }
+.sizes > div { display: grid; gap: 10px; align-content: start; }
+.sizes .stage-s { background: var(--p-page); border-radius: 20px; padding: 18px 14px; min-height: 150px; display: grid; align-content: center; color: var(--p-ink); font-family: var(--f-body); }
+.sizes h3 { font-size: 1.05rem; }
+.sizes p { font-size: .95rem; color: var(--ink-2); }
+@media (max-width: 760px) { .sizes { grid-template-columns: minmax(0,1fr); } }
+.kinds { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 28px; }
+.kind-k { background: var(--panel); border-radius: 18px; padding: 16px; display: grid; gap: 8px; align-content: start; }
+.kind-k .shape { width: 40px; height: 40px; display: grid; place-items: center; color: var(--accent-ink); font-size: 26px; }
+.kind-k b { font-family: var(--f-display); font-weight: 640; font-size: 1.1rem; }
+.kind-k span { font-size: .925rem; color: var(--ink-2); line-height: 1.45; }
+@media (max-width: 760px) { .kinds { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+/* ---------- idea bank ---------- */
+.bank { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+@media (max-width: 900px) { .bank { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 560px) { .bank { grid-template-columns: minmax(0,1fr); } }
+.idea { background: var(--panel); border-radius: 20px; padding: 14px 14px 18px; display: grid; gap: 10px; align-content: start; }
+.idea .viz { height: 112px; border-radius: 14px; background: var(--p-page); color: var(--p-ink); display: grid; place-items: center; overflow: hidden; font-family: var(--f-body); position: relative; padding: 10px; }
+.idea h3 { font-size: 1.12rem; font-weight: 640; padding-inline: 4px; }
+.idea p { font-size: .95rem; color: var(--ink-2); line-height: 1.5; padding-inline: 4px; }
+.idea .fits { font-family: var(--f-mono); font-size: .72rem; color: var(--ink-3); padding-inline: 4px; letter-spacing: .02em; }
+.mini { background: var(--p-card); border-radius: 12px; box-shadow: var(--p-shadow); padding: 8px 11px; font-size: 12.5px; font-weight: 700; display: flex; gap: 8px; align-items: center; color: var(--p-ink); }
+.mini .ic { font-size: 15px; color: var(--p-ink2); flex: none; }
+.mini small { display: block; font-weight: 600; color: var(--p-ink3); font-size: 11px; }
+.viz-col { display: grid; gap: 6px; width: 100%; max-width: 250px; }
+.viz-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.pchip { display: inline-flex; gap: 5px; align-items: center; padding: 4px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; color: var(--p-ink2); background: var(--p-card); box-shadow: var(--p-shadow); }
+.pchip .ic { font-size: 13px; }
+.ink-rows .mini { transition: opacity .6s; cursor: pointer; border: 0; width: 100%; font: inherit; font-size: 12.5px; font-weight: 700; text-align: left; }
+.mini-flip { cursor: pointer; border: 0; font: inherit; color: inherit; background: none; padding: 0; width: 100%; max-width: 250px; }
+.mini-flip .flip-in > div { min-height: 64px; }
+
+/* ---------- compare ---------- */
+.cmp-wrap { overflow-x: auto; border-radius: 18px; background: var(--panel); }
+table.cmp { border-collapse: collapse; width: 100%; min-width: 680px; font-size: .95rem; }
+.cmp th, .cmp td { padding: 13px 14px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.cmp thead th { font-family: var(--f-display); font-weight: 640; font-size: 1.05rem; color: var(--ink); }
+.cmp tbody th { font-weight: 600; color: var(--ink-2); width: 30%; }
+.cmp tbody tr:last-child th, .cmp tbody tr:last-child td { border-bottom: 0; }
+.dots { display: inline-flex; gap: 4px; }
+.dots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--accent-ink); display: block; }
+.dots i.f { background: var(--accent-ink); }
+.cmp .sep th { font-family: var(--f-mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); padding-top: 18px; font-weight: 500; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: .85rem; color: var(--ink-3); align-items: center; }
+
+/* ---------- pick ---------- */
+.pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+@media (max-width: 880px) { .pick { grid-template-columns: minmax(0,1fr); } }
+.pick-text { display: grid; gap: 18px; }
+.pick-text h3 { font-size: 1.6rem; font-weight: 660; letter-spacing: -.01em; line-height: 1.15; }
+.pick-text p { color: var(--ink-2); }
+.pick-text ul { margin: 0; padding-left: 1.1em; display: grid; gap: 8px; color: var(--ink-2); }
+.pick-text li b { color: var(--ink); }
+.tiers { display: grid; gap: 10px; }
+.tier { border-radius: 18px; padding: 16px 18px; display: grid; gap: 6px; background: var(--panel); }
+.tier.lead { background: var(--accent-soft); }
+.tier .eyebrow { color: var(--ink-3); }
+.tier b { font-family: var(--f-display); font-weight: 650; font-size: 1.2rem; }
+.tier span { color: var(--ink-2); font-size: .95rem; }
+.tier-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+@media (max-width: 520px) { .tier-row { grid-template-columns: minmax(0,1fr); } }
+.tier.small b { font-size: 1rem; }
+.next { margin-top: 36px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; counter-reset: s; }
+.next > div { border: 1px solid var(--rule); border-radius: 18px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+.next > div::before { counter-increment: s; content: "Step " counter(s); font-family: var(--f-mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.next b { font-family: var(--f-display); font-weight: 640; font-size: 1.1rem; }
+.next span { color: var(--ink-2); font-size: .95rem; }
+@media (max-width: 760px) { .next { grid-template-columns: minmax(0,1fr); } }
+.asks { display: grid; gap: 0; }
+.asks > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 8px 32px; padding-block: 18px; border-bottom: 1px solid var(--rule); }
+.asks > div:first-child { border-top: 1px solid var(--rule); }
+.asks b { font-family: var(--f-display); font-weight: 640; font-size: 1.15rem; line-height: 1.3; }
+.asks span { color: var(--ink-2); }
+@media (max-width: 700px) { .asks > div { grid-template-columns: minmax(0,1fr); } }
+footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: .875rem; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.5h2.9l1.5 4-2 1.3a11 11 0 0 0 6.2 6.2l1.3-2 4 1.5v2.9a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4.5 7.5l7.5 5.5 7.5-5.5"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8.5h14l-1.1 10.6a1.6 1.6 0 0 1-1.6 1.4H7.7a1.6 1.6 0 0 1-1.6-1.4zM9 8.5V7a3 3 0 0 1 6 0v1.5"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.5 4.5l5 5-2.8 1.2-3.4-3.4zM13.4 7.2l-8.6 8.6a2.1 2.1 0 0 0 3 3l8.6-8.6"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><circle cx="17" cy="9.5" r="2.5"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0M15 14.6a4.5 4.5 0 0 1 5.5 4.9"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.2 18.5h9.6a3.8 3.8 0 0 0 .5-7.6 5.3 5.3 0 0 0-10.2 1.3 3.2 3.2 0 0 0 .1 6.3z"/></symbol>
+  <symbol id="i-cloudsun" viewBox="0 0 24 24"><path d="M8.5 3.5v1.6M3.6 8.4h1.6M5 5l1.1 1.1M13.4 6.4a4 4 0 0 0-7 3.4"/><path d="M9.6 20h8a3.3 3.3 0 0 0 .4-6.6 4.6 4.6 0 0 0-8.9 1.1 2.8 2.8 0 0 0 .5 5.5z"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.6A7.5 7.5 0 1 1 9.4 5a6 6 0 0 0 9.6 9.6z"/></symbol>
+  <symbol id="i-sprout" viewBox="0 0 24 24"><path d="M12 20.5v-8.5M12 12c0-4.2-3-6.5-7.5-6.5 0 4.2 3 6.5 7.5 6.5zM12 14.5c0-3.3 2.6-5.5 6.5-5.5 0 3.3-2.6 5.5-6.5 5.5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4.5 11V9.5a3 3 0 0 1 3-3h11M15.5 3.5l3 3-3 3M19.5 13v1.5a3 3 0 0 1-3 3h-11M8.5 20.5l-3-3 3-3"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6zM14 3.5v4h4M9 12h6M9 15.5h6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8.2 5-13 14-14-1 9-5.8 14-14 14zM5 19l7-7"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4l8.5 4.5L12 13 3.5 8.5zM3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5"/></symbol>
+  <symbol id="i-horizon" viewBox="0 0 24 24"><path d="M3 16.5h18M6.5 20h11M7.5 16.5a4.5 4.5 0 0 1 9 0M12 6.5v2M5.8 9.8l1.4 1.4M18.2 9.8l-1.4 1.4"/></symbol>
+  <symbol id="i-house" viewBox="0 0 24 24"><path d="M4 11l8-6.5 8 6.5M6 9.5V20h12V9.5M10 20v-5h4v5"/></symbol>
+  <symbol id="i-stones" viewBox="0 0 24 24"><path d="M3.5 17.5c0-3.4 3.4-6 8-6s8.5 2.4 8.5 5.4-3.4 3.6-8.3 3.6-8.2-.4-8.2-3zM8 9.5c0-1.9 1.8-3.3 4.2-3.3S16.3 7.5 16.3 9"/></symbol>
+  <symbol id="i-held" viewBox="0 0 24 24"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-9l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/><path d="M12 13.2s-3-1.8-3-4a1.6 1.6 0 0 1 3-.8 1.6 1.6 0 0 1 3 .8c0 2.2-3 4-3 4z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5l1.7 5 5 1.7-5 1.7-1.7 5-1.7-5-5-1.7 5-1.7zM18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+  <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11M8 3.5c0 4.5 4 5.5 4 8.5s-4 4-4 8.5M16 3.5c0 4.5-4 5.5-4 8.5s4 4 4 8.5"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11.3a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.3"/></symbol>
+  <symbol id="i-decide" viewBox="0 0 24 24"><path d="M12 2.8l9.2 9.2-9.2 9.2L2.8 12z"/><path d="M10 10a2.1 2.1 0 1 1 3 1.9c-.6.3-1 .8-1 1.4v.3M12 16.2v.1"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M8.5 12.2l2.4 2.4 4.6-5" opacity=".35"/></symbol>
+  <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11.5a6 6 0 0 0 12 0M12 17.5v3"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.5s6 6.4 6 10.4a6 6 0 0 1-12 0c0-4 6-10.4 6-10.4z"/></symbol>
+  <symbol id="i-cup" viewBox="0 0 24 24"><path d="M5 9h11v4.5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10.5h1.5a2.5 2.5 0 0 1 0 5H16M8.5 3.5V6M12 3.5V6"/></symbol>
+  <symbol id="i-merge" viewBox="0 0 24 24"><path d="M5 4.5c0 4 3.5 7.5 8 7.5h6M5 19.5c0-4 3.5-7.5 8-7.5M16 9l3 3-3 3"/></symbol>
+  <symbol id="i-door" viewBox="0 0 24 24"><path d="M6.5 20.5v-16h10v16M4 20.5h15.5M13.5 12.5v.1"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="11.5" rx="1.5"/><path d="M4 13h16M12 9v11.5M12 9c-1.4-3-5-3.4-5-1.4 0 1.6 3.3 1.4 5 1.4 1.7 0 5 .2 5-1.4 0-2-3.6-1.6-5 1.4z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4.5 5.5c3-1 5.5-.5 7.5 1v13c-2-1.5-4.5-2-7.5-1zM19.5 5.5c-3-1-5.5-.5-7.5 1v13c2-1.5 4.5-2 7.5-1z"/></symbol>
+  <symbol id="i-feather" viewBox="0 0 24 24"><path d="M19.5 4.5C11.5 4.5 6.5 9.5 6.5 18M6.5 18l-2 2.5M6.5 18c6.5 0 11-4.6 13-13.5M9.5 14.5H15"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3.5" y="7" width="17" height="12.5" rx="2.5"/><circle cx="12" cy="13.2" r="3.4"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4v9l-8 4-8-4zM4 8l8 4 8-4M12 12v9"/></symbol>
+  <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13.5" cy="4.6" r="1.8"/><path d="M9.5 21l2.6-6 2.6 2.4V21M8 11.5l3.2-3.6 3.3 1.3 2 3.3M12.1 15l-.8-4.3"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><path d="M4.5 16.5v-4l2.2-5h10.6l2.2 5v4zM4.5 16.5v2.5M19.5 16.5v2.5M4.5 12.5h15M8 14.5h.1M16 14.5h.1"/></symbol>
+  <symbol id="i-tulip" viewBox="0 0 24 24"><path d="M12 21v-8M12 13c-3 0-5-2.5-5-6.2l2.5 1.6L12 5l2.5 3.4L17 6.8C17 10.5 15 13 12 13zM12 18c-2-2-4-2.2-6-1.6M12 18c2-2 4-2.2 6-1.6"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3zM9 8.5h6M9 12h6M9 15.5h3"/></symbol>
+  <symbol id="i-pill" viewBox="0 0 24 24"><rect x="3.2" y="8.6" width="17.6" height="6.8" rx="3.4" transform="rotate(-40 12 12)"/><path d="M9.6 9.1l5 5.3"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 6v12M15.5 6v12"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
+  <symbol id="i-flip" viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14.5-3.5M20 5v4h-4M20 15a8 8 0 0 1-14.5 3.5M4 19v-4h4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+  <symbol id="i-bed" viewBox="0 0 24 24"><path d="M3.5 18.5v-11M3.5 14h17v4.5M20.5 14v-2.5a3 3 0 0 0-3-3h-6.5V14M7 11.5h.1"/></symbol>
+  <symbol id="i-tooth" viewBox="0 0 24 24"><path d="M8 4c1.7 0 2.6.9 4 .9s2.3-.9 4-.9c2.2 0 3.5 2 3.5 4.4 0 3-2 4.3-2.4 7.6-.4 3-1 5-2.1 5-1.3 0-1.4-2.4-1.9-4.2-.3-1-.6-1.3-1.1-1.3s-.8.3-1.1 1.3c-.5 1.8-.6 4.2-1.9 4.2-1.1 0-1.7-2-2.1-5-.4-3.3-2.4-4.6-2.4-7.6C4.5 6 5.8 4 8 4z"/></symbol>
+</svg>
+<style>
+.ph-col { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.ph-col > .ph-scroll { position: relative; inset: auto; flex: 1; min-height: 0; }
+.nf-stage { position: relative; flex: 1; min-height: 0; }
+.cap { font-size: .875rem; color: var(--ink-3); text-align: center; max-width: 340px; line-height: 1.45; }
+</style>
+
+<nav class="toc" aria-label="Sections">
+  <div class="toc-in">
+    <a href="#why">The problem</a>
+    <a href="#rules">Six rules</a>
+    <a href="#stacks">Stacks</a>
+    <a href="#near-far">Near &amp; Far</a>
+    <a href="#rooms">Rooms</a>
+    <a href="#stones">Stones</a>
+    <a href="#held">Held</a>
+    <a href="#card">The card</a>
+    <a href="#bank">Idea bank</a>
+    <a href="#compare">Compare</a>
+    <a href="#pick">My pick</a>
+    <a href="#asks">For you</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Clarity · Life Center · Round 1, UX directions</p>
+    <h1>A long list, held <em>lightly</em></h1>
+    <p class="lede">Life Center today is one list sorted by when. Every task you type, and every task Clarity finds in a note, adds a row, and every row asks to be read and decided on. Here are five ways to hold the same list so it stops pressing on the person looking at it, a new task card, and a bank of smaller ideas that work with any of them. Each direction has a working phone you can tap.</p>
+    <div class="meta-row"><span>9 October 2026</span><span>Ideas first, not finished designs</span><span>Drawn in Sage, revamp 5's design language</span></div>
+
+    <div class="questions5">
+      <a class="q5" href="#stacks"><span class="glyph"><svg class="ic"><use href="#i-layers"/></svg></span><span class="ask">What's on my plate?</span><span class="name">Stacks</span><span class="one">See the top of each pile, never the pile.</span></a>
+      <a class="q5" href="#near-far"><span class="glyph"><svg class="ic"><use href="#i-horizon"/></svg></span><span class="ask">When does it matter?</span><span class="name">Near &amp; Far</span><span class="one">Time as distance. Far things stay small.</span></a>
+      <a class="q5" href="#rooms"><span class="glyph"><svg class="ic"><use href="#i-house"/></svg></span><span class="ask">Where can I do it?</span><span class="name">Rooms</span><span class="one">Every task has a place in your home.</span></a>
+      <a class="q5" href="#stones"><span class="glyph"><svg class="ic"><use href="#i-stones"/></svg></span><span class="ask">How much can I carry?</span><span class="name">Stones</span><span class="one">A day holds what it can carry.</span></a>
+      <a class="q5" href="#held"><span class="glyph"><svg class="ic"><use href="#i-held"/></svg></span><span class="ask">What should I do now?</span><span class="name">Held</span><span class="one">One small question at a time.</span></a>
+    </div>
+  </header>
+
+  <!-- ================= The problem ================= -->
+  <section class="block" id="why">
+    <div class="sec-head">
+      <p class="eyebrow">Where we are</p>
+      <h2>Why a long list weighs so much</h2>
+      <p>Life Center is calm row by row. The trouble is length. Here it is with the thirty-odd tasks a few busy weeks leave behind.</p>
+    </div>
+    <div class="two">
+      <div class="stage">
+        <div id="ph-now" aria-label="Life Center as it is today, with a long list"></div>
+        <p class="cap">Life Center today: area chips, the slipped card, then Today, This week, Later and Someday, each a card of rows.</p>
+      </div>
+      <div class="thinking">
+        <div class="causes">
+          <div class="cause"><b>Every row is a decision nobody has made yet.</b><span>Seeing forty tasks means forty small questions of "now, or not?". Most of the effort is spent before anything is done.</span></div>
+          <div class="cause"><b>Everything is the same size.</b><span>A two-minute call and a weekend's job take one identical row, so the list can't say how much a day really holds.</span></div>
+          <div class="cause"><b>The list grows faster than intention.</b><span>Find tasks turns a note's passing thoughts into rows. A list can fill up without anyone choosing to fill it.</span></div>
+          <div class="cause"><b>Reasons fade.</b><span>"Ask Sam about the brackets" made sense on Monday. Three weeks later it's a puzzle: which Sam, which brackets, why?</span></div>
+          <div class="cause"><b>Time words ask for arithmetic.</b><span>"Later" and "Someday" mean holding a calendar in mind, which is the very part that is hard.</span></div>
+          <div class="cause"><b>Nothing leaves gracefully.</b><span>Old tasks keep their full volume. The only way out is Delete, which feels like admitting failure.</span></div>
+        </div>
+        <p class="callout"><b>For people living with mild cognitive impairment,</b> each of these leans on working memory and on planning, starting and switching between things, which are the abilities under the most strain. A long list doesn't only look busy. It uses up the capacity the person needs to act on it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Rules ================= -->
+  <section class="block" id="rules">
+    <div class="sec-head">
+      <p class="eyebrow">For any direction</p>
+      <h2>Six rules</h2>
+      <p>Each direction below is a different shape. These are the rules every one of them keeps.</p>
+    </div>
+    <div class="principles">
+      <div class="pr"><b>Hold more than you show.</b><span>The app can know about everything. The screen only needs what helps right now.</span></div>
+      <div class="pr"><b>Ask one thing at a time.</b><span>Decisions come singly, as a tap, never as a page of choices.</span></div>
+      <div class="pr"><b>Give every task a size, a place and a reason.</b><span>A quick call should never look like a weekend's job, and no task should become a puzzle.</span></div>
+      <div class="pr"><b>Let distance soften detail.</b><span>Next month doesn't need the same ink as this afternoon.</span></div>
+      <div class="pr"><b>Make letting go safe.</b><span>Nothing is lost. What you let go of rests, and can come back with one tap.</span></div>
+      <div class="pr"><b>Today is for doing. Life is for deciding.</b><span>Today stays the place to act. Life Center becomes the place where the list is looked after.</span></div>
+    </div>
+    <p class="built-on">These build on what revamp 5 has already settled: content on cards, one accent, no counts, pictures only for moments, buttons that answer in place. They reuse Catch up's peeking card, round 3's thread and parts of the day, and the "feel alive" research's list of things to leave out: streaks, points and guilt.</p>
+  </section>
+  <!-- ================= A. Stacks ================= -->
+  <section class="block direction" id="stacks">
+    <div class="d-head">
+      <span class="d-ask"><span class="glyph"><svg class="ic"><use href="#i-layers"/></svg></span>Asks: what's on my plate?</span>
+      <h2>Stacks</h2>
+      <p class="d-big">Tasks gather into piles by what they belong to. You see the top of each pile, never the whole pile.</p>
+    </div>
+    <div class="two">
+      <div class="stage">
+        <div id="ph-stacks" aria-label="Stacks, a working prototype"></div>
+        <div class="try" data-for="stacks">
+          <span class="try-label">Try it</span>
+          <button data-do="open">Open a pile</button>
+          <button data-do="tick">Tick the top card</button>
+          <button data-do="tuck">Tuck it under</button>
+          <button data-do="aside">Set a pile aside</button>
+          <button data-do="suggest">Clarity suggests a pile</button>
+          <button class="reset" data-do="reset">Reset</button>
+        </div>
+        <p class="hint-under">Or tap a pile's name to fan it out, and a ring to finish its top card.</p>
+      </div>
+      <div class="thinking">
+        <p class="insight">People overwhelmed by paper don't read every sheet. They make piles. A pile hides everything but its top sheet, and its thickness tells you roughly how much is there without counting. Stacks gives Life Center the same move. Clarity groups tasks into threads (a project, a person, a place, or the note they came from) and shows each thread as one card, with the edges of the rest peeking out underneath.</p>
+        <div>
+          <h3>How it works</h3>
+          <ul>
+            <li><b>The top card is the next step.</b> Only it is written out in full. Its pile's name says why it matters: "Kitchen shelves", "Mum", "Out and about".</li>
+            <li><b>Thickness, not numbers.</b> One, two or three edges say a little, some, or a lot.</li>
+            <li><b>Tap to fan out.</b> The pile opens in place to show everything in it, in order. Tap again and it gathers back.</li>
+            <li><b>Tick the top, the next one rises.</b> The pile gets thinner. When it's empty it says so, and leaves.</li>
+            <li><b>Tuck under</b> sends the top card to the bottom of its own pile, for "not this one yet".</li>
+            <li><b>Set aside</b> moves a whole pile into a drawer at the foot of the page: still there, out of sight. Someday starts in the drawer.</li>
+            <li><b>Clarity suggests piles</b> from the notes and words tasks share. Anything can be moved by dropping it on another pile.</li>
+            <li><b>A dated card can't hide.</b> On its day it rises to the top of its pile, so time still counts.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>With a long list</h3>
+          <div class="scale">
+            <div><span class="n">15 tasks</span><span>Five or six piles, mostly single cards. It reads like today's list.</span></div>
+            <div><span class="n">60 tasks</span><span>About ten piles, a screen and a bit. The page is as long as it was at thirty.</span></div>
+            <div><span class="n">200 tasks</span><span>A dozen piles in view and the rest set aside. Growth makes piles thicker, not the page longer.</span></div>
+          </div>
+        </div>
+        <div>
+          <h3>Why it suits Clarity</h3>
+          <p>Reading drops to one line per thread. The thread's name carries the context a lone task loses: "Ask Sam about the brackets" sits under "Kitchen shelves". It extends Catch up's peeking card, which people already know, and it's the direction that compresses a long list the most.</p>
+        </div>
+        <div class="rt">
+          <div><h4>Risks</h4><ul><li>Clarity's grouping will sometimes be wrong, so moving a card must be easy and forgiving.</li><li>Some tasks belong to two threads (Mum's birthday lunch is People and Plans).</li><li>What's underneath can feel hidden. The dated-card rule and fanning out have to earn trust.</li></ul></div>
+          <div><h4>What we'd test</h4><ul><li>Can people find a named task faster or slower than in today's list?</li><li>Do they trust what's underneath, or open every pile to check?</li><li>Do Clarity's piles match how people describe their own lives?</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= B. Near & Far ================= -->
+  <section class="block direction" id="near-far">
+    <div class="d-head">
+      <span class="d-ask"><span class="glyph"><svg class="ic"><use href="#i-horizon"/></svg></span>Asks: when does it matter?</span>
+      <h2>Near &amp; Far</h2>
+      <p class="d-big">Time is shown as distance. Today stands close and clear; next month waits, small and soft, on the horizon.</p>
+    </div>
+    <div class="two">
+      <div class="stage">
+        <div id="ph-nf" aria-label="Near and Far, a working prototype"></div>
+        <div class="travel">
+          <label for="nf-range">Travel forward in time</label>
+          <div class="seg" role="group" aria-label="Look at">
+            <button data-cam="0" class="on">Today</button><button data-cam="1">This week</button><button data-cam="2">Later</button><button data-cam="3">Someday</button>
+          </div>
+          <input id="nf-range" type="range" min="0" max="300" value="0" aria-label="How far ahead to look">
+        </div>
+        <div class="try" data-for="nf">
+          <span class="try-label">Try it</span>
+          <button data-do="further">Send "Book the dentist" further</button>
+          <button data-do="near">Bring "Learn the birds" near</button>
+          <button data-do="spread">Spread a busy day</button>
+          <button class="reset" data-do="reset">Reset</button>
+        </div>
+        <p class="hint-under">With a mouse, drag down inside the phone to walk toward the horizon. Tap a day's sky to see how full it is.</p>
+      </div>
+      <div class="thinking">
+        <p class="insight">"Later" and "Someday" ask the reader to do calendar arithmetic. Distance doesn't. Everyone knows that what's close needs attention and what's far away can wait. Near &amp; Far draws Life Center as a view into depth: today's tasks in the foreground at full size, this week smaller behind them, later as plain words, someday as a soft line near the horizon. You travel forward by pulling the far things toward you.</p>
+        <div>
+          <h3>How it works</h3>
+          <ul>
+            <li><b>Depth carries the date.</b> Nothing needs a heading to say it's far away; it looks far away.</li>
+            <li><b>Detail fades with distance.</b> Near things are cards with times and checks. Far things are just their words, quieter, with no details.</li>
+            <li><b>Pull to travel.</b> Walk toward the horizon and the far tasks grow into cards as they arrive, while today passes behind you.</li>
+            <li><b>Move in time by moving in space.</b> Flick a task up to send it further away; draw a far one down to bring it near.</li>
+            <li><b>Weather for the week.</b> A strip of skies shows how full each day is: clear, a few clouds, busy. Tap a cloudy day and Clarity offers to move something to a clear one.</li>
+            <li><b>At your feet.</b> What slipped doesn't turn red. It waits at your feet, to pick up or let go.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>With a long list</h3>
+          <div class="scale">
+            <div><span class="n">15 tasks</span><span>Today's cards, and a few words on the horizon.</span></div>
+            <div><span class="n">60 tasks</span><span>The near view doesn't change. The far bands are longer lines of words.</span></div>
+            <div><span class="n">200 tasks</span><span>The horizon thickens into a haze, "more in the haze". You only read it by travelling there.</span></div>
+          </div>
+        </div>
+        <div>
+          <h3>Why it suits Clarity</h3>
+          <p>It turns the sections Life Center already has into something felt rather than read, and it follows round 3's "sky" look and the time-of-day pictures. The far future can't overwhelm anyone, because it is literally small.</p>
+        </div>
+        <div class="rt">
+          <div><h4>Risks</h4><ul><li>Small, soft words are harder to read. Far words must stay legible with Larger text, and a tap brings any of them near.</li><li>Moving depth can upset people sensitive to motion. Under Reduce Motion the bands cross-fade.</li><li>Pulling to travel isn't obvious the first time.</li></ul></div>
+          <div><h4>What we'd test</h4><ul><li>Do people know where "next Thursday" is without looking for a date?</li><li>Does the haze feel calming, or like things are hidden?</li><li>Do the skies read as how busy a day is, or as the actual weather?</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= C. Rooms ================= -->
+  <section class="block direction" id="rooms">
+    <div class="d-head">
+      <span class="d-ask"><span class="glyph"><svg class="ic"><use href="#i-house"/></svg></span>Asks: where can I do it?</span>
+      <h2>Rooms</h2>
+      <p class="d-big">Every task lives somewhere in a drawn house. You remember the kitchen, so you find what's in the kitchen.</p>
+    </div>
+    <div class="two">
+      <div class="stage">
+        <div id="ph-rooms" aria-label="Rooms, a working prototype"></div>
+        <div class="try" data-for="rooms">
+          <span class="try-label">Try it</span>
+          <button data-do="kitchen">Look into the kitchen</button>
+          <button data-do="out">I'm going out</button>
+          <button data-do="desk">I'm at my desk</button>
+          <button data-do="move">Move "Ask Sam" to the kitchen</button>
+          <button class="reset" data-do="reset">Back to the house</button>
+        </div>
+        <p class="hint-under">Tap any room. The little notes are tasks; a sun means something there is for today.</p>
+      </div>
+      <div class="thinking">
+        <p class="insight">A place is easier to recognise than a word is to recall, and tying things to rooms (the method of loci) is one of the oldest memory techniques there is. Rooms turns areas into places. The desk holds work and paperwork, the hall table holds things to take out, the mantelpiece holds people, the bedside holds health, the attic holds someday. Life Center opens on the house. You don't read a list; you look into a room.</p>
+        <div>
+          <h3>How it works</h3>
+          <ul>
+            <li><b>A house, not a list.</b> Each room shows its tasks as little notes. A busy room looks cluttered and a calm one looks tidy, with no numbers.</li>
+            <li><b>Look into a room.</b> Tap it and the house zooms in; the room's tasks come up as notes to tick.</li>
+            <li><b>Where are you?</b> "Going out" lights the hall and the garden and says what to take. "At my desk" lights the study.</li>
+            <li><b>Clarity places new tasks</b> by their words: a call goes to the mantelpiece, buying goes by the front door. Drag a note to another room to move it.</li>
+            <li><b>Your house, your rooms.</b> Rename them, add the allotment or the car, take away the attic.</li>
+            <li><b>Today glows.</b> A small sun on a room means something in it is for today.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>With a long list</h3>
+          <div class="scale">
+            <div><span class="n">15 tasks</span><span>A tidy house, a note or two in most rooms.</span></div>
+            <div><span class="n">60 tasks</span><span>Busier rooms, but each room on its own is a short list.</span></div>
+            <div><span class="n">200 tasks</span><span>Cluttered rooms invite a tidy, one room at a time. The house never gets longer.</span></div>
+          </div>
+        </div>
+        <div>
+          <h3>Why it suits Clarity</h3>
+          <p>It speaks Clarity's picture language (flat colour inside a dark outline). It swaps abstract area names for places people already know, which matters when the right word won't come: "the thing in the kitchen" is enough. And context, which today's list ignores, becomes the way in: what can I do from here?</p>
+        </div>
+        <div class="rt">
+          <div><h4>Risks</h4><ul><li>Done badly it looks childish. It needs the same restraint as the existing pictures.</li><li>Homes differ: a flat, shared housing, a care home. Rooms must be editable, and work for people who don't think in space.</li><li>It's the costliest to build and the hardest to make work with VoiceOver ("Kitchen, a few things, one for today").</li></ul></div>
+          <div><h4>What we'd test</h4><ul><li>A week later, can people say which room a task is in?</li><li>Does it feel adult and warm, or like a game?</li><li>Do people use "Going out", and does it help?</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= D. Stones ================= -->
+  <section class="block direction" id="stones">
+    <div class="d-head">
+      <span class="d-ask"><span class="glyph"><svg class="ic"><use href="#i-stones"/></svg></span>Asks: how much can I carry?</span>
+      <h2>Stones</h2>
+      <p class="d-big">Tasks have weight, and a day is a bowl. You plan by what a day can hold, not by how many things are on it.</p>
+    </div>
+    <div class="two">
+      <div class="stage">
+        <div id="ph-stones" aria-label="Stones, a working prototype"></div>
+        <div class="try" data-for="stones">
+          <span class="try-label">Try it</span>
+          <button data-do="today-fit">Plan "Book the dentist" for today</button>
+          <button data-do="today-full">Plan "Renew the car insurance" for today</button>
+          <button data-do="break">Break up "Sort the loft"</button>
+          <button data-do="finish">Finish a stone from today</button>
+          <button class="reset" data-do="reset">Reset</button>
+        </div>
+        <p class="hint-under">Or tap a stone on the shore, then a day's bowl. Tap a bowl on its own to see what's in it.</p>
+      </div>
+      <div class="thinking">
+        <p class="insight">A list says nothing about size. A two-minute call and a weekend's job take the same row, so a day can be planned three times over and still look fine at nine in the morning. Stones gives every task a weight: a pebble, a stone or a rock. Days are bowls. You put stones into a day until it looks full, and when it's full a new stone won't settle. It rolls back, and Clarity points to a day with room.</p>
+        <div>
+          <h3>How it works</h3>
+          <ul>
+            <li><b>Three weights.</b> A pebble is a few minutes, a stone an hour or so, a rock a big job. Clarity guesses from the words; a tap changes it.</li>
+            <li><b>A bowl for each day.</b> Bowls fill by weight. The eye reads "nearly full" with no number.</li>
+            <li><b>A full day says so.</b> A stone that won't fit rolls back, and a day with room glows.</li>
+            <li><b>Break a rock.</b> Tap a big job and Clarity offers to break it into stones, each a real first step.</li>
+            <li><b>The shore.</b> Unplanned tasks wait on the shore. Things untouched for a while lie further down the beach, paler. They aren't lost and they don't shout.</li>
+            <li><b>The cairn.</b> Finished stones go onto a cairn that grows through the week: a quiet record of what was carried, never counted.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>With a long list</h3>
+          <div class="scale">
+            <div><span class="n">15 tasks</span><span>A few stones on the shore, bowls half full.</span></div>
+            <div><span class="n">60 tasks</span><span>A wider shore. The nearest stones are labelled; the far ones are texture.</span></div>
+            <div><span class="n">200 tasks</span><span>Most of the beach is pale and far. Planning still only touches a handful of stones.</span></div>
+          </div>
+        </div>
+        <div>
+          <h3>Why it suits Clarity</h3>
+          <p>Capacity is the idea today's list is missing, and overplanning is a common route to an evening that feels like failure. Weight also answers "what can I manage today?" at a glance, which is the question someone with low energy is really asking.</p>
+        </div>
+        <div class="rt">
+          <div><h4>Risks</h4><ul><li>Guessing size is hard, for Clarity and for people.</li><li>Dragging is hard with a tremor. Every move needs a tap-then-tap way too, as here.</li><li>A physical metaphor can tip into whimsy. It has to stay quiet.</li></ul></div>
+          <div><h4>What we'd test</h4><ul><li>Do people plan fewer, more realistic days?</li><li>Do they feel better at the end of the day than with a list?</li><li>Can they read a bowl's fullness without help?</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= E. Held ================= -->
+  <section class="block direction" id="held">
+    <div class="d-head">
+      <span class="d-ask"><span class="glyph"><svg class="ic"><use href="#i-held"/></svg></span>Asks: what should I do now?</span>
+      <h2>Held</h2>
+      <p class="d-big">Clarity holds the whole list. Life Center asks for one small decision at a time, and the rest stays safely out of sight.</p>
+    </div>
+    <div class="two">
+      <div class="stage">
+        <div id="ph-held" aria-label="Held, a working prototype"></div>
+        <div class="try" data-for="held">
+          <span class="try-label">Try it</span>
+          <button data-do="else">Something else</button>
+          <button data-do="energy">Low on energy</button>
+          <button data-do="tomorrow">Choose tomorrow with me</button>
+          <button data-do="tidy">A two-minute tidy</button>
+          <button data-do="away">Put today away</button>
+          <button data-do="all">Show everything</button>
+          <button class="reset" data-do="reset">Reset</button>
+        </div>
+      </div>
+      <div class="thinking">
+        <p class="insight">Most of the work of a long list is deciding: what matters, what's next, what can go. That's exactly the work that's hardest under cognitive strain. Held moves the deciding into short, kind conversations. Life Center opens on the one thing that makes most sense right now, with its reason and a few gentle ways out, and three short rituals look after the rest. Every answer is a tap. Nothing needs typing, or the right word.</p>
+        <div>
+          <h3>How it works</h3>
+          <ul>
+            <li><b>One thing, with a reason.</b> Chosen from the time, today's plans and how you said you feel: "It's the only thing with a time this afternoon."</li>
+            <li><b>Gentle doors.</b> Something else, Not today, or Low on energy, which offers something smaller.</li>
+            <li><b>Choose tomorrow with me</b> (about a minute, in the evening). Cards are dealt one at a time, yes or not tomorrow, until the day looks full.</li>
+            <li><b>Put today away</b> (half a minute). What didn't happen goes to tomorrow, next week, or a rest, with no judgement.</li>
+            <li><b>A two-minute tidy</b> (once a week). A few of the oldest things, one at a time: does this still matter?</li>
+            <li><b>Show everything</b> is always one tap away, so nothing feels hidden.</li>
+            <li><b>It says what it holds in words, not numbers:</b> "I'm keeping everything else safe."</li>
+          </ul>
+        </div>
+        <div>
+          <h3>With a long list</h3>
+          <div class="scale">
+            <div><span class="n">15 tasks</span><span>The one thing and a ritual or two. Like a friend with a notebook.</span></div>
+            <div><span class="n">60 tasks</span><span>Exactly the same. The list's length never reaches the screen.</span></div>
+            <div><span class="n">200 tasks</span><span>Still the same. The weekly tidy brings the oldest things up for a decision before they pile up.</span></div>
+          </div>
+        </div>
+        <div>
+          <h3>Why it suits Clarity</h3>
+          <p>It takes the planning load off the person and puts it on the app, which is what an assistive tool is for. The rituals give the week a rhythm, and routine is one of the strongest supports for memory. It's also a natural home for Clarity's AI, which already writes summaries and first steps.</p>
+        </div>
+        <div class="rt">
+          <div><h4>Risks</h4><ul><li>It can feel like being managed. How much it leads should be a setting.</li><li>When the pick is wrong, trust drops. "Something else" must be instant and never sulk.</li><li>Hidden things can feel lost. Every move says where the task went.</li><li>Rituals can become chores. They're short and optional, and skipping one costs nothing.</li></ul></div>
+          <div><h4>What we'd test</h4><ul><li>Do people feel looked after, or managed?</li><li>Do the right tasks still get done?</li><li>After two weeks, have the rituals become habits?</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- ================= The card ================= -->
+  <section class="block" id="card">
+    <div class="sec-head">
+      <p class="eyebrow">Whichever direction wins</p>
+      <h2>A new task card</h2>
+      <p>The card itself needs to carry more meaning with less reading. This one leads with a picture and a verb, shows how big the task is, starts with a first step when the task is big, and keeps its reason on the back.</p>
+    </div>
+    <div class="anat">
+      <div class="card-stage">
+        <div class="flip" id="bigflip">
+          <div class="flip-in">
+            <div class="tc">
+              <div class="top" style="position:relative">
+                <span class="mk" style="left:-27px;top:12px">a</span>
+                <span class="pic"><svg class="ic"><use href="#i-gift"/></svg></span>
+                <div style="position:relative">
+                  <div class="kind"><svg class="ic"><use href="#i-circle"/></svg>Do · for Mum</div>
+                  <div class="t">Plan Mum's birthday lunch</div>
+                </div>
+                <span class="ring" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+                <span class="mk" style="right:-27px;top:30px">b</span>
+              </div>
+              <div class="step" style="position:relative"><span class="mk" style="left:-27px;top:8px">c</span><svg class="ic"><use href="#i-sparkle"/></svg><span><b>First step:</b> ask Sam which Sunday suits them. A couple of minutes.</span></div>
+              <div class="chips" style="position:relative">
+                <span class="mk" style="left:-27px;top:2px;width:auto;padding:0 7px;border-radius:11px">d–f</span>
+                <span class="chip"><svg class="ic"><use href="#i-stones"/></svg>A stone, about an hour</span>
+                <span class="chip"><svg class="ic"><use href="#i-cup"/></svg>After lunch</span>
+                <span class="chip"><svg class="ic"><use href="#i-people"/></svg>Sam is helping</span>
+              </div>
+              <div class="origin" style="position:relative"><span class="mk" style="left:-27px;top:8px">g</span><svg class="ic"><use href="#i-note"/></svg>From "Sunday plans", Tuesday<button class="turn" type="button" data-flip="bigflip"><svg class="ic"><use href="#i-flip"/></svg>Turn over</button></div>
+            </div>
+            <div class="tc tc-back">
+              <div class="kind"><svg class="ic"><use href="#i-note"/></svg>Why this is here</div>
+              <p class="q">"Mum's 80th is on the 22nd. I want to do lunch somewhere with a garden, not the usual place. Ask Sam which Sunday works for them."</p>
+              <p class="src">You wrote this on Tuesday 6 October, in "Sunday plans". Find tasks picked it out.</p>
+              <div class="links">
+                <div><svg class="ic"><use href="#i-note"/></svg>Open "Sunday plans"</div>
+                <div><svg class="ic"><use href="#i-people"/></svg>Shared with Sam</div>
+                <div><svg class="ic"><use href="#i-speaker"/></svg>Read it to me</div>
+              </div>
+              <div class="origin"><span></span><button class="turn" type="button" data-flip="bigflip"><svg class="ic"><use href="#i-flip"/></svg>Turn back</button></div>
+            </div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--p-ink3);text-align:center">Tap "Turn over" to see the back.</p>
+      </div>
+      <ol class="ann">
+        <li><span class="mk">a</span><div><b>A picture first</b><span>A small picture for the kind of task, chosen from its verb, so the eye knows what it is before reading.</span></div></li>
+        <li><span class="mk">b</span><div><b>The verb leads the title</b><span>Short, verb first, in the person's own words where possible. Who it's for sits above it, quietly.</span></div></li>
+        <li><span class="mk">c</span><div><b>A first step for big tasks</b><span>A step small enough to start, which is what Focus already offers, brought forward to where the decision is made.</span></div></li>
+        <li><span class="mk">d</span><div><b>Size, said in words</b><span>A pebble, a stone or a rock, never a count of minutes unless asked. It's what Stones and Held use to fill a day.</span></div></li>
+        <li><span class="mk">e</span><div><b>An anchor, not an hour</b><span>"After lunch" or "when I'm out" for people who think that way; a clock time for those who don't.</span></div></li>
+        <li><span class="mk">f</span><div><b>Who's helping</b><span>When a task is shared with someone, the card says so, and it comes back when they're done.</span></div></li>
+        <li><span class="mk">g</span><div><b>Its reason on the back</b><span>Turn it over for the person's own words, the note, the day. A task should never turn into a puzzle.</span></div></li>
+      </ol>
+    </div>
+
+    <div class="sizes">
+      <div>
+        <div class="stage-s">
+          <div class="tc" style="padding:14px">
+            <div class="top" style="grid-template-columns:40px minmax(0,1fr)"><span class="pic today" style="width:40px;height:40px;font-size:20px"><svg class="ic"><use href="#i-mail"/></svg></span><div><div class="kind">Right now</div><div class="t" style="font-size:18px">Send the brief to Ana</div></div></div>
+            <div class="step" style="font-size:12.5px;padding:7px 10px"><svg class="ic"><use href="#i-sparkle"/></svg><span>It's the only thing with a time this afternoon.</span></div>
+          </div>
+        </div>
+        <h3>Lead</h3>
+        <p>One task, large, with its reason. For Held's one thing, or the top of a pile.</p>
+      </div>
+      <div>
+        <div class="stage-s">
+          <div class="p-card"><div class="p-row" style="grid-template-columns:30px minmax(0,1fr) 26px"><span class="pic" style="width:30px;height:30px;font-size:16px;border-radius:9px"><svg class="ic"><use href="#i-phone"/></svg></span><div><div class="t">Call Mum back</div><div class="m"><span><svg class="ic"><use href="#i-clock"/></svg>Before 7 pm</span><span>A pebble</span></div></div><span class="ring"><svg class="ic"><use href="#i-check"/></svg></span></div></div>
+        </div>
+        <h3>Standard</h3>
+        <p>Picture, words, one line of detail. For a fanned-out pile, a room, a day's bowl.</p>
+      </div>
+      <div>
+        <div class="stage-s">
+          <p style="text-align:center;color:var(--p-ink2);font-size:14px;font-weight:600;line-height:1.6">Learn the birds in the garden<span style="color:var(--p-ink3)"> · </span>Make a Lisbon photo book<span style="color:var(--p-ink3)"> · </span>Try the pottery class</p>
+        </div>
+        <h3>Line</h3>
+        <p>Just the words, quieter. For what's far away, set aside, or resting.</p>
+      </div>
+    </div>
+
+    <div class="kinds">
+      <div class="kind-k"><span class="shape"><svg class="ic"><use href="#i-circle"/></svg></span><b>Do</b><span>Something to do. The only kind that becomes a card with a check.</span></div>
+      <div class="kind-k"><span class="shape"><svg class="ic"><use href="#i-decide"/></svg></span><b>Decide</b><span>A question, like "Does the quote include VAT?". It's asked once, as a choice, then becomes a Do or goes.</span></div>
+      <div class="kind-k"><span class="shape"><svg class="ic"><use href="#i-pin"/></svg></span><b>Remember</b><span>A fact to keep, like "the alcove is 84 cm, not 80". It stays pinned to its note, not in the list.</span></div>
+      <div class="kind-k"><span class="shape"><svg class="ic"><use href="#i-hourglass"/></svg></span><b>Waiting on</b><span>Something someone else will do. It waits quietly and comes back when it's due.</span></div>
+    </div>
+    <p class="built-on">Find tasks would sort what it finds into these four. Many lines that read like tasks are really questions or facts, so sorting them shortens the list before any layout does.</p>
+  </section>
+
+  <!-- ================= Idea bank ================= -->
+  <section class="block" id="bank">
+    <div class="sec-head">
+      <p class="eyebrow">Smaller ideas</p>
+      <h2>An idea bank</h2>
+      <p>Each of these works with any direction. Some are small enough to ship on their own, before the bigger change.</p>
+    </div>
+    <div class="bank">
+      <div class="idea">
+        <div class="viz">
+          <button class="mini-flip flip" id="miniflip" type="button" aria-label="Turn the card over">
+            <span class="flip-in">
+              <span class="mini" style="display:flex"><svg class="ic"><use href="#i-person"/></svg><span>Ask Sam about the brackets<small>Tap to turn over</small></span></span>
+              <span class="mini tc-back" style="display:flex"><svg class="ic"><use href="#i-note"/></svg><span style="font-weight:600;font-size:11.5px;line-height:1.35">"Ask Sam about the brackets; the oak offcuts might be enough." <small>Kitchen shelves, Monday</small></span></span>
+            </span>
+          </button>
+        </div>
+        <h3>Turn it over</h3>
+        <p>Every card has a back: where it came from, in your own words, with the day and the note. "Ask Sam about the brackets" still makes sense three weeks later.</p>
+        <span class="fits">Fits every direction</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-row" style="gap:14px;font-size:28px;color:var(--p-accent)"><svg class="ic"><use href="#i-circle"/></svg><svg class="ic"><use href="#i-decide"/></svg><svg class="ic"><use href="#i-pin"/></svg><svg class="ic"><use href="#i-hourglass"/></svg></div></div>
+        <h3>Not everything is a task</h3>
+        <p>Find tasks sorts what it finds into Do, Decide, Remember and Waiting on. Only a Do becomes a card in the list; the rest go where they belong.</p>
+        <span class="fits">Fits every direction · changes Find tasks</span>
+      </div>
+      <div class="idea">
+        <div class="viz">
+          <div class="viz-col ink-rows" id="ink">
+            <button class="mini" type="button" style="opacity:1">Send the brief to Ana</button>
+            <button class="mini" type="button" style="opacity:.62">Back up the photos</button>
+            <button class="mini" type="button" style="opacity:.36">Try the pottery class</button>
+          </div>
+        </div>
+        <h3>Ink that fades</h3>
+        <p>A task nobody has touched for weeks slowly lightens. No date, no red. Touch it and the ink comes back; leave it, and the next tidy asks about it.</p>
+        <span class="fits">Stacks · Near &amp; Far · Stones</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-col"><span class="mini"><svg class="ic"><use href="#i-box"/></svg><span>Sort the loft<small>First: clear the shelf by the window, ten minutes</small></span></span></div></div>
+        <h3>The smallest step first</h3>
+        <p>Big tasks lead with a first step small enough to start. Starting is the hardest part, so the card makes starting easy.</p>
+        <span class="fits">Held · Stones · Stacks</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-col"><span class="mini"><svg class="ic"><use href="#i-moon"/></svg><span>Resting<small>Fix the squeaky gate</small></span><span class="pchip" style="margin-left:auto">Bring back</span></span></div></div>
+        <h3>Resting, not deleting</h3>
+        <p>Letting a task go puts it in Resting. It stays for a year and comes back with one tap, so letting go never costs anything.</p>
+        <span class="fits">Fits every direction</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-col" style="text-align:center"><span style="font-weight:800;font-size:16px">Welcome back</span><span style="font-size:12px;color:var(--p-ink2)">What went past while you were away is resting. Here's what still has a day.</span></div></div>
+        <h3>A fresh start</h3>
+        <p>After days away, Clarity doesn't greet you with a backlog. What passed is put to rest, and the page opens on what still has a day.</p>
+        <span class="fits">Held · Near &amp; Far</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-row"><span class="pchip"><svg class="ic"><use href="#i-door"/></svg>When I'm going out</span><span class="pchip"><svg class="ic"><use href="#i-person"/></svg>When Sam replies</span><span class="pchip"><svg class="ic"><use href="#i-tulip"/></svg>In spring</span></div></div>
+        <h3>Wake me when</h3>
+        <p>Put a task to sleep until a moment, not only a date: when I'm going out, when Sam replies, in spring, after the move.</p>
+        <span class="fits">Rooms · Held</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-col"><span class="mini"><svg class="ic"><use href="#i-car"/></svg><span>Renew the car insurance<small>Sam has this · back to you when it's done</small></span></span></div></div>
+        <h3>Hand it on</h3>
+        <p>Share a task with someone who helps: a partner, a daughter, a carer. The card shows who has it, and it comes back when it's done.</p>
+        <span class="fits">Fits every direction · needs sharing</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-row" style="gap:10px;font-size:22px;color:var(--p-ink2)"><svg class="ic"><use href="#i-phone"/></svg><svg class="ic"><use href="#i-bag"/></svg><svg class="ic"><use href="#i-mail"/></svg><svg class="ic"><use href="#i-tool"/></svg><svg class="ic"><use href="#i-pill"/></svg><svg class="ic"><use href="#i-gift"/></svg></div></div>
+        <h3>Pictures before words</h3>
+        <p>Each task gets a small picture from its verb (a phone for a call, a bag for buying, an envelope for sending), so the eye knows the kind before it reads.</p>
+        <span class="fits">Fits every direction</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-col"><span class="mini"><svg class="ic"><use href="#i-mic"/></svg><span>"What was the thing about the brackets?"<small>Ask out loud; the card comes forward</small></span></span><span class="mini"><svg class="ic"><use href="#i-speaker"/></svg><span>Hold any card to hear it</span></span></div></div>
+        <h3>Say it, hear it</h3>
+        <p>Hold a card to hear it read. Ask out loud, in whatever words come, and the matching card comes forward.</p>
+        <span class="fits">Held · Rooms</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-col"><span class="mini"><svg class="ic"><use href="#i-lock"/></svg>Walk at lunch, no podcast</span><span class="mini" style="opacity:.75"><svg class="ic"><use href="#i-lock"/></svg>Send the brief to Ana</span></div></div>
+        <h3>Nothing moves while you look</h3>
+        <p>Order changes overnight, never under your eyes. A ticked task settles where it was. Things stay where they were put, so memory can find them.</p>
+        <span class="fits">Fits every direction</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-row"><span class="pchip"><svg class="ic"><use href="#i-cup"/></svg>After breakfast</span><span class="pchip"><svg class="ic"><use href="#i-mail"/></svg>When the post comes</span><span class="pchip"><svg class="ic"><use href="#i-moon"/></svg>Before bed</span></div></div>
+        <h3>Anchors, not hours</h3>
+        <p>Times tied to the day's habits are easier to hold than "3:00 pm". The day's parts from round 3's "sky" look already point this way.</p>
+        <span class="fits">Near &amp; Far · Held · Stones</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-col"><span class="mini"><svg class="ic"><use href="#i-merge"/></svg><span>Check the oak offcuts<small>Behind it: three notes that mention it</small></span></span></div></div>
+        <h3>One card for one thought</h3>
+        <p>When the same task turns up in three notes, it's one card with three notes behind it, not three cards.</p>
+        <span class="fits">Stacks · every direction</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-row" style="gap:8px"><span class="pchip" style="padding:8px 10px"><svg class="ic"><use href="#i-moon"/></svg>Low</span><span class="pchip" style="padding:8px 10px"><svg class="ic"><use href="#i-cloudsun"/></svg>Steady</span><span class="pchip" style="padding:8px 10px"><svg class="ic"><use href="#i-sun"/></svg>Bright</span></div></div>
+        <h3>How's your energy?</h3>
+        <p>One tap shapes what's offered: pebbles on a low day, the big stone on a bright one. Asked, never assumed, and never recorded as a score.</p>
+        <span class="fits">Held · Stones</span>
+      </div>
+      <div class="idea">
+        <div class="viz"><div class="viz-row" style="align-items:flex-end;gap:2px"><span style="display:flex;flex-direction:column-reverse;align-items:center"><i style="width:34px;height:9px;border-radius:50%;background:var(--stone-3);display:block"></i><i style="width:28px;height:8px;border-radius:50%;background:var(--stone-2);display:block;margin-bottom:-1px"></i><i style="width:22px;height:8px;border-radius:50%;background:var(--stone-1);display:block;margin-bottom:-1px"></i><i style="width:15px;height:7px;border-radius:50%;background:var(--stone-2);display:block;margin-bottom:-1px"></i></span></div></div>
+        <h3>Done is a record, not a score</h3>
+        <p>What's finished stays visible as a quiet record (a filled thread, a cairn), never a number, a streak or a badge.</p>
+        <span class="fits">Fits every direction</span>
+      </div>
+    </div>
+  </section>
+  <!-- ================= Compare ================= -->
+  <section class="block" id="compare">
+    <div class="sec-head">
+      <p class="eyebrow">Side by side</p>
+      <h2>How the five compare</h2>
+      <p>The first six rows are the six reasons a long list weighs so much. My judgement, to argue with.</p>
+    </div>
+    <div class="cmp-wrap">
+      <table class="cmp" id="cmp">
+        <thead><tr><th scope="col"><span class="eyebrow">Eases</span></th><th scope="col">Stacks</th><th scope="col">Near &amp; Far</th><th scope="col">Rooms</th><th scope="col">Stones</th><th scope="col">Held</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Too many undecided rows</th><td data-d="3"></td><td data-d="2"></td><td data-d="2"></td><td data-d="2"></td><td data-d="3"></td></tr>
+          <tr><th scope="row">Everything the same size</th><td data-d="1"></td><td data-d="1"></td><td data-d="1"></td><td data-d="3"></td><td data-d="2"></td></tr>
+          <tr><th scope="row">Grows faster than intention</th><td data-d="2"></td><td data-d="2"></td><td data-d="1"></td><td data-d="2"></td><td data-d="3"></td></tr>
+          <tr><th scope="row">Reasons fade</th><td data-d="3"></td><td data-d="1"></td><td data-d="2"></td><td data-d="1"></td><td data-d="3"></td></tr>
+          <tr><th scope="row">Time words ask for arithmetic</th><td data-d="1"></td><td data-d="3"></td><td data-d="1"></td><td data-d="3"></td><td data-d="2"></td></tr>
+          <tr><th scope="row">Nothing leaves gracefully</th><td data-d="2"></td><td data-d="2"></td><td data-d="1"></td><td data-d="2"></td><td data-d="3"></td></tr>
+          <tr class="sep"><th scope="row" colspan="6">What it would take</th></tr>
+          <tr><th scope="row">New to the world</th><td data-d="2"></td><td data-d="3"></td><td data-d="3"></td><td data-d="3"></td><td data-d="2"></td></tr>
+          <tr><th scope="row">Easy to build in revamp 5</th><td data-d="3"></td><td data-d="2"></td><td data-d="1"></td><td data-d="1"></td><td data-d="2"></td></tr>
+          <tr><th scope="row">Likely to work first time</th><td data-d="3"></td><td data-d="2"></td><td data-d="1"></td><td data-d="1"></td><td data-d="2"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend"><span class="dots" aria-hidden="true"><i class="f"></i><i class="f"></i><i class="f"></i></span> a lot <span class="dots" aria-hidden="true"><i class="f"></i><i class="f"></i><i></i></span> some <span class="dots" aria-hidden="true"><i class="f"></i><i></i><i></i></span> a little</div>
+  </section>
+
+  <!-- ================= My pick ================= -->
+  <section class="block" id="pick">
+    <div class="sec-head">
+      <p class="eyebrow">Recommendation</p>
+      <h2>My pick for round 2</h2>
+    </div>
+    <div class="pick">
+      <div class="pick-text">
+        <h3>Held as the front door, with Stacks behind "Show everything".</h3>
+        <p>Held deals with the root of the overwhelm: the person never faces the whole list unless they ask to. It turns the hardest work (deciding, planning, letting go) into taps, and it gives Clarity's AI a clear, useful job. But a held list must be easy to inspect, or things seem to vanish. Stacks is the best way to show everything: it shortens a long list the most, and each pile's name keeps its tasks' reasons.</p>
+        <p>Then borrow the best single idea from each of the others:</p>
+        <ul>
+          <li><b>From Stones, the bowl.</b> In "Choose tomorrow with me" the day fills by weight, and says when it's full.</li>
+          <li><b>From Near &amp; Far, the haze.</b> The set-aside drawer and Someday read as far away: smaller, softer, no details.</li>
+          <li><b>From Rooms, "Going out?".</b> A door in Held that says what to take with you.</li>
+          <li><b>For every card:</b> turn it over, not everything is a task, resting not deleting, and a fresh start.</li>
+        </ul>
+        <p>Rooms and Stones are the boldest ideas here and the least certain. They deserve a paper test with three to five people before anyone builds them in full.</p>
+      </div>
+      <div class="tiers" aria-label="How the parts fit together">
+        <div class="tier"><span class="eyebrow">Today tab</span><b>Doing</b><span>The day's tasks and Focus, as now.</span></div>
+        <div class="tier lead"><span class="eyebrow">Life Center</span><b>Held: one thing, three rituals</b><span>Deciding, one tap at a time.</span></div>
+        <div class="tier"><span class="eyebrow">One tap away</span><b>Stacks</b><span>Every task, in piles, with Someday in a drawer, far off.</span></div>
+        <div class="tier-row">
+          <div class="tier small"><span class="eyebrow">From Stones</span><b>The day's bowl</b></div>
+          <div class="tier small"><span class="eyebrow">From Near &amp; Far</span><b>The haze</b></div>
+          <div class="tier small"><span class="eyebrow">From Rooms</span><b>Going out?</b></div>
+        </div>
+        <div class="tier"><span class="eyebrow">Everywhere</span><b>The new card</b><span>Picture, verb, size, first step, and its reason on the back.</span></div>
+      </div>
+    </div>
+    <div class="next">
+      <div><b>Build it in the prototype</b><span>Held and Stacks in revamp 5, chosen with an address flag the way round 3's rows were, on the sample data and on real accounts.</span></div>
+      <div><b>Seed a long list</b><span>One account with about eighty tasks that sound like a real life, so the test is about length and not about content.</span></div>
+      <div><b>Watch five people</b><span>Find a named task, plan tomorrow, do a tidy. Note the time, the wrong turns, and how calm they say they feel.</span></div>
+    </div>
+  </section>
+
+  <!-- ================= Questions ================= -->
+  <section class="block" id="asks">
+    <div class="sec-head">
+      <p class="eyebrow">To steer round 2</p>
+      <h2>Questions for you</h2>
+    </div>
+    <div class="asks">
+      <div><b>How much should Clarity lead?</b><span>Held decides what comes next. Some people will love being looked after; others will feel managed. Should leading be a setting, or part of the design?</span></div>
+      <div><b>Can Life Center hide things by default?</b><span>Every direction shows less than it holds. Is that acceptable as long as everything is one tap away?</span></div>
+      <div><b>Should areas survive?</b><span>Stacks and Rooms both replace areas with something more concrete (threads, places). Keep areas as a filter underneath, or let them go?</span></div>
+      <div><b>Is weight worth asking for?</b><span>Stones, and the size on the new card, need a weight for every task. Clarity can guess it. Is a wrong guess acceptable?</span></div>
+      <div><b>Are care partners in scope?</b><span>Hand it on needs sharing, which Clarity doesn't have yet. It matters a lot to this audience. Now, or later?</span></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Clarity · revamp 5 · Life Center directions, round 1 · 9 October 2026</span>
+    <span>Tasks in the phones are the prototype's sample data.</span>
+  </footer>
+</div>
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const ic = (n, cls = "") => `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const wait = (ms) => new Promise((r) => setTimeout(r, reduce ? Math.min(ms, 80) : ms));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const clone = (o) => JSON.parse(JSON.stringify(o));
+
+/* ---------- the phone's chrome ---------- */
+function phone(el, { title = "Life Center", left = "", right = "sliders" } = {}) {
+  el.classList.add("phone");
+  el.innerHTML = `
+    <div class="ph-status"><span>9:41</span><span class="notch"></span><span class="bat"><i></i></span></div>
+    <div class="ph-top"><span class="ib">${left ? ic(left) : ""}</span><b>${title}</b><span class="ib">${right ? ic(right) : ""}</span></div>
+    <div class="ph-body"></div>
+    <div class="ph-tabs" aria-hidden="true">
+      <span>${ic("sun")}Today</span><span>${ic("note")}Notes</span><span class="plus">${ic("plus")}</span><span class="on">${ic("leaf")}Life</span><span>${ic("search")}Search</span>
+    </div>
+    <div class="ph-home"></div>
+    <div class="capsule" role="status" aria-live="polite">${ic("check")}<span></span></div>`;
+  return el.querySelector(".ph-body");
+}
+function capsule(ph, text) {
+  const c = ph.querySelector(".capsule");
+  c.querySelector("span").textContent = text;
+  c.classList.add("show");
+  clearTimeout(c._t);
+  c._t = setTimeout(() => c.classList.remove("show"), 2400);
+}
+function scrollInside(scroller, node, pad = 10) {
+  const top = node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - pad;
+  scroller.scrollTo({ top, behavior: reduce ? "auto" : "smooth" });
+}
+function tryButtons(name, handlers) {
+  const box = document.querySelector(`.try[data-for="${name}"]`);
+  if (!box) return;
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-do]");
+    if (b && handlers[b.dataset.do]) handlers[b.dataset.do]();
+  });
+}
+function row(t, meta = [], { pic = "", today = false, ring = true } = {}) {
+  return `<div class="p-row"${pic ? ' style="grid-template-columns:30px minmax(0,1fr) 28px"' : ""}>
+    ${pic ? `<span class="pic ${today ? "today" : ""}" style="width:30px;height:30px;font-size:16px;border-radius:9px">${ic(pic)}</span>` : ""}
+    <div><div class="t">${t}</div>${meta.length ? `<div class="m">${meta.map((m) => `<span>${m}</span>`).join("")}</div>` : ""}</div>
+    ${ring ? `<span class="ring">${ic("check")}</span>` : ""}</div>`;
+}
+
+/* =====================================================================
+   Life Center as it is
+   ===================================================================== */
+{
+  const el = $("#ph-now");
+  const body = phone(el);
+  const clock = (t) => `${ic("clock")}${t}`;
+  const cal = (t) => `${ic("cal")}${t}`;
+  const G = [
+    ["Today", [["Walk at lunch, no podcast", ["Health", clock("12:30 pm"), ic("repeat")]], ["Send the brief to Ana", ["Work", clock("3:00 pm")]], ["Call Mum back", ["People", clock("6:30 pm")]], ["Book the dentist", ["Health"]], ["Water the tomatoes", ["Home", ic("repeat")]]]],
+    ["This week", [["Ask Sam about the brackets", ["Home", cal("Tomorrow"), `${ic("note")}Kitchen shelves`]], ["Check the oak offcuts", ["Home", cal("Saturday")]], ["Buy the tulip bulbs", ["Home", cal("Sunday")]], ["Text Priya about Sunday", ["People", cal("Sunday")]], ["Draft the onboarding copy", ["Work", cal("Wednesday, 10:00 am")]], ["Pick up the prescription", ["Health", cal("Thursday")]]]],
+    ["Later", [["Expenses for October", ["Work", cal("31 Oct")]], ["Renew the car insurance", ["Home", cal("2 Nov")]], ["Plan Ana's leaving card", ["People", cal("13 Nov")]], ["Book Mum's birthday lunch", ["People", cal("20 Nov")]]]],
+    ["Someday", [["Sort the loft", ["Home"]], ["Learn the birds in the garden", ["Mind"]], ["Make a Lisbon photo book", ["Mind"]], ["Try the pottery class", ["Mind"]], ["Read the Mary Oliver book", ["Mind"]], ["Fix the squeaky gate", ["Home"]], ["Back up the photos", ["Mind"]], ["Return the library books", ["Mind"]]]],
+  ];
+  body.innerHTML = `<div class="ph-col">
+    <div class="p-chips"><span class="p-chip on">All</span><span class="p-chip">Health</span><span class="p-chip">Home</span><span class="p-chip">Mind</span><span class="p-chip">People</span><span class="p-chip">Work</span></div>
+    <div class="ph-scroll">
+      <div class="p-card slip"><span class="pic">${ic("rotate")}</span><div><b>A few things slipped</b><span>Pick them up, move them, or let them go.</span></div><span class="p-btn soft">Catch up</span></div>
+      ${G.map(([title, rows]) => `<div class="p-sec">${title}</div><div class="p-card">${rows.map(([t, m]) => row(t, m)).join("")}</div>`).join("")}
+    </div></div><div class="fadeout-bottom"></div>`;
+}
+
+/* =====================================================================
+   A. Stacks
+   ===================================================================== */
+{
+  const el = $("#ph-stacks");
+  const body = phone(el);
+  const START = {
+    stacks: [
+      { id: "brief", name: "The onboarding brief", kind: "Work", icon: "note", cards: [
+        { t: "Send the brief to Ana", when: "Today, 3:00 pm", today: true, ic: "mail" },
+        { t: "Check the quote includes VAT", ic: "decide" },
+        { t: "Draft the onboarding copy", when: "Wednesday", ic: "note" },
+        { t: "Expenses for September", when: "Waiting since 3 Oct", ic: "receipt" } ] },
+      { id: "mum", name: "Mum", kind: "A person", icon: "person", cards: [
+        { t: "Call Mum back", when: "Today, before 7:00 pm", today: true, ic: "phone" },
+        { t: "Send Mum the Lisbon photos", ic: "camera" },
+        { t: "Book her birthday lunch", when: "By 20 November", ic: "gift" } ] },
+      { id: "teeth", name: "The dentist", kind: "Health", icon: "heart", cards: [
+        { t: "Book the dentist", when: "Today", today: true, ic: "tooth" },
+        { t: "Reply to the dentist's letter", ic: "mail" } ] },
+      { id: "kitchen", name: "Kitchen shelves", kind: "From your note", icon: "note", cards: [
+        { t: "Ask Sam about the brackets", when: "Tomorrow", ic: "person" },
+        { t: "Check the oak offcuts", when: "Saturday", ic: "tool" },
+        { t: "Buy two brackets", ic: "bag" },
+        { t: "Put up the shelves", ic: "tool" } ] },
+      { id: "out", name: "Out and about", kind: "A place", icon: "door", cards: [
+        { t: "Pick up the prescription", ic: "pill" },
+        { t: "Return the library books", ic: "book" },
+        { t: "Buy the tulip bulbs", when: "Sunday", ic: "tulip" } ] },
+      { id: "loose", name: "Loose ends", kind: "Not in a pile yet", icon: "sparkle", cards: [
+        { t: "Fix the squeaky gate", ic: "tool" },
+        { t: "Text Priya about Sunday", ic: "mail" },
+        { t: "Move the tomatoes to the greenhouse", ic: "sprout" },
+        { t: "Back up the photos", ic: "camera" } ] },
+    ],
+    aside: [
+      { id: "someday", name: "Someday", cards: [{ t: "Learn the birds in the garden", ic: "feather" }, { t: "Make a Lisbon photo book", ic: "camera" }, { t: "Try the pottery class", ic: "sparkle" }, { t: "Sort the loft", ic: "box" }] },
+    ],
+  };
+  let S = clone(START);
+  let suggesting = false;
+
+  const stackHTML = (s, rise = false) => {
+    const n = s.cards.length, top = s.cards[0];
+    const edges = s.open ? 0 : Math.min(3, n - 1);
+    const edgeEls = Array.from({ length: edges }, (_, i) => {
+      const k = i + 1;
+      return `<div class="stk-edge" style="left:${k * 8}px;right:${k * 8}px;bottom:${(edges - k) * 5}px;height:auto;z-index:${4 - k};opacity:${1 - k * 0.12}"></div>`;
+    }).join("");
+    return `<div class="stk ${s.open ? "open" : ""}" data-id="${s.id}" style="padding-bottom:${edges * 5}px">
+      ${edgeEls}
+      <div class="stk-card">
+        <button class="stk-head" data-act="fan" aria-expanded="${!!s.open}">${ic(s.icon)}<span class="nm">${s.name}</span><span>· ${s.kind}</span>${ic("chev-d", "chev")}</button>
+        <div class="stk-top ${rise ? "rise" : ""}">
+          <span class="pic ${top.today ? "today" : ""}">${ic(top.ic)}</span>
+          <div><div class="t">${top.t}</div>${top.when ? `<div class="m ${top.today ? "today" : ""}">${ic(top.today ? "sun" : "cal")} ${top.when}</div>` : ""}</div>
+          <button class="ring-btn" data-act="tick" aria-label="Mark ${top.t} done"><span class="ring">${ic("check")}</span></button>
+        </div>
+        <div class="stk-fan"><div>
+          ${s.cards.slice(1).map((c) => `<div class="fr">${ic(c.ic)}<div>${c.t}${c.when ? `<small>${c.when}</small>` : ""}</div></div>`).join("")}
+          <div class="stk-acts"><button class="q-btn" data-act="tuck">${ic("arrow-down")}Tuck the top one under</button><button class="q-btn" data-act="aside">${ic("moon")}Set this pile aside</button></div>
+        </div></div>
+      </div>
+    </div>`;
+  };
+  const asideHTML = () => `<div class="aside ${S.asideOpen ? "open" : ""}">
+      <button class="aside-head" data-act="drawer" aria-expanded="${!!S.asideOpen}">${ic("moon")}<span>Set aside<br><small>Out of sight, and safe</small></span>${ic("chev-d", "chev")}</button>
+      <div class="aside-body"><div>${S.aside.map((a) => `<div class="aside-row"><b>${a.name}</b>${a.cards[0].t}</div>`).join("")}</div></div>
+    </div>`;
+  const suggestHTML = () => suggesting ? `<div class="suggest rise" id="stk-suggest">
+      <div class="row">${ic("sparkle")}<span>"Fix the squeaky gate" and "Move the tomatoes to the greenhouse" both sound like the garden. Make them a pile?</span></div>
+      <div class="row" style="justify-content:flex-end;gap:6px"><button class="q-btn" data-act="nosuggest">Not now</button><button class="q-btn" data-act="makepile" style="background:var(--p-accent-soft);color:var(--p-accent)">${ic("layers")}Make a pile</button></div>
+    </div>` : "";
+  const render = () => {
+    const prev = body.querySelector(".ph-scroll");
+    const keep = prev ? prev.scrollTop : 0;
+    body.innerHTML = `<div class="ph-scroll"><div class="stk-list">${S.stacks.map((s) => stackHTML(s)).join("")}</div>${suggestHTML()}${asideHTML()}</div>`;
+    body.querySelector(".ph-scroll").scrollTop = keep;
+  };
+  const scroller = () => body.querySelector(".ph-scroll");
+  const node = (id) => body.querySelector(`.stk[data-id="${id}"]`);
+  const find = (id) => S.stacks.find((s) => s.id === id);
+  const replace = (s, rise) => {
+    const n = node(s.id);
+    if (!n) return;
+    const tmp = document.createElement("div");
+    tmp.innerHTML = stackHTML(s, rise);
+    n.replaceWith(tmp.firstElementChild);
+  };
+  const fan = (id, force) => {
+    const s = find(id);
+    if (!s) return;
+    s.open = force ?? !s.open;
+    replace(s);
+    // let the fan animate from closed: render closed, then open on the next frame
+    if (s.open && !reduce) {
+      const n = node(id);
+      n.classList.remove("open");
+      requestAnimationFrame(() => requestAnimationFrame(() => n.classList.add("open")));
+    }
+  };
+  const tick = async (id) => {
+    const s = find(id);
+    if (!s || s.busy) return;
+    s.busy = true;
+    const n = node(id);
+    const top = n.querySelector(".stk-top");
+    top.classList.add("ticking");
+    top.querySelector(".ring").classList.add("on");
+    await wait(560);
+    top.classList.add("leaving");
+    await wait(320);
+    s.cards.shift();
+    s.busy = false;
+    if (!s.cards.length) {
+      n.querySelector(".stk-card").innerHTML = `<div class="stk-clear rise">${ic("sprout")}${s.name} is clear</div>`;
+      $$(".stk-edge", n).forEach((e) => e.remove());
+      n.style.paddingBottom = "0";
+      await wait(1400);
+      n.classList.add("gone");
+      await wait(320);
+      S.stacks = S.stacks.filter((x) => x !== s);
+      n.remove();
+      return;
+    }
+    replace(s, true);
+    capsule(el, "Done. The next one is on top.");
+  };
+  const tuck = (id) => {
+    const s = find(id);
+    if (!s || s.cards.length < 2) return;
+    s.cards.push(s.cards.shift());
+    replace(s, true);
+    capsule(el, "Tucked under. It's still in the pile.");
+  };
+  const aside = async (id) => {
+    const s = find(id);
+    if (!s) return;
+    const n = node(id);
+    n.classList.add("gone");
+    await wait(320);
+    S.stacks = S.stacks.filter((x) => x !== s);
+    S.aside.unshift({ id: s.id, name: s.name, cards: s.cards });
+    S.asideOpen = true;
+    render();
+    capsule(el, `Set aside. ${s.name} is in the drawer below.`);
+    scrollInside(scroller(), body.querySelector(".aside"));
+  };
+  const suggest = () => {
+    if (!find("loose")) return;
+    suggesting = true;
+    render();
+    const box = $("#stk-suggest", body);
+    if (box) scrollInside(scroller(), box, 120);
+  };
+  const makePile = () => {
+    const loose = find("loose");
+    suggesting = false;
+    if (loose) {
+      const take = ["Fix the squeaky gate", "Move the tomatoes to the greenhouse"];
+      const moved = loose.cards.filter((c) => take.includes(c.t));
+      loose.cards = loose.cards.filter((c) => !take.includes(c.t));
+      const at = S.stacks.indexOf(loose);
+      S.stacks.splice(at, 0, { id: "garden", name: "The garden", kind: "Suggested by Clarity", icon: "tulip", cards: moved });
+      if (!loose.cards.length) S.stacks = S.stacks.filter((x) => x !== loose);
+    }
+    render();
+    const g = node("garden");
+    if (g) { g.classList.add("rise"); scrollInside(scroller(), g, 60); }
+    capsule(el, "Made a pile: The garden");
+  };
+
+  body.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    const st = b.closest(".stk");
+    const id = st && st.dataset.id;
+    const act = b.dataset.act;
+    if (act === "fan") fan(id);
+    else if (act === "tick") tick(id);
+    else if (act === "tuck") tuck(id);
+    else if (act === "aside") aside(id);
+    else if (act === "drawer") { S.asideOpen = !S.asideOpen; body.querySelector(".aside").classList.toggle("open", S.asideOpen); b.setAttribute("aria-expanded", S.asideOpen); }
+    else if (act === "makepile") makePile();
+    else if (act === "nosuggest") { suggesting = false; render(); }
+  });
+  tryButtons("stacks", {
+    open: () => { const id = find("kitchen") ? "kitchen" : S.stacks[0]?.id; if (!id) return; fan(id, true); scrollInside(scroller(), node(id)); },
+    tick: () => { const s = find("mum") || S.stacks[0]; if (!s) return; scrollInside(scroller(), node(s.id)); setTimeout(() => tick(s.id), reduce ? 0 : 350); },
+    tuck: () => { const s = find("brief") || S.stacks.find((x) => x.cards.length > 1); if (!s) return; scrollInside(scroller(), node(s.id)); setTimeout(() => tuck(s.id), reduce ? 0 : 350); },
+    aside: () => { const s = find("out") || S.stacks[S.stacks.length - 1]; if (!s) return; scrollInside(scroller(), node(s.id)); setTimeout(() => aside(s.id), reduce ? 0 : 400); },
+    suggest,
+    reset: () => { S = clone(START); suggesting = false; render(); scroller().scrollTop = 0; },
+  });
+  render();
+}
+
+/* =====================================================================
+   B. Near & Far
+   ===================================================================== */
+{
+  const el = $("#ph-nf");
+  const body = phone(el);
+  const START = {
+    bands: [
+      { key: "today", label: "Today", icon: "sun", items: [
+        { t: "Walk at lunch, no podcast", m: "12:30 pm", ic: "walk" },
+        { t: "Send the brief to Ana", m: "3:00 pm", ic: "mail" },
+        { t: "Call Mum back", m: "6:30 pm", ic: "phone" },
+        { t: "Book the dentist", m: "Any time today", ic: "tooth" } ] },
+      { key: "week", label: "This week", icon: "cal", items: [
+        { t: "Ask Sam about the brackets", m: "Tomorrow", ic: "person" },
+        { t: "Buy the tulip bulbs", m: "Sunday", ic: "tulip" },
+        { t: "Draft the onboarding copy", m: "Wednesday", ic: "note" },
+        { t: "Pick up the prescription", m: "Thursday", ic: "pill" } ] },
+      { key: "later", label: "Later", icon: "cloudsun", items: [
+        { t: "Renew the car insurance", m: "2 November", ic: "car" },
+        { t: "Plan Ana's leaving card", m: "13 November", ic: "gift" },
+        { t: "Book Mum's birthday lunch", m: "20 November", ic: "gift" } ] },
+      { key: "someday", label: "Someday", icon: "feather", items: [
+        { t: "Learn the birds in the garden", ic: "feather" },
+        { t: "Make a Lisbon photo book", ic: "camera" },
+        { t: "Try the pottery class", ic: "sparkle" },
+        { t: "Fix the squeaky gate", ic: "tool" },
+        { t: "Read the Mary Oliver book", ic: "book" } ] },
+    ],
+    week: [
+      { d: "F", n: 9, w: "cloud", name: "Today", today: true },
+      { d: "S", n: 10, w: "cloudsun", name: "Saturday" },
+      { d: "S", n: 11, w: "cloudsun", name: "Sunday" },
+      { d: "M", n: 12, w: "sun", name: "Monday" },
+      { d: "T", n: 13, w: "sun", name: "Tuesday" },
+      { d: "W", n: 14, w: "cloud", name: "Wednesday" },
+      { d: "T", n: 15, w: "cloudsun", name: "Thursday" },
+    ],
+  };
+  let D = clone(START);
+  let cam = 0, raf = 0;
+
+  body.innerHTML = `<div class="ph-col">
+      <div class="wx" role="group" aria-label="How full each day is"></div>
+      <div class="nf-stage">
+        <div class="nf-scene">
+          <div class="nf-horizon"><span>more in the haze</span></div>
+          <div class="nf-haze"></div>
+        </div>
+        <div class="nf-feet"><span class="pic">${ic("rotate")}</span><div><b>At your feet</b><span>Expenses for September · Return the library books</span></div><span class="p-btn soft">Pick up</span></div>
+      </div></div>`;
+  const wx = $(".wx", body), scene = $(".nf-scene", body), stage = $(".nf-stage", body), feet = $(".nf-feet", body);
+  const seg = $$(".travel .seg button"), range = $("#nf-range");
+  let bands = [];
+
+  const fullHTML = (b) => `<div class="nf-lab">${ic(b.icon)}${b.label}</div><div class="p-card">${b.items.map((it) => `<div class="p-row" data-t="${it.t}" style="grid-template-columns:28px minmax(0,1fr) 26px"><span class="pic ${b.key === "today" ? "today" : ""}" style="width:28px;height:28px;font-size:15px;border-radius:9px">${ic(it.ic)}</span><div><div class="t">${it.t}</div>${it.m ? `<div class="m"><span>${ic(b.key === "today" ? "clock" : "cal")}${it.m}</span></div>` : ""}</div><span class="ring">${ic("check")}</span></div>`).join("")}</div>`;
+  const lineHTML = (b) => `<div class="nf-lab">${ic(b.icon)}${b.label}</div><div class="words">${b.items.map((it) => `<span data-t="${it.t}">${it.t}</span>`).join("<i>·</i>")}</div>`;
+
+  function build() {
+    $$(".nf-band", scene).forEach((n) => n.remove());
+    bands = D.bands.map((b, i) => {
+      const n = document.createElement("div");
+      n.className = "nf-band";
+      n.innerHTML = `<div class="nf-full">${fullHTML(b)}</div><div class="nf-line">${lineHTML(b)}</div>`;
+      scene.appendChild(n);
+      return { el: n, full: n.firstElementChild, line: n.lastElementChild, data: b, i };
+    });
+    measure();
+  }
+  function measure() {
+    bands.forEach((b) => { b.hFull = b.full.offsetHeight; b.hLine = b.line.offsetHeight; });
+    layout();
+  }
+  function layout() {
+    const H = scene.clientHeight;
+    const feetTop = H - feet.offsetHeight - 22;
+    let cursor = feetTop;
+    bands.forEach((b) => {
+      const r = b.i - cam;
+      const t = clamp((0.9 - r) / 0.6, 0, 1);
+      const e = t * t * (3 - 2 * t);
+      const h = lerp(b.hLine, b.hFull, e);
+      b.el.style.height = `${h}px`;
+      b.full.style.opacity = e;
+      b.line.style.opacity = 1 - e;
+      b.full.style.visibility = e < 0.02 ? "hidden" : "visible";
+      b.line.style.visibility = e > 0.98 ? "hidden" : "visible";
+      let s, y, op, blur;
+      if (r < 0) {
+        const p = -r;
+        s = 1 + p * 0.3; y = feetTop + p * H * 0.6; op = clamp(1 - p * 1.7, 0, 1); blur = 0;
+        cursor -= (h + 16) * clamp(1 - p, 0, 1);
+      } else {
+        s = 1 / (1 + r * 0.42); y = cursor; op = clamp(1 - r * 0.2, 0.42, 1); blur = Math.min(r * 0.35, 1);
+        cursor -= (h + 16) * s;
+      }
+      b.el.style.transform = `translateY(${(y - h).toFixed(1)}px) scale(${s.toFixed(4)})`;
+      b.el.style.opacity = op.toFixed(3);
+      b.el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : "none";
+      b.el.style.zIndex = String(10 - b.i);
+      b.el.style.visibility = op < 0.02 || y < 30 ? "hidden" : "visible";
+      b.el.setAttribute("aria-hidden", op < 0.5 || y < 30 ? "true" : "false");
+    });
+    const hazeShown = bands.some((b) => b.el.style.visibility === "hidden" && b.i > cam);
+    $(".nf-horizon", scene).style.opacity = hazeShown ? 1 : 0.35;
+    seg.forEach((sb) => sb.classList.toggle("on", Number(sb.dataset.cam) === Math.round(cam)));
+    if (document.activeElement !== range) range.value = String(Math.round(cam * 100));
+  }
+  const setCam = (c) => { cam = clamp(c, 0, 3); layout(); };
+  const tweenTo = (target, dur = 700) => {
+    cancelAnimationFrame(raf);
+    if (reduce) { setCam(target); return; }
+    const from = cam, t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur);
+      setCam(from + (target - from) * (1 - Math.pow(1 - k, 4)));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+  };
+
+  // weather
+  function renderWx() {
+    wx.innerHTML = D.week.map((d, i) => `<button data-i="${i}" class="${d.today ? "today" : ""}" aria-label="${d.name}"><span>${d.d}</span><span class="d">${d.n}</span>${ic(d.w)}</button>`).join("");
+  }
+  let note = null;
+  function closeNote() { if (note) { note.remove(); note = null; } $$("button", wx).forEach((b) => b.classList.remove("on", "glow")); }
+  function openNote(i) {
+    closeNote();
+    const d = D.week[i];
+    wx.children[i].classList.add("on");
+    note = document.createElement("div");
+    note.className = "wx-note rise";
+    let html;
+    if (d.name === "Wednesday" && d.w === "cloud") {
+      html = `<span><b>Wednesday looks busy.</b> Drafting the onboarding copy is a big one. Monday is clear.</span><div class="acts"><button class="p-btn primary" data-n="move">Move it to Monday</button><button class="p-btn plain" data-n="close">Leave it</button></div>`;
+      wx.children[3].classList.add("glow");
+    } else if (d.w === "cloud") {
+      html = `<span><b>${d.name} is fairly full.</b> A few things have set times. Nothing more needs to go here.</span><div class="acts"><button class="p-btn outline" data-n="close">OK</button></div>`;
+    } else if (d.w === "cloudsun") {
+      html = `<span><b>${d.name} has a little on.</b> There's room for one more thing.</span><div class="acts"><button class="p-btn outline" data-n="close">OK</button></div>`;
+    } else {
+      html = `<span><b>${d.name} is clear.</b> A good day for something that's been waiting.</span><div class="acts"><button class="p-btn outline" data-n="close">OK</button></div>`;
+    }
+    note.innerHTML = html;
+    stage.appendChild(note);
+  }
+  wx.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) openNote(Number(b.dataset.i)); });
+  stage.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-n]");
+    if (!b) return;
+    if (b.dataset.n === "move") {
+      D.week[5].w = "cloudsun"; D.week[3].w = "cloudsun";
+      const it = D.bands[1].items.find((x) => x.t === "Draft the onboarding copy");
+      if (it) it.m = "Monday";
+      closeNote(); renderWx(); build();
+      capsule(el, "Moved to Monday. Wednesday is lighter.");
+    } else closeNote();
+  });
+
+  // dragging with a mouse or pen walks toward the horizon
+  let drag = null;
+  scene.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || e.target.closest("button")) return;
+    drag = { y: e.clientY, c: cam };
+    scene.setPointerCapture(e.pointerId);
+    scene.classList.add("drag");
+    cancelAnimationFrame(raf);
+  });
+  scene.addEventListener("pointermove", (e) => { if (drag) setCam(drag.c + (e.clientY - drag.y) / 140); });
+  const endDrag = () => { if (!drag) return; drag = null; scene.classList.remove("drag"); tweenTo(Math.round(cam), 450); };
+  scene.addEventListener("pointerup", endDrag);
+  scene.addEventListener("pointercancel", endDrag);
+  seg.forEach((sb) => sb.addEventListener("click", () => tweenTo(Number(sb.dataset.cam))));
+  range.addEventListener("input", () => { cancelAnimationFrame(raf); setCam(Number(range.value) / 100); });
+  range.addEventListener("change", () => tweenTo(Math.round(cam), 350));
+
+  // moving through time by moving through space
+  async function fly(fromBand, title, toKey, newMeta, msg, camAfter) {
+    const b = bands.find((x) => x.data.key === fromBand);
+    const src = b && b.el.querySelector(`[data-t="${CSS.escape(title)}"]`);
+    if (!src) return;
+    const it = b.data.items.find((x) => x.t === title);
+    if (!reduce) {
+      const goingUp = D.bands.findIndex((x) => x.key === toKey) > D.bands.findIndex((x) => x.key === fromBand);
+      src.animate([{ transform: "none", opacity: 1 }, { transform: goingUp ? "translateY(-70px) scale(.55)" : "translateY(60px) scale(1.25)", opacity: 0 }], { duration: 560, easing: "cubic-bezier(.5,0,.75,0)", fill: "forwards" });
+      await wait(520);
+    }
+    b.data.items = b.data.items.filter((x) => x !== it);
+    const dest = D.bands.find((x) => x.key === toKey);
+    if (newMeta) it.m = newMeta; else delete it.m;
+    dest.items.unshift(it);
+    build();
+    capsule(el, msg);
+    if (camAfter !== undefined) tweenTo(camAfter);
+  }
+  tryButtons("nf", {
+    further: async () => {
+      if (cam !== 0) { tweenTo(0, 400); await wait(450); }
+      fly("today", "Book the dentist", "later", "Next month", "Moved to next month. It's further away now.");
+    },
+    near: async () => {
+      if (Math.round(cam) !== 3) { tweenTo(3, 700); await wait(760); }
+      fly("someday", "Learn the birds in the garden", "week", "Saturday morning", "Brought near: Saturday morning.", 1);
+    },
+    spread: () => openNote(5),
+    reset: () => { D = clone(START); closeNote(); renderWx(); build(); tweenTo(0, 300); },
+  });
+
+  renderWx();
+  build();
+  new ResizeObserver(() => measure()).observe(scene);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+}
+
+/* =====================================================================
+   C. Rooms
+   ===================================================================== */
+{
+  const el = $("#ph-rooms");
+  const body = phone(el);
+  const START = {
+    attic: { name: "The attic", sub: "Someday things", x: 64, y: 34, w: 172, h: 60, label: [74, 86], notes: [[96, 72], [108, 75], [184, 72], [196, 75], [172, 78]], items: [
+      { t: "Sort the loft", ic: "box" }, { t: "Learn the birds in the garden", ic: "feather" }, { t: "Try the pottery class", ic: "sparkle" }, { t: "Read the Mary Oliver book", ic: "book" }, { t: "Make a Lisbon photo book", ic: "camera" } ] },
+    bedroom: { name: "The bedside", sub: "Rest and health", x: 34, y: 100, w: 112, h: 82, label: [40, 112], notes: [[108, 104], [120, 106], [132, 104], [114, 115], [127, 117]], sun: [138, 174], items: [
+      { t: "Book the dentist", m: "Today", today: true, ic: "tooth" }, { t: "Reply to the dentist's letter", ic: "mail" }, { t: "Order more eye drops", ic: "pill" } ] },
+    study: { name: "The desk", sub: "Work and paperwork", x: 154, y: 100, w: 112, h: 82, label: [160, 112], notes: [[212, 104], [224, 106], [236, 104], [248, 106], [218, 115]], sun: [258, 174], items: [
+      { t: "Send the brief to Ana", m: "Today, 3:00 pm", today: true, ic: "mail" }, { t: "Draft the onboarding copy", m: "Wednesday", ic: "note" }, { t: "Expenses for September", m: "Waiting since 3 Oct", ic: "receipt" }, { t: "Renew the car insurance", m: "2 November", ic: "car" } ] },
+    kitchen: { name: "The kitchen", sub: "Home jobs", x: 34, y: 190, w: 86, h: 88, label: [40, 202], notes: [[86, 194], [98, 196], [90, 205], [102, 207], [78, 206]], items: [
+      { t: "Check the oak offcuts", m: "Saturday", ic: "tool" }, { t: "Put up the shelves", ic: "tool" }, { t: "Clear out the fridge", ic: "sparkle" } ] },
+    hall: { name: "By the front door", sub: "Things to take, or pick up", x: 124, y: 190, w: 52, h: 88, label: [129, 202], notes: [[128, 207], [140, 209], [152, 207], [134, 216]], items: [
+      { t: "Pick up the prescription", ic: "pill" }, { t: "Return the library books", ic: "book" }, { t: "Buy the tulip bulbs", m: "Sunday", ic: "tulip" } ] },
+    sitting: { name: "The mantelpiece", sub: "People", x: 180, y: 190, w: 86, h: 88, label: [186, 202], notes: [[252, 196], [252, 207], [240, 207], [252, 218], [240, 218]], sun: [258, 270], items: [
+      { t: "Call Mum back", m: "Today, before 7:00 pm", today: true, ic: "phone" }, { t: "Ask Sam about the brackets", m: "Tomorrow", ic: "person" }, { t: "Text Priya about Sunday", ic: "mail" }, { t: "Plan Ana's leaving card", m: "13 November", ic: "gift" } ] },
+    garden: { name: "The garden", sub: "Outside", x: 4, y: 286, w: 292, h: 40, label: [10, 300], notes: [[62, 292], [74, 294], [86, 292]], sun: [286, 318], items: [
+      { t: "Walk at lunch, no podcast", m: "Today, 12:30 pm", today: true, ic: "walk" }, { t: "Water the tomatoes", m: "Every day", ic: "drop" }, { t: "Fix the squeaky gate", ic: "tool" } ] },
+  };
+  const FURN = {
+    attic: `<rect class="furn-f" x="124" y="72" width="22" height="16" rx="1.5"/><rect class="furn-f" x="146" y="77" width="16" height="11" rx="1.5"/><path class="furn" d="M124 78h22M146 81h16"/><circle class="furn" cx="150" cy="54" r="6"/><path class="furn" d="M150 48v12M144 54h12"/>`,
+    bedroom: `<rect class="furn-f" x="44" y="152" width="58" height="22" rx="3"/><rect class="furn" x="47" y="146" width="17" height="8" rx="3"/><path class="furn" d="M44 150v-14M44 174v4M102 174v4"/><rect class="furn-f" x="108" y="158" width="16" height="16" rx="1.5"/><path class="furn" d="M116 158v-10M111 148h10l-2-6h-6z"/>`,
+    study: `<path class="furn" d="M164 160h72M170 160v18M230 160v18"/><rect class="furn-f" x="182" y="138" width="28" height="19" rx="2"/><path class="furn" d="M196 157v3M222 160v-14l8-4"/><rect class="furn" x="240" y="118" width="18" height="24" rx="1"/><path class="furn" d="M249 118v24M240 130h18"/>`,
+    kitchen: `<rect class="furn-f" x="40" y="250" width="74" height="28" rx="1.5"/><path class="furn" d="M40 258h74M58 258v20M78 258v20M98 258v20"/><path class="furn" d="M44 222h34M44 234h34M47 222v-6h7v6M60 234v-8h5v8"/><path class="furn" d="M92 250v-9a5 5 0 0 1 10 0v9M102 243h4"/>`,
+    hall: `<rect class="furn-f" x="136" y="226" width="28" height="52" rx="1.5"/><circle class="furn" cx="158" cy="253" r="1.6"/><path class="furn" d="M130 226h4M132 226v8l-3 10h7l-3-10"/>`,
+    sitting: `<rect class="furn-f" x="204" y="244" width="40" height="34" rx="1.5"/><rect class="furn" x="212" y="254" width="24" height="24" rx="10"/><path class="furn" d="M198 244h52"/><rect class="furn" x="206" y="226" width="10" height="13" rx="1"/><rect class="furn" x="220" y="222" width="12" height="17" rx="1"/><rect class="furn" x="236" y="228" width="9" height="11" rx="1"/>`,
+    garden: `<path class="furn" d="M232 300v22M244 300v22M256 300v22M268 300v22M228 306h44M228 316h44"/><path class="furn" d="M30 322v-12M30 310c-3 0-5-3-5-6l2.5 1.5 2.5-3 2.5 3 2.5-1.5c0 3-2 6-5 6zM44 322v-9M44 313c-3 0-4-2.5-4-5l2 1 2-2.5 2 2.5 2-1c0 2.5-1 5-4 5z"/><path class="furn" d="M150 326c4-10 14-10 20 0"/><circle class="furn-f" cx="120" cy="316" r="3"/><circle class="furn-f" cx="127" cy="320" r="2.6"/><path class="furn" d="M124 326v-22M118 310l6-4 6 4"/>`,
+  };
+  let R = clone(START);
+  let where = "any", open = null;
+  const LIT = { any: null, home: ["attic", "bedroom", "study", "kitchen", "sitting", "garden"], out: ["hall", "garden"], desk: ["study"] };
+
+  body.innerHTML = `<div class="ph-col">
+      <div class="rm-where" role="group" aria-label="Where are you?">
+        <button data-w="any" class="on">${ic("house")}Anywhere</button>
+        <button data-w="home">${ic("sun")}At home</button>
+        <button data-w="out">${ic("door")}Going out</button>
+        <button data-w="desk">${ic("note")}At my desk</button>
+      </div>
+      <div class="rm-draw-wrap"><svg class="rm-draw" viewBox="0 0 300 330" role="group" aria-label="Your house"></svg></div>
+      <p class="rm-tip">Tap a room to look inside.</p>
+      <div class="rm-outbox"></div>
+    </div>
+    <div class="rm-sheet" aria-hidden="true"><div class="grab"></div><div class="hd"><button class="ib" data-back aria-label="Back to the house">${ic("chev-l")}</button><div><b></b><small></small></div></div><div class="rm-notes"></div></div>`;
+  const svg = $(".rm-draw", body), wrap = $(".rm-draw-wrap", body), sheet = $(".rm-sheet", body), tip = $(".rm-tip", body), outbox = $(".rm-outbox", body);
+
+  function drawHouse() {
+    const room = (k) => {
+      const r = R[k];
+      const shape = k === "attic" ? `<polygon class="base" points="150,34 236,92 64,92"/>` : `<rect class="base" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="${k === "garden" ? 10 : 2}"${k === "garden" ? ' style="fill:var(--lawn)"' : ""}/>`;
+      const notes = r.notes.slice(0, Math.min(r.items.length, r.notes.length)).map(([x, y], i) => `<rect class="notep" x="${x}" y="${y}" width="9" height="7.5" rx="1" transform="rotate(${i % 2 ? 6 : -5} ${x + 4.5} ${y + 3.75})"/>`).join("");
+      const sun = r.sun && r.items.some((it) => it.today) ? `<circle class="sunmark" cx="${r.sun[0]}" cy="${r.sun[1]}" r="4.3"/>` : "";
+      const lit = !LIT[where] || LIT[where].includes(k);
+      const today = r.items.some((it) => it.today);
+      return `<g class="room ${lit ? "" : "dim"}" data-room="${k}" tabindex="0" role="button" aria-label="${r.name}${r.items.length > 3 ? ", busy" : ", a few things"}${today ? ", something for today" : ""}">${shape}${FURN[k]}<text class="lbl" x="${r.label[0]}" y="${r.label[1]}">${r.name.replace(/^The /, "").replace("By the front door", "hall").replace(/^./, (c) => c.toUpperCase())}</text>${notes}${sun}</g>`;
+    };
+    svg.innerHTML = `
+      <polygon class="shell" points="150,16 266,96 34,96"/>
+      <rect class="shell" x="30" y="96" width="240" height="186" style="fill:var(--roof)"/>
+      ${["attic", "bedroom", "study", "kitchen", "hall", "sitting", "garden"].map(room).join("")}
+      <path class="gnd" d="M0 282h300"/>`;
+  }
+  function setWhere(w) {
+    where = w;
+    $$(".rm-where button", body).forEach((b) => b.classList.toggle("on", b.dataset.w === w));
+    drawHouse();
+    if (w === "out") {
+      const items = R.hall.items;
+      outbox.innerHTML = `<div class="p-card rm-out rise"><b>Going out? Take these with you</b>${items.map((it) => `<div class="li">${ic(it.ic)}${it.t}</div>`).join("")}</div>`;
+      tip.textContent = "The hall and the garden light up.";
+    } else {
+      outbox.innerHTML = "";
+      tip.textContent = w === "desk" ? "Only the desk is lit. Everything else can wait." : w === "home" ? "Everything but the front door." : "Tap a room to look inside.";
+    }
+  }
+  function noteHTML(it, fresh = false) {
+    return `<div class="rm-note ${fresh ? "rise" : ""}" data-t="${it.t}">${ic(it.ic)}<div><div class="t">${it.t}</div>${it.m ? `<div class="m ${it.today ? "today" : ""}">${it.m}</div>` : ""}</div><button class="ring-btn" data-tick aria-label="Mark ${it.t} done"><span class="ring">${ic("check")}</span></button></div>`;
+  }
+  function openRoom(k, fresh) {
+    open = k;
+    const r = R[k];
+    const W = wrap.clientWidth, Hh = wrap.clientHeight, u = W / 300;
+    const avail = sheet.offsetTop - wrap.offsetTop - 14;
+    const rx = k === "attic" ? 64 : r.x, ry = k === "attic" ? 30 : r.y, rw = k === "attic" ? 172 : r.w, rh = k === "attic" ? 64 : r.h;
+    const kz = Math.min((W * 0.92) / (rw * u), Math.max(avail, 60) / (rh * u), 3.2);
+    const cx = (rx + rw / 2) * u, cy = (ry + rh / 2) * u;
+    const tx = W / 2 - cx * kz, ty = Math.max(avail, 60) / 2 + 7 - cy * kz;
+    svg.style.transform = `translate(${tx}px, ${ty}px) scale(${kz})`;
+    $$(".room", svg).forEach((g) => g.classList.toggle("dim", g.dataset.room !== k));
+    $(".hd b", sheet).textContent = r.name;
+    $(".hd small", sheet).textContent = r.sub;
+    $(".rm-notes", sheet).innerHTML = r.items.map((it) => noteHTML(it, fresh === it.t)).join("") || `<p style="text-align:center;color:var(--p-ink3);font-size:13px;padding:20px">Nothing here. A tidy room.</p>`;
+    sheet.classList.add("show");
+    sheet.setAttribute("aria-hidden", "false");
+    tip.style.visibility = "hidden";
+  }
+  function closeRoom() {
+    open = null;
+    svg.style.transform = "";
+    sheet.classList.remove("show");
+    sheet.setAttribute("aria-hidden", "true");
+    tip.style.visibility = "";
+    drawHouse();
+  }
+  svg.addEventListener("click", (e) => { const g = e.target.closest(".room"); if (g) openRoom(g.dataset.room); });
+  svg.addEventListener("keydown", (e) => { const g = e.target.closest(".room"); if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openRoom(g.dataset.room); } });
+  $(".rm-where", body).addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { if (open) closeRoom(); setWhere(b.dataset.w); } });
+  sheet.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-back]")) return closeRoom();
+    const t = e.target.closest("[data-tick]");
+    if (!t || !open) return;
+    const n = t.closest(".rm-note");
+    t.querySelector(".ring").classList.add("on");
+    n.querySelector(".t").style.textDecoration = "line-through";
+    await wait(600);
+    n.style.transition = "opacity .3s, transform .3s";
+    n.style.opacity = "0"; n.style.transform = "translateY(-8px)";
+    await wait(300);
+    R[open].items = R[open].items.filter((it) => it.t !== n.dataset.t);
+    n.remove();
+    drawHouse();
+    openRoom(open);
+    capsule(el, "Done. One less note in this room.");
+  });
+  const moveSam = async () => {
+    const it = R.sitting.items.find((x) => x.t === "Ask Sam about the brackets");
+    if (!it) { openRoom("kitchen"); return; }
+    if (open !== "sitting") { if (open) closeRoom(); await wait(200); openRoom("sitting"); await wait(800); }
+    const n = $(`.rm-note[data-t="${CSS.escape(it.t)}"]`, sheet);
+    if (n && !reduce) { n.animate([{ transform: "none", opacity: 1 }, { transform: "translateX(-120%) rotate(-6deg)", opacity: 0 }], { duration: 500, easing: "cubic-bezier(.5,0,.75,0)", fill: "forwards" }); await wait(480); }
+    R.sitting.items = R.sitting.items.filter((x) => x !== it);
+    R.kitchen.items.unshift(it);
+    capsule(el, "Moved to the kitchen, with the shelves.");
+    drawHouse();
+    openRoom("kitchen", it.t);
+  };
+  tryButtons("rooms", {
+    kitchen: () => { setWhere("any"); openRoom("kitchen"); },
+    out: () => { if (open) closeRoom(); setWhere("out"); },
+    desk: () => { if (open) closeRoom(); setWhere("desk"); },
+    move: moveSam,
+    reset: () => { R = clone(START); if (open) closeRoom(); setWhere("any"); },
+  });
+  setWhere("any");
+}
+
+/* =====================================================================
+   D. Stones
+   ===================================================================== */
+{
+  const el = $("#ph-stones");
+  const body = phone(el);
+  const CAP = 6;
+  const WORD = { 1: "A pebble", 2: "A stone", 4: "A rock" };
+  const START = {
+    days: [
+      { k: "fri", l: "Today", name: "Today", today: true, s: [{ t: "Walk at lunch, no podcast", w: 2 }, { t: "Send the brief to Ana", w: 2 }, { t: "Call Mum back", w: 1 }] },
+      { k: "sat", l: "Sat", name: "Saturday", s: [{ t: "Check the oak offcuts", w: 2 }, { t: "Ask Sam about the brackets", w: 1 }] },
+      { k: "sun", l: "Sun", name: "Sunday", s: [{ t: "Buy the tulip bulbs", w: 1 }] },
+      { k: "mon", l: "Mon", name: "Monday", s: [] },
+      { k: "tue", l: "Tue", name: "Tuesday", s: [{ t: "Draft the onboarding copy", w: 4 }] },
+    ],
+    shore: [
+      { t: "Book the dentist", w: 1 }, { t: "Renew the car insurance", w: 2 }, { t: "Sort the loft", w: 4 },
+      { t: "Pick up the prescription", w: 1 }, { t: "Plan Ana's leaving card", w: 2 }, { t: "Text Priya about Sunday", w: 1 },
+      { t: "Fix the squeaky gate", w: 2 }, { t: "Make a Lisbon photo book", w: 4 }, { t: "Return the library books", w: 1 },
+    ],
+    far: [{ t: "Learn the birds in the garden", w: 2 }, { t: "Try the pottery class", w: 2 }, { t: "Read the Mary Oliver book", w: 2 }],
+    cairn: [2, 1, 2, 1],
+  };
+  let T = clone(START);
+  let sel = null, onDay = null;
+
+  body.innerHTML = `<div class="st-wrap">
+      <div class="st-bowls"></div>
+      <div class="st-hint" aria-live="polite"></div>
+      <div class="st-day"></div>
+      <div class="shore"></div>
+    </div>`;
+  const bowlsEl = $(".st-bowls", body), hintEl = $(".st-hint", body), dayEl = $(".st-day", body), shoreEl = $(".shore", body);
+  const sum = (d) => d.s.reduce((a, x) => a + x.w, 0);
+
+  function pebbles(d, freshT) {
+    const rows = [[]], widths = [0], maxW = [26, 34, 40, 42];
+    const PW = { 1: 9, 2: 12, 4: 17 };
+    d.s.forEach((st) => {
+      let r = rows.length - 1;
+      if (widths[r] + PW[st.w] > (maxW[r] || 42)) { rows.push([]); widths.push(0); r++; }
+      rows[r].push(st); widths[r] += PW[st.w] + 1;
+    });
+    return rows.map((rw, ri) => {
+      let x = (46 - widths[ri]) / 2;
+      return rw.map((st) => { const h = `<i class="peb p${st.w} ${st.t === freshT ? "new" : ""}" style="left:${x.toFixed(1)}px;bottom:${3 + ri * 6.5}px"></i>`; x += PW[st.w] + 1; return h; }).join("");
+    }).join("");
+  }
+  function renderBowls(freshT, freshCairn) {
+    bowlsEl.innerHTML = T.days.map((d, i) => `<button class="bowl ${sum(d) >= CAP ? "full" : ""} ${onDay === i ? "on" : ""}" data-i="${i}" aria-label="${d.name}, ${sum(d) >= CAP ? "full" : sum(d) >= CAP - 1 ? "nearly full" : sum(d) === 0 ? "empty" : "some room"}">
+        <span class="vessel"><svg viewBox="0 0 46 34" aria-hidden="true"><path class="bw" d="M2 7 Q 2 33 23 33 Q 44 33 44 7 Z"/></svg>${pebbles(d, freshT)}</span>
+        <span class="lbl ${d.today ? "today" : ""}">${d.l}</span></button>`).join("") +
+      `<div class="cairn" aria-label="Done this week"><span class="stack">${T.cairn.map((w, i) => `<i class="${freshCairn && i === T.cairn.length - 1 ? "new" : ""}" style="width:${w === 4 ? 26 : w === 2 ? 20 : 14}px;height:${w === 4 ? 8 : 7}px;margin-left:${i % 2 ? 3 : -3}px"></i>`).join("")}</span><span class="lbl" style="font-size:10.5px;font-weight:800;color:var(--p-ink2)">Done</span></div>`;
+  }
+  function stoneHTML(st, far = false) {
+    return `<button class="stone w${st.w} ${far ? "old" : ""} ${sel && sel.t === st.t ? "sel" : ""}" data-t="${st.t}" aria-pressed="${!!(sel && sel.t === st.t)}" aria-label="${st.t}, ${WORD[st.w].toLowerCase()}">${st.t}</button>`;
+  }
+  function renderShore() {
+    const keep = shoreEl.scrollTop;
+    shoreEl.innerHTML = `<p class="shore-lab">On the shore</p><div class="stones">${T.shore.map((s) => stoneHTML(s)).join("")}</div>
+      <p class="shore-lab" style="margin-top:18px">Further down the beach</p><div class="stones">${T.far.map((s) => stoneHTML(s, true)).join("")}</div>
+      <div class="legend-w"><span><i style="width:9px;height:6px"></i>pebble, minutes</span><span><i style="width:12px;height:8px"></i>stone, an hour</span><span><i style="width:16px;height:10px;background:var(--stone-3)"></i>rock, a big job</span></div>`;
+    shoreEl.scrollTop = keep;
+  }
+  function hint(html, iconName = "sparkle", btn = "") {
+    hintEl.innerHTML = `${ic(iconName)}<span>${html}</span>${btn}`;
+  }
+  function renderDay() {
+    if (onDay === null) { dayEl.innerHTML = ""; return; }
+    const d = T.days[onDay];
+    dayEl.innerHTML = d.s.length ? `<div class="p-card rise">${d.s.map((st) => `<div class="p-row" data-t="${st.t}"><div><div class="t">${st.t}</div><div class="m"><span>${WORD[st.w]}</span></div></div><button class="ring-btn" data-finish aria-label="Mark ${st.t} done"><span class="ring">${ic("check")}</span></button></div>`).join("")}</div>` : `<div class="p-card rise" style="padding:14px;text-align:center;font-size:12.5px;color:var(--p-ink3)">${d.name}'s bowl is empty.</div>`;
+  }
+  const defaultHint = () => hint("Tap a stone, then a day. A full bowl won't take more.");
+  function selectStone(t) {
+    const st = [...T.shore, ...T.far].find((x) => x.t === t);
+    if (!st) return;
+    sel = sel && sel.t === t ? null : st;
+    onDay = null; renderDay();
+    $$(".bowl", bowlsEl).forEach((b) => b.classList.remove("glow", "on"));
+    renderShore();
+    if (!sel) return defaultHint();
+    if (sel.w === 4) hint(`<b>${sel.t}</b> is a big one.`, "box", `<button class="p-btn soft" data-break>Break it up</button>`);
+    else hint(`Now tap a day for <b>${sel.t}</b>.`, "stones");
+  }
+  async function flyTo(fromEl, toEl, back = false) {
+    if (reduce || !fromEl || !toEl) return;
+    const pr = el.getBoundingClientRect(), a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+    const g = document.createElement("div");
+    g.className = "ghost";
+    const w = sel ? (sel.w === 4 ? 30 : sel.w === 2 ? 22 : 15) : 18;
+    g.style.cssText = `left:${a.left - pr.left + a.width / 2 - w / 2}px;top:${a.top - pr.top + a.height / 2 - w * 0.33}px;width:${w}px;height:${w * 0.66}px;border-radius:50%;background:var(--stone-2);box-shadow:0 4px 10px rgba(60,40,20,.25)`;
+    el.appendChild(g);
+    const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height * 0.55 - (a.top + a.height / 2);
+    const frames = back
+      ? [{ transform: "none" }, { transform: `translate(${dx}px, ${dy - 14}px) scale(.8)`, offset: 0.5 }, { transform: `translate(${dx * 0.75}px, ${dy * 0.55 - 30}px) scale(.9)`, offset: 0.72 }, { transform: "none", opacity: 0.2 }]
+      : [{ transform: "none" }, { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 40}px) scale(.85)`, offset: 0.5 }, { transform: `translate(${dx}px, ${dy}px) scale(.6)` }];
+    await g.animate(frames, { duration: back ? 900 : 560, easing: "cubic-bezier(.3,.1,.3,1)" }).finished.catch(() => {});
+    g.remove();
+  }
+  async function drop(i) {
+    const d = T.days[i];
+    const stEl = $(`.stone[data-t="${CSS.escape(sel.t)}"]`, shoreEl);
+    const bowlEl = bowlsEl.children[i];
+    if (sum(d) + sel.w <= CAP) {
+      const st = sel;
+      await flyTo(stEl, $(".vessel", bowlEl));
+      T.shore = T.shore.filter((x) => x !== st); T.far = T.far.filter((x) => x !== st);
+      d.s.push(st); sel = null;
+      renderBowls(st.t); renderShore();
+      const now = sum(d);
+      hint(`Planned for ${d.name === "Today" ? "today" : d.name}. ${now >= CAP ? "That bowl is full now." : now >= CAP - 1 ? "It's nearly full." : "There's still room."}`, "check");
+      capsule(el, `${st.t}: ${d.name === "Today" ? "today" : d.name}`);
+    } else {
+      const roomy = T.days.findIndex((x) => sum(x) + sel.w <= CAP);
+      bowlEl.animate([{ transform: "none" }, { transform: "translateX(-3px)" }, { transform: "translateX(3px)" }, { transform: "none" }], { duration: reduce ? 1 : 360, delay: reduce ? 0 : 420 });
+      await flyTo(stEl, $(".vessel", bowlEl), true);
+      if (stEl) { stEl.classList.remove("bounce"); void stEl.offsetWidth; stEl.classList.add("bounce"); }
+      if (roomy >= 0) bowlsEl.children[roomy].classList.add("glow");
+      hint(`<b>${d.name === "Today" ? "Today" : d.name} looks full.</b> ${roomy >= 0 ? `${T.days[roomy].name} has room.` : "Every day this week is full."}`, "sun");
+    }
+  }
+  bowlsEl.addEventListener("click", (e) => {
+    const b = e.target.closest(".bowl");
+    if (!b) return;
+    const i = Number(b.dataset.i);
+    if (sel) return drop(i);
+    onDay = onDay === i ? null : i;
+    $$(".bowl", bowlsEl).forEach((x, j) => { x.classList.toggle("on", j === onDay); x.classList.remove("glow"); });
+    renderDay();
+    if (onDay !== null) hint(`What ${T.days[i].name === "Today" ? "today" : T.days[i].name} holds. Tick one when it's done.`, "stones");
+    else defaultHint();
+  });
+  shoreEl.addEventListener("click", (e) => { const s = e.target.closest(".stone"); if (s) selectStone(s.dataset.t); });
+  hintEl.addEventListener("click", async (e) => {
+    if (!e.target.closest("[data-break]") || !sel) return;
+    const rock = sel;
+    const stEl = $(`.stone[data-t="${CSS.escape(rock.t)}"]`, shoreEl);
+    if (stEl) { stEl.classList.add("split"); await wait(380); }
+    const parts = rock.t === "Sort the loft"
+      ? [{ t: "Clear the shelf by the window", w: 2 }, { t: "Take the old lamps to the tip", w: 2 }, { t: "Find the box of photos for Mum", w: 1 }]
+      : [{ t: "Choose forty photos", w: 2 }, { t: "Pick a book size", w: 1 }, { t: "Write the captions", w: 2 }];
+    const at = T.shore.indexOf(rock);
+    T.shore.splice(at, 1, ...parts);
+    sel = null;
+    renderShore();
+    parts.forEach((p) => { const n = $(`.stone[data-t="${CSS.escape(p.t)}"]`, shoreEl); if (n) n.classList.add("rise"); });
+    hint("Broken into stones. Each one is a real first step.", "sparkle");
+  });
+  dayEl.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-finish]");
+    if (!b || onDay === null) return;
+    const r = b.closest(".p-row");
+    b.querySelector(".ring").classList.add("on");
+    r.classList.add("struck");
+    await wait(550);
+    const d = T.days[onDay];
+    const st = d.s.find((x) => x.t === r.dataset.t);
+    await flyTo(r, $(".cairn .stack", bowlsEl));
+    d.s = d.s.filter((x) => x !== st);
+    T.cairn.push(st.w);
+    renderBowls(null, true);
+    renderDay();
+    hint("Onto the cairn. That's carried.", "check");
+  });
+  tryButtons("stones", {
+    "today-fit": async () => { onDay = null; renderDay(); sel = null; selectStone("Book the dentist"); if (!sel) return; await wait(450); drop(0); },
+    "today-full": async () => { onDay = null; renderDay(); sel = null; selectStone("Renew the car insurance"); if (!sel) return; await wait(450); drop(0); },
+    break: async () => { sel = null; selectStone("Sort the loft"); if (!sel) { selectStone("Make a Lisbon photo book"); } if (!sel) return; await wait(500); const bb = $("[data-break]", hintEl); if (bb) bb.click(); },
+    finish: async () => {
+      sel = null; renderShore(); onDay = 0; renderBowls(); renderDay();
+      hint("What today holds. Tick one when it's done.", "stones");
+      await wait(500);
+      const f = $("[data-finish]", dayEl); if (f) f.click();
+    },
+    reset: () => { T = clone(START); sel = null; onDay = null; renderBowls(); renderShore(); renderDay(); defaultHint(); },
+  });
+  renderBowls(); renderShore(); defaultHint();
+}
+
+/* =====================================================================
+   E. Held
+   ===================================================================== */
+{
+  const el = $("#ph-held");
+  const body = phone(el, { right: "" });
+  const PICKS = [
+    { ic: "mail", t: "Send the brief to Ana", m: "3:00 pm · about twenty minutes", why: "It's the only thing with a time this afternoon, and the outline is already done.", today: true },
+    { ic: "tooth", t: "Book the dentist", m: "A short call", why: "The surgery is open until five, and it's a two-minute call.", today: true },
+    { ic: "phone", t: "Call Mum back", m: "Before 7:00 pm", why: "She asked for before seven. After three the afternoon is quiet.", today: true },
+  ];
+  const GENTLE = { ic: "drop", t: "Water the tomatoes", m: "A pebble · five minutes, outside", why: "Something gentle. It gets you up, and it's done in a few minutes." };
+  const BRIGHT = { ic: "note", t: "Draft the onboarding copy", m: "A rock · start with the first page", why: "You've got energy today, which is the best time for the big one. It's planned for Wednesday, so there's no rush." };
+  const RIT = {
+    tomorrow: { title: "Choosing Saturday", q: "Saturday?", yes: "Yes, Saturday", no: "Not Saturday", items: [
+      { ic: "person", t: "Ask Sam about the brackets", m: 'You wrote "tomorrow" in Kitchen shelves', w: 1 },
+      { ic: "tool", t: "Check the oak offcuts", m: "Goes with the brackets", w: 2 },
+      { ic: "book", t: "Return the library books", m: "Due back on Monday", w: 1 },
+      { ic: "tulip", t: "Buy the tulip bulbs", m: "It's planting time", w: 1 },
+      { ic: "tool", t: "Fix the squeaky gate", m: "From your note \"Garden jobs\"", w: 2 } ],
+      endIcon: "sun", endT: "Saturday is set.", endP: "I'll show it to you in the morning, one thing at a time." },
+    away: { title: "Putting today away", items: [
+      { ic: "tooth", t: "Book the dentist", m: "This didn't happen today. That's all right." },
+      { ic: "mail", t: "Text Priya about Sunday", m: "Planned for today" } ],
+      endIcon: "moon", endT: "Today is put away.", endP: "Everything is safe for tomorrow. Sleep well." },
+    tidy: { title: "A two-minute tidy", q: "Does this still matter to you?", items: [
+      { ic: "tool", t: "Fix the squeaky gate", m: 'Added on 21 August, from "Garden jobs"' },
+      { ic: "sparkle", t: "Try the pottery class", m: 'Added on 2 September, from "Things I\'d like to try"' },
+      { ic: "book", t: "Read the Mary Oliver book", m: 'Added on 14 July, from "Slow morning"' },
+      { ic: "camera", t: "Back up the photos", m: "Added on 30 August" } ],
+      endIcon: "sprout", endT: "That's tidy.", endP: "What you let rest is in Resting. It can come back whenever you like." },
+  };
+  const HAND_CAP = 5;
+  let pickI = 0, pick = PICKS[0], mood = null, rit = null;
+
+  body.innerHTML = `<div class="hd-screen"></div><div class="scrim"></div>
+    <div class="hd-sheet" aria-hidden="true"><div class="hd"><span></span><b>Everything I'm holding</b><button class="ib" data-close aria-label="Close">${ic("x")}</button></div><div class="body"></div></div>`;
+  const screen = $(".hd-screen", body), sheet = $(".hd-sheet", body), scrim = $(".scrim", body);
+
+  function home(animate = true) {
+    rit = null;
+    const sub = mood === "low" ? "Let's keep today gentle." : mood === "bright" ? "A good day for something bigger." : "Friday 9 October. I'm keeping everything else safe.";
+    screen.innerHTML = `<div class="${animate ? "rise" : ""}">
+      <div class="hd-greet"><h4>Good afternoon</h4><p>${sub}</p></div>
+      <div class="p-card hd-one" id="hd-one">
+        <span class="eb">Right now</span>
+        <div class="row"><span class="pic ${pick.today ? "today" : ""}">${ic(pick.ic)}</span><div><div class="t">${pick.t}</div><div class="m">${pick.m}</div></div></div>
+        <div class="hd-why">${ic("sparkle")}<span>${pick.why}</span></div>
+        <div class="btns"><button class="p-btn primary" data-h="focus">${ic("play")}Start</button><button class="p-btn soft" data-h="done">${ic("check")}Done</button></div>
+      </div>
+      <div class="hd-doors">
+        <button class="door" data-h="else">${ic("rotate")}Something else</button>
+        <button class="door" data-h="later">${ic("moon")}Not today</button>
+        <button class="door" data-h="energy">${ic("cloudsun")}Low on energy</button>
+      </div>
+      <div class="p-sec">Look after the list</div>
+      <div class="p-card">
+        <button class="hd-rit" data-h="tomorrow"><span class="pic">${ic("sun")}</span><span><b>Choose tomorrow with me</b><small>About a minute, best in the evening</small></span>${ic("chev-r")}</button>
+        <button class="hd-rit" data-h="away"><span class="pic">${ic("moon")}</span><span><b>Put today away</b><small>Half a minute, before bed</small></span>${ic("chev-r")}</button>
+        <button class="hd-rit" data-h="tidy"><span class="pic">${ic("sprout")}</span><span><b>A two-minute tidy</b><small>A few old things, one at a time</small></span>${ic("chev-r")}</button>
+      </div>
+      <button class="hd-all" data-h="all">Show everything I'm holding ${ic("chev-r")}</button>
+    </div>`;
+    screen.scrollTop = 0;
+  }
+  async function swapPick(next, msg) {
+    const card = $("#hd-one", screen);
+    if (card && !reduce) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; await wait(200); }
+    pick = next;
+    home(false);
+    const c2 = $("#hd-one", screen);
+    if (c2) c2.classList.add("rise");
+    if (msg) capsule(el, msg);
+  }
+  const nextPick = () => { pickI = (pickI + 1) % PICKS.length; return PICKS[pickI]; };
+  function energy() {
+    screen.innerHTML = `<div class="rise">
+      <div class="hd-greet"><h4>How's your energy?</h4><p>I'll offer something that fits.</p></div>
+      <div class="energy">
+        <button data-e="low">${ic("moon")}Low<small>Something small</small></button>
+        <button data-e="steady">${ic("cloudsun")}Steady<small>As planned</small></button>
+        <button data-e="bright">${ic("sun")}Bright<small>Something big</small></button>
+      </div>
+      <button class="hd-all" data-h="home">${ic("chev-l")}Back</button></div>`;
+  }
+  function ritual(kind) {
+    rit = { kind, i: 0, hand: [], ...RIT[kind] };
+    ritStep();
+  }
+  function ritStep() {
+    const r = rit;
+    const it = r.items[r.i];
+    if (!it) return ritEnd();
+    const handW = r.hand.reduce((a, x) => a + x.w, 0);
+    const full = r.kind === "tomorrow" && handW >= HAND_CAP;
+    let acts;
+    if (full) acts = `<div class="hd-why" style="justify-content:center">${ic("sun")}<span>That looks like a full, kind day.</span></div><div class="pair"><button class="p-btn primary" data-r="stop">Stop here</button><button class="p-btn outline" data-r="more">One more</button></div>`;
+    else if (r.kind === "tomorrow") acts = `<div class="pair"><button class="p-btn primary" data-r="yes">${r.yes}</button><button class="p-btn outline" data-r="no">${r.no}</button></div>`;
+    else if (r.kind === "away") acts = `<div class="pair"><button class="p-btn primary" data-r="next">Tomorrow</button><button class="p-btn outline" data-r="next">Next week</button></div><button class="p-btn plain" data-r="rest">${ic("moon")}Let it rest</button>`;
+    else acts = `<button class="p-btn primary" data-r="next">Yes, keep it</button><div class="pair"><button class="p-btn outline" data-r="next">Some other time</button><button class="p-btn outline" data-r="rest">Let it rest</button></div>`;
+    screen.innerHTML = `<div class="rit-bar"><i style="width:${(r.i / r.items.length) * 100}%"></i></div>
+      <p class="rit-title">${r.title}</p>
+      <div class="p-card rit-card ${full ? "" : "rise"}"><span class="pic">${ic(it.ic)}</span><div class="t">${it.t}</div><div class="m">${it.m}</div>${r.q && !full ? `<div class="q">${r.q}</div>` : ""}</div>
+      <div class="rit-acts">${acts}</div>
+      ${r.kind === "tomorrow" ? `<div class="hand"><small>Saturday's bowl</small><div class="meter"><i style="width:${Math.min(100, (handW / HAND_CAP) * 100)}%"></i></div><div class="chips">${r.hand.map((h) => `<span>${h.t}</span>`).join("")}</div></div>` : ""}
+      <button class="hd-all" data-h="home">Stop for now</button>`;
+    requestAnimationFrame(() => { const bar = $(".rit-bar i", screen); if (bar) bar.style.width = `${((r.i + (full ? 0 : 0)) / r.items.length) * 100}%`; });
+  }
+  function ritEnd() {
+    const r = rit;
+    screen.innerHTML = `<div class="rit-bar"><i style="width:100%"></i></div><div class="rit-end rise">
+      <span class="pic today" style="width:64px;height:64px;border-radius:22px;font-size:32px">${ic(r.endIcon)}</span>
+      <div class="t">${r.endT}</div><p>${r.endP}</p>
+      ${r.kind === "tomorrow" && r.hand.length ? `<div class="hand" style="width:100%"><small>Saturday</small><div class="chips">${r.hand.map((h) => `<span>${h.t}</span>`).join("")}</div></div>` : ""}
+      <button class="p-btn soft" data-h="home" style="margin-top:8px">Back to now</button></div>`;
+    rit = null;
+  }
+  function showAll(show) {
+    sheet.classList.toggle("show", show);
+    scrim.classList.toggle("show", show);
+    sheet.setAttribute("aria-hidden", String(!show));
+    if (!show) return;
+    const piles = [
+      ["Today", [["mail", "The onboarding brief", "Send the brief to Ana"], ["phone", "Mum", "Call Mum back"], ["tooth", "The dentist", "Book the dentist"]]],
+      ["Coming up", [["note", "Kitchen shelves", "Ask Sam about the brackets"], ["door", "Out and about", "Pick up the prescription"], ["sparkle", "Loose ends", "Text Priya about Sunday"]]],
+      ["Far off", [["feather", "Someday", "Learn the birds in the garden"]]],
+      ["Resting", [["moon", "Let go of", "Fix the squeaky gate"]]],
+    ];
+    $(".body", sheet).innerHTML = `<p style="text-align:center;font-size:12px;color:var(--p-ink3);margin:2px 0 4px">In piles, the top of each one showing.</p>` + piles.map(([g, rows]) => `<div class="p-sec">${g}</div><div class="p-card">${rows.map(([i, name, top]) => `<div class="p-row" style="grid-template-columns:30px minmax(0,1fr) 16px"><span class="pic" style="width:30px;height:30px;font-size:16px;border-radius:9px">${ic(i)}</span><div><div class="m" style="margin:0 0 1px">${name}</div><div class="t" style="${g === "Far off" || g === "Resting" ? "color:var(--p-ink3);font-weight:600" : ""}">${top}</div></div>${ic("layers")}</div>`).join("")}</div>`).join("");
+  }
+
+  body.addEventListener("click", (e) => {
+    const h = e.target.closest("[data-h]");
+    const en = e.target.closest("[data-e]");
+    const r = e.target.closest("[data-r]");
+    if (e.target.closest("[data-close]") || e.target === scrim) return showAll(false);
+    if (en) {
+      mood = en.dataset.e;
+      pick = mood === "low" ? GENTLE : mood === "bright" ? BRIGHT : PICKS[pickI];
+      home();
+      capsule(el, mood === "low" ? "Something gentle, then." : mood === "bright" ? "Here's the big one." : "As planned, then.");
+      return;
+    }
+    if (r && rit) {
+      const a = r.dataset.r, it = rit.items[rit.i];
+      if (a === "yes") { rit.hand.push(it); rit.i++; }
+      else if (a === "stop") return ritEnd();
+      else if (a === "more" || a === "no" || a === "next") rit.i++;
+      else if (a === "rest") { rit.i++; capsule(el, `"${it.t}" is resting.`); }
+      if (a === "more") { rit.hand.push(it); }
+      return ritStep();
+    }
+    if (!h) return;
+    const a = h.dataset.h;
+    if (a === "home") home();
+    else if (a === "else") swapPick(mood === "low" ? GENTLE : nextPick());
+    else if (a === "later") swapPick(nextPick(), "Moved to tomorrow. I'll bring it back in the morning.");
+    else if (a === "done") swapPick(nextPick(), "Done. Here's the next kind thing.");
+    else if (a === "focus") capsule(el, "Focus would start here, with its first step.");
+    else if (a === "energy") energy();
+    else if (a === "all") showAll(true);
+    else if (RIT[a]) ritual(a);
+  });
+  tryButtons("held", {
+    else: () => { showAll(false); if (rit || !$("#hd-one", screen)) { home(); } swapPick(mood === "low" ? GENTLE : nextPick()); },
+    energy: () => { showAll(false); energy(); },
+    tomorrow: () => { showAll(false); ritual("tomorrow"); },
+    tidy: () => { showAll(false); ritual("tidy"); },
+    away: () => { showAll(false); ritual("away"); },
+    all: () => { if (!$("#hd-one", screen)) home(false); showAll(true); },
+    reset: () => { showAll(false); pickI = 0; pick = PICKS[0]; mood = null; home(); },
+  });
+  home(false);
+}
+
+/* =====================================================================
+   The page: flips, fading ink, comparison dots, the section nav
+   ===================================================================== */
+document.addEventListener("click", (e) => {
+  const f = e.target.closest("[data-flip]");
+  if (f) { const card = document.getElementById(f.dataset.flip); if (card) card.classList.toggle("over"); return; }
+  const mf = e.target.closest("#miniflip");
+  if (mf) { mf.classList.toggle("over"); return; }
+  const ink = e.target.closest("#ink .mini");
+  if (ink) { ink.style.opacity = "1"; }
+});
+$$("#cmp td[data-d]").forEach((td) => {
+  const n = Number(td.dataset.d);
+  td.innerHTML = `<span class="dots" role="img" aria-label="${["", "a little", "some", "a lot"][n]}">${[1, 2, 3].map((k) => `<i class="${k <= n ? "f" : ""}"></i>`).join("")}</span>`;
+});
+const links = $$(".toc a");
+const byId = new Map(links.map((a) => [a.getAttribute("href").slice(1), a]));
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((en) => {
+    if (!en.isIntersecting) return;
+    links.forEach((a) => a.classList.remove("here"));
+    const a = byId.get(en.target.id);
+    if (a) { a.classList.add("here"); const box = a.parentElement; box.scrollLeft = a.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft - box.clientWidth / 2 + a.offsetWidth / 2; }
+  });
+}, { rootMargin: "-45% 0px -50% 0px" });
+byId.forEach((_, id) => { const s = document.getElementById(id); if (s) io.observe(s); });
+})();
+</script>
