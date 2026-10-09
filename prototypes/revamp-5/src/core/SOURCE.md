@@ -80,3 +80,15 @@ The main app's note editor and its save rules came over at 4344bd8, outside `src
   - updates carry `changedAt`;
   - the server's rich text is read through `asDoc`, because the server stored it as a quoted string (see `docs/editor-plan.md`, progress).
 - `tests/editor/editor.test.js`: the main app's `tests/note-editor` with its harness swapped for this page's channel. The question check expects a quote, and seven checks for Sage's questions are added.
+
+## Photos (2026-10-09)
+
+Photos came to both editors together, so neither opens a note with a photo blank. An editor that doesn't know a node type drops the note's whole rich text and shows an empty page, and its next save writes that over the note (the main app's editor did exactly this before the change).
+
+- `editor/extensions.ts` and the main app's `mobile/src/editor/NoteEditor.tsx` gain the same code:
+  - `Photo`: Tiptap's image as a block, pasted in only from `attachment:` addresses;
+  - `liftPhotos`: each photo on a line of its own when a note is read from Markdown;
+  - `backspaceUnderPhoto`: Backspace under a photo chooses it first;
+  - `writeUnderChosenPhoto`: typing with a photo chosen writes under it.
+- `editor/main.ts` draws photos (`PhotoView`), asking the app for each one by id (`needPhotos` and `photos` in `src/editor/protocol.ts`), and puts one in with `insertPhoto`.
+- The main app shows each photo's place as an outline: it keeps no photos yet.
