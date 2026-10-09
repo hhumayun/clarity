@@ -7,6 +7,8 @@ import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { NOTE_RECORD_COLUMNS, readableDoc } from "../../helpers/NoteRecord";
 import { attachProjectIds, replaceNoteProjects } from "../../helpers/noteProjects";
+import { missingPhotos, syncNoteAttachments } from "../../helpers/noteAttachments";
+import { attachmentIdsOf } from "../../helpers/attachmentRefs";
 import { schema, type OutputType } from "./create_POST.schema";
 
 export async function handle(request: Request) {
@@ -38,26 +40,30 @@ export async function handle(request: Request) {
         .executeTakeFirst();
       if (!created) {
         // Sent before: the note is already there (if it is this person's).
-        return (
-          (await trx
-            .selectFrom("notes")
-            .select([...NOTE_RECORD_COLUMNS])
-            .where("id", "=", input.id!)
-            .where("userId", "=", user.id)
-            .executeTakeFirst()) ?? null
-        );
+        const existing = await trx
+          .selectFrom("notes")
+          .select([...NOTE_RECORD_COLUMNS])
+          .where("id", "=", input.id!)
+          .where("userId", "=", user.id)
+          .executeTakeFirst();
+        if (!existing) return null;
+        // The same answer as the first time: which named photos the server lacks.
+        const missing = await missingPhotos(trx, user.id, attachmentIdsOf(existing.content, existing.doc));
+        return { note: existing, missing };
       }
+      // Links for the photos it names (a new note has no old links to keep).
+      const synced = await syncNoteAttachments(trx, user.id, created, new Set());
       if (input.projectIds?.length) {
         await replaceNoteProjects(trx, created.id, user.id, input.projectIds);
       }
       // A thought parked during focus is linked to the task being worked on.
       if (input.taskId) await linkNoteTask(trx, { noteId: created.id, taskId: input.taskId, userId: user.id });
-      return created;
+      return synced;
     });
     if (!row) return new Response(superjson.stringify({ error: "That note could not be found." }), { status: 404 });
-    const [note] = await attachProjectIds(db, [readableDoc(row)], user.id);
+    const [note] = await attachProjectIds(db, [readableDoc(row.note)], user.id);
 
-    return new Response(superjson.stringify({ note } satisfies OutputType));
+    return new Response(superjson.stringify({ note, missingPhotos: row.missing } satisfies OutputType));
   } catch (error) {
     return endpointError(error);
   }

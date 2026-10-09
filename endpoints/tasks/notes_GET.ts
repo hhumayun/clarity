@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
 import { schema, type OutputType } from "./notes_GET.schema";
+import { withoutAttachments } from "../../helpers/attachmentRefs";
 
 const PREVIEW_CHARS = 220;
 
@@ -27,7 +28,7 @@ export async function handle(request: Request) {
 
     const notes = rows.map(({ content, ...note }) => ({
       ...note,
-      preview: content.replace(/\s+/g, " ").trim().slice(0, PREVIEW_CHARS),
+      preview: withoutAttachments(content).replace(/\s+/g, " ").trim().slice(0, PREVIEW_CHARS),
     }));
     return new Response(superjson.stringify({ notes } satisfies OutputType));
   } catch (error) {

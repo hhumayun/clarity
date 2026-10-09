@@ -1,6 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import superjson from "superjson";
-import { addToQueue, remapProject, subjectOf, type Entry, type Op } from "./outbox";
+import {
+  addToQueue,
+  countPending,
+  mainHead,
+  nextPhotoEntry,
+  nextPhotoTime,
+  remapProject,
+  subjectOf,
+  type Entry,
+  type Op,
+  type PhotoProgress,
+} from "./outbox";
 
 /**
  * The outbox as the app holds it: the queue in memory, mirrored to the
@@ -19,6 +30,9 @@ type State = {
 
 let state: State = { userId: null, queue: [], sending: null, version: 0 };
 let lastSeq = 0;
+// Bumped whenever the queue changes hands (sign-out, another person's queue
+// picked up), so work started for one person never lands on the next's.
+let owner = 0;
 const listeners = new Set<() => void>();
 let onEnqueue: (() => void) | null = null;
 
@@ -47,6 +61,7 @@ export const outbox = {
       saved = [];
     }
     lastSeq = Math.max(lastSeq, ...saved.map((entry) => entry.seq));
+    if (state.userId !== null) owner += 1;
     commit({ userId, queue: [...saved, ...state.queue], sending: null });
   },
 
@@ -56,8 +71,30 @@ export const outbox = {
     onEnqueue?.();
   },
 
+  /** The main lane's next entry: the oldest that isn't a photo (revamp 5). */
   head(): Entry | null {
-    return state.queue[0] ?? null;
+    return mainHead(state.queue);
+  },
+
+  /** The photo lane's next entry: the oldest photo due by `now` (revamp 5). */
+  nextPhoto(now: number): Entry | null {
+    return nextPhotoEntry(state.queue, now);
+  },
+
+  /** When the next photo is due, or null when none is waiting (revamp 5). */
+  nextPhotoAt(): number | null {
+    return nextPhotoTime(state.queue);
+  },
+
+  /** A photo's progress, kept with the queue (revamp 5). */
+  patchPhoto(seq: number, photo: PhotoProgress) {
+    if (!state.queue.some((entry) => entry.seq === seq)) return;
+    commit({ queue: state.queue.map((entry) => (entry.seq === seq ? { ...entry, photo } : entry)) });
+  },
+
+  /** Every photo entry waiting, for the lane's own checks (revamp 5). */
+  photoEntries(): Entry[] {
+    return state.queue.filter((entry) => entry.op.kind === "photo.upload");
   },
 
   markSending(seq: number | null) {
@@ -73,8 +110,9 @@ export const outbox = {
     commit({ queue: remapProject(state.queue, fromId, toId) });
   },
 
-  pendingCount(): number {
-    return state.queue.length;
+  /** Everything waiting; `{ photos: false }` leaves photos out (revamp 5: a photo can't change a list). */
+  pendingCount(options?: { photos?: boolean }): number {
+    return countPending(state.queue, options);
   },
 
   /** Whether anything about this thing ("note:<id>", "task:<id>") is still waiting. */
@@ -96,8 +134,14 @@ export const outbox = {
     onEnqueue = callback;
   },
 
+  /** Changes when the queue changes hands: the photo lane checks it across its long waits. */
+  owner(): number {
+    return owner;
+  },
+
   /** Signing out or deleting the account: forget this person's queue. */
   async clear(): Promise<void> {
+    owner += 1;
     const userId = state.userId;
     commit({ userId: null, queue: [], sending: null }, false);
     if (userId) await AsyncStorage.removeItem(keyFor(userId)).catch(() => {});

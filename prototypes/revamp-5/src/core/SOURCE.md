@@ -63,6 +63,23 @@ Each one only adds, and is marked "(revamp 5)" in the code. They follow the API 
   - It's on `TaskRecord` (`types.ts`), in the task create and update bodies (`api/tasks.ts`, `sync/outbox.ts`, where creates may take it), and in the tasks hook's create and cache patch (`hooks/useTasks.ts`).
   - `lib/reminderRules.ts`: `reminderTimes` gives a reminder for this time only once, though the task repeats. `withReminders` clears it (`remindBefore: null, remindOnce: false`) when a repeating task comes back. Tested by `src/data/reminders.test.ts`.
 - `api/tasks.ts`: `postTaskDismissSuggestion` (2026-10-06), for "Not now" on a found task. The server already had the endpoint; the main app doesn't call it.
+- **Photos on the server (2026-10-09; server migration 017, docs/photos-server.md section 9 in the server's repo).** Nothing shows until the server says photos are on.
+  - `api/attachments.ts` (new): `getAttachmentUsage`, `postAttachmentStart`, `postAttachmentConfirm`, `postAttachmentsView`, `postAttachmentDelete`, the same shape as `notes.ts`; errors carry the server's `code`.
+  - `hooks/useAttachments.ts` (new): `usePhotosEnabled()`, the `["attachments-usage"]` query (fresh for 10 minutes). The Photo tool shows in account notes only once it says `enabled`; a 404 (a server without photos), an error or not knowing yet hides it. `PHOTOS_ON_WEB` turns it off in the web build alone if the bucket won't keep a CORS rule.
+  - `api/notes.ts`: the update body takes `removedPhotos` (the photos the writer took out); create and update answer `{ note, missingPhotos? }`. Bodies are sent as given, never parsed against a schema, so no field is stripped.
+  - `api/account.ts`: `AccountExport` gains `photos`, `photoLinksExpireAt` and `photoLinksNote` (optional: an older server has none).
+  - `sync/outbox.ts`:
+    - a new operation `photo.upload` (`{ id, width?, height? }`, no bytes), subject `photo:<id>`: it never folds, isn't queued twice, and a note's delete leaves it (a photo can be in several notes);
+    - `Entry.photo` (`notBefore`, `failures`, `put`, `waitingForRoom`) is stored with the queue;
+    - `removedPhotos` on `note.update` is bookkeeping like `changedAt`: it never stops a fold, a create drops it, two updates' lists are joined;
+    - `photoFailure` judges a photo's failure: a 404 is tried again (only the phone's own 410 is "gone"), `PHOTOS_UNAVAILABLE` waits 15 minutes, a full account 60 (or until there's room), `TOO_LARGE`, 422 and other 4xx are refused;
+    - `mainHead`, `nextPhotoEntry`, `nextPhotoTime` and `countPending`, the pure queue reads `store.ts` uses. All tested by `src/data/outbox.test.ts`.
+  - `sync/store.ts`: `head()` skips photos; `nextPhoto(now)`, `nextPhotoAt()`, `patchPhoto(seq, progress)`, `photoEntries()`; `pendingCount({ photos: false })` leaves photos out.
+  - `sync/cache.ts`: lists load while only photos are waiting (`pendingCount({ photos: false })`): a photo can't change a list.
+  - `sync/runner.ts`: a second lane for photos, one at a time, each tried no sooner than its stored `notBefore` (waking the lane, which every save does, never hurries it), through `editor/photoUpload.ts`. A saved note's `missingPhotos` that this phone has go up too. The main lane's refresh-when-empty ignores photos. `checkPhotoRoom()` lets photos waiting for space go once `usage` shows room.
+  - `sync/SyncProvider.tsx`: loads `editor/photoLedger.ts` with the outbox; coming back to the app also calls `checkPhotoRoom()`; `usePendingCount({ photos: false })`.
+  - `sync/persist.ts`: `"attachments-usage"` is kept on the phone; `clearOfflineData` also deletes the phone's photos (`photoStore.clearAll`), forgets those shown (`forgetPhotos`) and clears the ledger. Sign-out warns first about changes and photos not yet on the server (`app/settings.tsx`).
+  - `providers/AuthProvider.tsx`: `logout` calls `signOut(() => {})`, a callback in place of Clerk's redirect. On the web that redirect is a full page load, which could cut off `clearOfflineData` and leave photos in IndexedDB (photo-account.mjs step 11, about 1 run in 4). The app's own routing shows the welcome screen, as on the phone.
 
 ## The editor (phase 5, 2026-10-06)
 

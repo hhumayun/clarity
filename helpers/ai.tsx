@@ -1,3 +1,5 @@
+import { withoutAttachments } from "./attachmentRefs";
+
 /**
  * Thin wrapper around the OpenRouter chat-completions API, used by the
  * suggestion engine, task extraction and entity indexing. Backend only.
@@ -197,6 +199,9 @@ export async function aiChatJson(opts: {
   /** Tries per model before falling back to the next (default 2). */
   attemptsPerModel?: number;
 }): Promise<string> {
+  // The final guard: no attachment: link reaches a model, whatever the caller
+  // sent (each source strips photos too, before slicing to its budget).
+  opts = { ...opts, userPrompt: withoutAttachments(opts.userPrompt) };
   const primary = opts.model ?? DEFAULT_MODEL;
   const chain = [primary, ...FALLBACK_MODELS.filter((m) => m !== primary)];
 

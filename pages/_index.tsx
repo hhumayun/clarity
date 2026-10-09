@@ -19,6 +19,7 @@ import { useNotes, useUpdateNote, useDeleteNote, useReindexNotes } from "../help
 import { useClaritySettings } from "../helpers/useClaritySettings";
 import { formatNoteDate } from "../helpers/formatNoteDate";
 import type { NoteListRecord } from "../helpers/NoteRecord";
+import { withoutAttachments } from "../helpers/attachmentRefs";
 import styles from "./_index.module.css";
 
 const BACKFILL_FLAG = "clarity:backfilled";
@@ -147,6 +148,11 @@ export default function NotesListPage() {
           {!loading &&
             notes.map((note) => {
               const expanded = expandedId === note.id;
+              // Photo links never show as text; a note of photos only has no preview line.
+              const preview = withoutAttachments(note.content ?? "")
+                .replace(/\s+/g, " ")
+                .trim()
+                .slice(0, 160);
               return (
                 <article key={note.id} className={styles.card}>
                   <div className={styles.cardMain}>
@@ -159,10 +165,8 @@ export default function NotesListPage() {
                       <span className={styles.cardTitle}>
                         {note.title || "Untitled note"}
                       </span>
-                      {note.content && (
-                        <span className={styles.cardPreview}>
-                          {note.content.replace(/\s+/g, " ").slice(0, 160)}
-                        </span>
+                      {preview && (
+                        <span className={styles.cardPreview}>{preview}</span>
                       )}
                       <span className={styles.cardWhen}>
                         {formatNoteDate(note.updatedAt)}

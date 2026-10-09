@@ -3,6 +3,9 @@ import superjson from "superjson";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import type { Query, QueryClient } from "@tanstack/react-query";
 import { persistQueryClientSave, type PersistedClient } from "@tanstack/react-query-persist-client";
+import { photoLedger } from "../../editor/photoLedger";
+import { forgetPhotos } from "../../editor/photos";
+import { photoStore } from "../../editor/photoStore";
 import { noteDocs } from "../lib/noteDocs";
 import { kbOf, perfNow, perfRecord } from "../lib/perf";
 import { outbox } from "./store";
@@ -59,9 +62,10 @@ export function saveOfflineCopyNow(queryClient: QueryClient): Promise<void> {
   });
 }
 
-// Notes, tasks, a task's notes and summary, today's focus and who is signed
-// in. Not AI answers, searches or settings.
-const KEPT = new Set(["notes", "tasks", "task-notes", "task-summary", "auth"]);
+// Notes, tasks, a task's notes and summary, today's focus, who is signed
+// in, and whether photos are on (revamp 5, so the Photo tool is known
+// offline). Not AI answers, searches or settings.
+const KEPT = new Set(["notes", "tasks", "task-notes", "task-summary", "auth", "attachments-usage"]);
 
 export function keepOnPhone(query: Query): boolean {
   if (query.state.status !== "success") return false;
@@ -69,8 +73,19 @@ export function keepOnPhone(query: Query): boolean {
   return KEPT.has(String(root)) || (root === "focus" && second === "summary");
 }
 
-/** Signing out or deleting the account: nothing of theirs stays on the phone. */
+/**
+ * Signing out or deleting the account: nothing of theirs stays on the phone,
+ * photos included (revamp 5; the sign-out warning has counted those not yet
+ * on the server). The samples' photos go too: they were orphans already.
+ */
 export async function clearOfflineData(queryClient: QueryClient): Promise<void> {
   queryClient.clear();
-  await Promise.all([queryPersister.removeClient(), outbox.clear(), noteDocs.clearAll()]);
+  forgetPhotos();
+  await Promise.all([
+    queryPersister.removeClient(),
+    outbox.clear(),
+    noteDocs.clearAll(),
+    photoStore.clearAll().catch(() => {}),
+    photoLedger.clear(),
+  ]);
 }

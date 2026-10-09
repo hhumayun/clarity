@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { serve } from "@hono/node-server";
+import { noteApiActivity } from "./helpers/apiActivity.js";
 
 const app = new Hono();
 
@@ -45,6 +46,12 @@ const routes: Array<["GET" | "POST", string, string]> = [
   ["POST", "/_api/notes/delete", "./endpoints/notes/delete_POST.js"],
   ["POST", "/_api/notes/reindex", "./endpoints/notes/reindex_POST.js"],
   ["POST", "/_api/notes/suggest_title", "./endpoints/notes/suggest_title_POST.js"],
+  // Photos in notes (docs/photos-server.md, section 5).
+  ["GET", "/_api/attachments/usage", "./endpoints/attachments/usage_GET.js"],
+  ["POST", "/_api/attachments/start", "./endpoints/attachments/start_POST.js"],
+  ["POST", "/_api/attachments/confirm", "./endpoints/attachments/confirm_POST.js"],
+  ["POST", "/_api/attachments/view", "./endpoints/attachments/view_POST.js"],
+  ["POST", "/_api/attachments/delete", "./endpoints/attachments/delete_POST.js"],
   ["GET", "/_api/preferences", "./endpoints/preferences_GET.js"],
   ["POST", "/_api/preferences", "./endpoints/preferences_POST.js"],
   ["GET", "/_api/projects/list", "./endpoints/projects/list_GET.js"],
@@ -79,6 +86,8 @@ const routes: Array<["GET" | "POST", string, string]> = [
 
 for (const [method, path, modulePath] of routes) {
   const handler = async (c: any) => {
+    // The photo sweep runs only after real use (helpers/apiActivity.tsx).
+    noteApiActivity();
     try {
       const { handle } = await import(modulePath);
       const response = await handle(c.req.raw);
@@ -115,3 +124,11 @@ app.get("*", async (c, next) => {
 const port = Number(process.env.PORT) || 3333;
 serve({ fetch: app.fetch, port, hostname: "0.0.0.0" });
 console.log(`Running at http://localhost:${port}`);
+// Photo clean-up (docs/photos-server.md, 7.1): first run after 2 minutes,
+// then every 15, each only when an API request came since the last run (an
+// idle server leaves the database asleep); ATTACHMENT_SWEEP_EVERY_MS=0 turns
+// it off. Loaded like the
+// endpoints, so a missing DATABASE_URL still lets the server start.
+import("./helpers/attachmentSweep.js")
+  .then(({ startAttachmentSweep }) => startAttachmentSweep())
+  .catch((error: unknown) => console.error("photo sweep not started:", error instanceof Error ? error.name : "Error"));

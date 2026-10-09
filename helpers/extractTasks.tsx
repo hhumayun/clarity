@@ -2,6 +2,7 @@ import { aiChatJson, DEFAULT_MODEL } from "./ai";
 import { parseModelJson } from "./parseModelJson";
 import { dayAtNoon } from "./dueDate";
 import { describeDay, parseExtractedTasks } from "./parseExtractedTasks";
+import { withoutAttachments } from "./attachmentRefs";
 
 const SYSTEM_PROMPT = `You extract concrete, actionable tasks from a personal note.
 
@@ -28,7 +29,7 @@ export async function extractTasks(input: {
     `Current date: ${describeDay(input.currentDate)}`,
     `Existing projects: ${input.projectNames.length > 0 ? input.projectNames.join("; ") : "None yet"}`,
     input.title.trim() ? `Note title: ${input.title.trim()}` : "Note title: Untitled",
-    `Note text:\n\"\"\"${input.content}\"\"\"`,
+    `Note text:\n\"\"\"${withoutAttachments(input.content)}\"\"\"`,
   ].join("\n\n");
   const raw = await aiChatJson({
     model: DEFAULT_MODEL,

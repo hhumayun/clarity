@@ -1,6 +1,6 @@
 import superjson from "superjson";
 import type { NoteRecord } from "../../helpers/NoteRecord";
-import type { EntityType, FocusOutcome } from "../../helpers/schema";
+import type { AttachmentContentType, EntityType, FocusOutcome } from "../../helpers/schema";
 import type { ProjectRecord, TaskRecord } from "../../helpers/TaskRecord";
 import { apiFetch } from "../../helpers/apiFetch";
 
@@ -23,6 +23,19 @@ export type ExportedFocusSession = {
   endedAt: Date;
 };
 
+/** A photo still in a note. `url` downloads it until photoLinksExpireAt; null with photos off. */
+export type ExportedPhoto = {
+  id: string;
+  contentType: AttachmentContentType;
+  bytes: number;
+  width: number | null;
+  height: number | null;
+  createdAt: Date;
+  /** The notes that name it. */
+  noteIds: string[];
+  url: string | null;
+};
+
 export type OutputType = {
   exportedAt: Date;
   notes: NoteRecord[];
@@ -30,6 +43,10 @@ export type OutputType = {
   projects: ProjectRecord[];
   tasks: TaskRecord[];
   focusSessions: ExportedFocusSession[];
+  /** When every photo url stops working (one hour after the export); null with photos off. */
+  photoLinksExpireAt: Date | null;
+  photoLinksNote: string;
+  photos: ExportedPhoto[];
 };
 
 export const getAccountExport = async (

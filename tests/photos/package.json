@@ -1,0 +1,13 @@
+{
+  "name": "clarity-photos-checks",
+  "private": true,
+  "description": "Local stack and checks for photos in notes (docs/photos-server.md, section 11). See README.md.",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1148.0",
+    "@electric-sql/pglite": "0.5.8",
+    "playwright-core": "1.63.0",
+    "postgres": "3.4.9",
+    "superjson": "2.2.2"
+  }
+}

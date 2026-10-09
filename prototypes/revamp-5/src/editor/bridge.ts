@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import type { EditorCommand, EditorCursor, EditorFormats, EditorLook, FromPage, ToPage } from "./protocol";
 
@@ -29,6 +30,12 @@ export type NoteEditorProps = {
   onInserted?: (before: string, length: number) => void;
   /** Where a photo in the note can be shown from, by its id (src/editor/photos.ts), or null when this phone doesn't have it. */
   photoSource?: (id: string) => Promise<string | null>;
+  /**
+   * Account notes: fetches a photo this phone hasn't got from the server
+   * (src/editor/photos.ts, `fetchPhoto`), or null. One not there yet is
+   * asked for again on reconnecting and every 30 seconds while the note is open.
+   */
+  photoFetch?: (id: string) => Promise<string | null>;
   /** The note is on screen. */
   onShown?: () => void;
   /** The page didn't start, or broke before showing the note. */
@@ -37,6 +44,8 @@ export type NoteEditorProps = {
 
 // A page that hasn't shown the note this long after having it isn't going to.
 const START_LIMIT_MS = 8_000;
+// A photo this phone hasn't got, and the server hadn't either: asked for again this often while the note is open.
+const PHOTO_RETRY_MS = 30_000;
 
 /**
  * The note page's side of the channel to the editor page, shared by the
@@ -60,6 +69,28 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
   // The words as the page last sent them, and how often it has started again.
   const content = useRef<{ markdown: string; doc: unknown } | null>(null);
   const restarts = useRef(0);
+  // Photos the page shows as outlines that the server may yet have: asked for again (photoFetch).
+  const photosToRetry = useRef(new Set<string>());
+  // Answered with null already: another null changes nothing on the page, so isn't sent.
+  const answeredNull = useRef(new Set<string>());
+
+  /** Asks the server for photos this phone hasn't got, and sends each to the page as it comes. */
+  const fetchPhotos = (ids: string[]) => {
+    const fetch = latest.current.photoFetch;
+    if (!fetch) return;
+    for (const id of ids) {
+      void fetch(id)
+        .catch(() => null)
+        .then((src) => {
+          if (src) photosToRetry.current.delete(id);
+          else photosToRetry.current.add(id);
+          // Each one as it answers: a photo draws, or (first time) its outline shows.
+          if (ready.current && (src || !answeredNull.current.has(id))) deliverRef.current({ type: "photos", sources: { [id]: src } });
+          if (src) answeredNull.current.delete(id);
+          else answeredNull.current.add(id);
+        });
+    }
+  };
 
   const fail = (reason: string) => {
     if (failed.current || shown.current) return;
@@ -108,6 +139,10 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
         break;
       case "change":
         content.current = { markdown: message.markdown, doc: message.doc };
+        // A photo taken out of the note isn't asked for again.
+        if (photosToRetry.current.size) {
+          for (const id of photosToRetry.current) if (!message.markdown.includes(`attachment:${id}`)) photosToRetry.current.delete(id);
+        }
         current.onChange(message.markdown, message.doc);
         break;
       case "formats":
@@ -126,10 +161,18 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
         current.onInserted?.(message.before, message.length);
         break;
       // The note's photos the page has nothing to show for: each found, or null, and answered together.
+      // Account notes go on to ask the server for the rest, each sent as it comes (photoFetch).
       case "needPhotos": {
         const find = current.photoSource;
+        const fetchLater = !!current.photoFetch;
         void Promise.all(message.ids.map(async (id) => [id, find ? await find(id).catch(() => null) : null] as const)).then((found) => {
-          if (ready.current) deliverRef.current({ type: "photos", sources: Object.fromEntries(found) });
+          const here = fetchLater ? found.filter(([, src]) => src) : found;
+          if (ready.current && here.length) deliverRef.current({ type: "photos", sources: Object.fromEntries(here) });
+          if (fetchLater) {
+            const ids = found.filter(([, src]) => !src).map(([id]) => id);
+            for (const id of ids) answeredNull.current.delete(id);
+            fetchPhotos(ids);
+          }
         });
         break;
       }
@@ -160,6 +203,27 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
     sentLook.current = look;
     deliverRef.current({ type: "look", look: props.look });
   }, [props.look]);
+
+  // Photos the server hadn't got: asked for again on reconnecting, and every
+  // 30 seconds while the note is open, so one that lands meanwhile appears.
+  const fetching = !!props.photoFetch;
+  useEffect(() => {
+    if (!fetching) return;
+    const retry = () => {
+      const ids = [...photosToRetry.current];
+      if (ids.length && onlineManager.isOnline()) fetchPhotos(ids);
+    };
+    const timer = setInterval(retry, PHOTO_RETRY_MS);
+    const unsubscribe = onlineManager.subscribe((online) => {
+      if (online) retry();
+    });
+    return () => {
+      clearInterval(timer);
+      unsubscribe();
+    };
+    // fetchPhotos reads only refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetching]);
 
   // Counted from when the note is there to show: a slow read isn't the editor's.
   const hasNote = props.seed.key !== NO_SEED_YET.key;

@@ -6,11 +6,12 @@ import { outbox } from "./store";
  * Fetch, unless changes made here are still on their way to the server: then
  * the server's copy would not have them yet, and showing it would make them
  * vanish until they land. Keep what is on screen instead; the runner
- * refreshes everything once the outbox is empty.
+ * refreshes everything once the outbox is empty. Photos waiting to go up
+ * don't count: a photo can't change a list (revamp 5).
  */
 export async function unlessSyncing<T>(queryClient: QueryClient, queryKey: QueryKey, fetcher: () => Promise<T>): Promise<T> {
   const cached = queryClient.getQueryData<T>(queryKey);
-  if (cached !== undefined && outbox.pendingCount() > 0) return cached;
+  if (cached !== undefined && outbox.pendingCount({ photos: false }) > 0) return cached;
   return fetcher();
 }
 
@@ -22,7 +23,7 @@ export async function pageUnlessSyncing<P>(
   fetcher: () => Promise<P>,
 ): Promise<P> {
   const cached = queryClient.getQueryData<InfiniteData<P, unknown>>(queryKey);
-  if (cached && outbox.pendingCount() > 0) {
+  if (cached && outbox.pendingCount({ photos: false }) > 0) {
     const index = cached.pageParams.findIndex((param) => param === pageParam);
     if (index >= 0) return cached.pages[index];
   }

@@ -6,6 +6,7 @@ import type { NoteEntities, EntityType } from "./schema";
 import { EntityTypeArrayValues } from "./schema";
 import { isPersonalizationEnabled } from "./isPersonalizationEnabled";
 import { parseModelJson } from "./parseModelJson";
+import { withoutAttachments } from "./attachmentRefs";
 
 /**
  * Per-user entity index extracted from notes (people, places, events,
@@ -130,7 +131,7 @@ export async function noteEntityIndex(
   const hash = contentHash(note.title, note.content);
   if (note.entitiesHash === hash) return false;
 
-  const text = `${note.title}\n${note.content}`.trim();
+  const text = `${note.title}\n${withoutAttachments(note.content)}`.trim();
   let rows: Insertable<NoteEntities>[] = [];
   // A note with genuinely no entities is a real answer; a model reply we
   // could not read is not. Only the first should mark the note as indexed,

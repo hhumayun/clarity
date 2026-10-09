@@ -13,6 +13,7 @@ import { hasWriting, markdownOfBlocks, noteFacts } from "../data/adapt";
 import { getSage, useSage } from "../data/sage";
 import { NO_SEED_YET, type EditorSeed } from "./bridge";
 import { draftWins, serverCopyReplaces } from "./noteCopies";
+import { photoIdsIn } from "./photos";
 
 /**
  * A note's page, apart from its drawing: what it opens with, and how what's
@@ -155,6 +156,12 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
   // Changed since the last save: only then is a draft worth writing.
   const unsavedRef = useRef(false);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The photos this writer has seen in the note: those in the copy of it
+  // shown (the phone's, the server's or a restored draft, whichever is on
+  // screen) and in every save.
+  // One of them a save no longer names was taken out, and the save says so
+  // (`removedPhotos`); the server puts back any other it had (revamp 5).
+  const seenPhotosRef = useRef(new Set<string>());
   // Whose words the page holds: until it matches draftKey, nothing is saved.
   const loadedKeyRef = useRef<string | null>(null);
   const leftRef = useRef(false);
@@ -188,6 +195,10 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
     // A copy of the note on screen: the draft on the phone wins if it's newer.
     const applyNote = (note: NoteRecord, draft: LocalDraft | null): boolean => {
       const useDraft = draftWins(draft, note);
+      // Only the copy actually shown counts as seen: a newer draft that wins
+      // never showed photos the server's copy gained since, so a save can't
+      // list them as removed (a photo the draft dropped comes back instead).
+      for (const id of photoIdsIn(draft && useDraft ? draft.content : note.content)) seenPhotosRef.current.add(id);
       if (draft && useDraft) {
         useText(draft.title, draft.content, asDoc(draft.doc));
         reseed(draft.content, asDoc(draft.doc));
@@ -247,6 +258,7 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
         const draft = await localDrafts.load(draftKey);
         if (cancelled) return;
         if (draft) {
+          for (const id of photoIdsIn(draft.content)) seenPhotosRef.current.add(id);
           useText(draft.title, draft.content, asDoc(draft.doc));
           reseed(draft.content, asDoc(draft.doc));
           loadedKeyRef.current = draftKey;
@@ -314,11 +326,19 @@ export function useAccountNoteSession({ id: routeId, prompt, page, asked }: Note
         const id = noteIdRef.current;
         // The rich text goes with its Markdown, or the server takes the words
         // as a plain edit and drops the rich text.
-        outbox.enqueue({ kind: "note.update", body: { id, title: nextTitle, content: nextContent, ...(doc ? { doc } : {}), changedAt: now } });
+        const named = photoIdsIn(nextContent);
+        // At most the server's 200 (more would refuse the whole save); any
+        // left off are only put back, never lost.
+        const removedPhotos = [...seenPhotosRef.current].filter((photo) => !named.has(photo)).slice(0, 200);
+        outbox.enqueue({
+          kind: "note.update",
+          body: { id, title: nextTitle, content: nextContent, ...(doc ? { doc } : {}), changedAt: now, ...(removedPhotos.length ? { removedPhotos } : {}) },
+        });
         const current = findCachedNote(queryClient, id);
         if (current) upsertNoteInLists(queryClient, { ...current, title: nextTitle, content: nextContent, doc: doc ?? null, updatedAt: now });
       }
       lastSavedRef.current = { title: nextTitle, content: nextContent, doc: docText };
+      for (const photo of photoIdsIn(nextContent)) seenPhotosRef.current.add(photo);
       // The rich text, for opening the note again (offline too).
       if (noteIdRef.current && doc) void noteDocs.save(noteIdRef.current, doc, nextContent);
       cancelDraft();

@@ -10,6 +10,7 @@ import { getAccountExport, postAccountDelete } from "../src/core/api/account";
 import { useClearPersonalization, usePreferences, useUpdatePreferences } from "../src/core/hooks/usePreferences";
 import { useAuth } from "../src/core/providers/AuthProvider";
 import { usePendingCount } from "../src/core/sync/SyncProvider";
+import { useUnsentPhotos } from "../src/editor/photoLedger";
 import { useAiOn } from "../src/data/ai";
 import { useDevice } from "../src/state/device";
 import type { FocusLength } from "../src/store/model";
@@ -188,7 +189,8 @@ function Account({ email }: { email: string }) {
   const { logout } = useAuth();
   const acknowledge = useAcknowledge();
   const setOnboarded = useDevice((state) => state.setOnboarded);
-  const pending = usePendingCount();
+  // Changes on their way, and photos only this phone has (on their way, or refused): signing out deletes the phone's photos.
+  const pending = usePendingCount({ photos: false }) + useUnsentPhotos();
   const preferences = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const forget = useClearPersonalization();
@@ -285,7 +287,7 @@ function Account({ email }: { email: string }) {
           cancel="Stay"
           steps={[
             {
-              question: pending > 0 ? "Some changes haven't reached the server yet. Signing out now loses them." : `Sign out of ${shown}? Your notes stay in your account.`,
+              question: pending > 0 ? "Some changes or photos haven't reached the server yet. Signing out now loses them." : `Sign out of ${shown}? Your notes stay in your account.`,
               confirm: "Sign out",
               icon: "signOut",
             },

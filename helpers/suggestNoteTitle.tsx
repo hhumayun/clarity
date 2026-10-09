@@ -1,5 +1,6 @@
 import { aiChatJson, DEFAULT_MODEL } from "./ai";
 import { parseModelJson } from "./parseModelJson";
+import { withoutAttachments } from "./attachmentRefs";
 
 /** The model sees at most this much of the note; a title needs the gist. */
 const MAX_NOTE_CHARS = 4_000;
@@ -42,7 +43,8 @@ export function normalizeNoteTitle(value: Record<string, unknown>): string | nul
 }
 
 export async function suggestNoteTitle(content: string): Promise<string | null> {
-  const text = content.trim().slice(0, MAX_NOTE_CHARS);
+  // Photos are taken out first: a note holding only a photo has nothing to title.
+  const text = withoutAttachments(content).trim().slice(0, MAX_NOTE_CHARS);
   if (!text) return null;
   const raw = await aiChatJson({
     model: DEFAULT_MODEL,

@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 import { useAuth } from "../providers/AuthProvider";
 import { useToast } from "../providers/ToastProvider";
-import { configureRunner, kick } from "./runner";
+import { photoLedger } from "../../editor/photoLedger";
+import { checkPhotoRoom, configureRunner, kick } from "./runner";
 import { outbox } from "./store";
 
 /**
@@ -23,7 +24,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   }, [queryClient]);
 
   useEffect(() => {
-    if (userId) void outbox.load(userId).then(kick);
+    // With the outbox, the photos only this phone has (revamp 5), for the sign-out warning.
+    if (userId) void Promise.all([outbox.load(userId), photoLedger.load(userId)]).then(kick);
   }, [userId]);
 
   useEffect(
@@ -36,7 +38,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (status) => {
-      if (status === "active") kick();
+      if (status === "active") {
+        kick();
+        void checkPhotoRoom();
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -44,9 +49,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** How many changes are waiting to reach the server. */
-export function usePendingCount(): number {
-  return useSyncExternalStore(outbox.subscribe, () => outbox.pendingCount());
+/** How many changes are waiting to reach the server; `{ photos: false }` leaves photos out (revamp 5). */
+export function usePendingCount(options?: { photos?: boolean }): number {
+  const photos = options?.photos !== false;
+  return useSyncExternalStore(outbox.subscribe, () => outbox.pendingCount({ photos }));
 }
 
 /** Whether something ("note:<id>", "task:<id>") still has changes waiting. */

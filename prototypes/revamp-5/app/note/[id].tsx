@@ -15,7 +15,10 @@ import { blocksOf } from "../../src/data/adapt";
 import { NO_SEED_YET, type NoteEditorHandle } from "../../src/editor/bridge";
 import { useEditorLook } from "../../src/editor/look";
 import { NoteEditorView } from "../../src/editor/NoteEditorView";
-import { addPhoto, photoSource, type PhotoFrom } from "../../src/editor/photos";
+import { addPhoto, fetchPhoto, photoSource, type PhotoFrom } from "../../src/editor/photos";
+import { photoLedger } from "../../src/editor/photoLedger";
+import { usePhotosEnabled } from "../../src/core/hooks/useAttachments";
+import { outbox } from "../../src/core/sync/store";
 import type { EditorCommand, EditorFormats } from "../../src/editor/protocol";
 import { questionPage, useAccountNoteSession, useDemoNoteSession, type NoteParams, type NoteSession } from "../../src/editor/useNoteSession";
 import { useDeeperQuestions, useWritingHelp, type WordIdea } from "../../src/editor/useWritingHelp";
@@ -53,8 +56,8 @@ const TOOLS: { name: EditorCommand; icon: IconName; label: string; on?: (formats
   { name: "link", icon: "link", label: "Link", on: (f) => f.link != null },
   { name: "insertPhoto", icon: "image", label: "Photo" },
 ];
-// Photos are kept only on the phone they're added on until the server keeps them too: in the samples only, for now.
-const ACCOUNT_TOOLS = TOOLS.filter((tool) => tool.name !== "insertPhoto");
+// Account notes offer Photo only once the server says it keeps photos (usePhotosEnabled).
+const WITHOUT_PHOTO = TOOLS.filter((tool) => tool.name !== "insertPhoto");
 
 const PLACEHOLDER = "Write freely. Nothing here has to be finished.";
 
@@ -157,6 +160,8 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
   const demo = useDataMode((state) => state.mode) === "demo";
   const aiReady = useAiReady();
   const help = useWritingHelp({ noteId: session.noteId, title: session.title, seed: session.seed.markdown, writing: focused, demo, aiReady });
+  // Photos in account notes: only once the server keeps them (the samples' stay on this phone).
+  const photosOn = usePhotosEnabled(!demo);
   const helpRef = useRef(help);
   helpRef.current = help;
 
@@ -374,6 +379,11 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
       const added = await addPhoto(from);
       if (added && added !== "denied") {
         editor.current?.run("insertPhoto", JSON.stringify(added));
+        // An account note's photo goes up at once, through the outbox (offline, when it can), not waiting for the note's save.
+        if (!demo) {
+          photoLedger.add(added.id);
+          outbox.enqueue({ kind: "photo.upload", body: { id: added.id, width: added.width, height: added.height } });
+        }
         return;
       }
       if (added === "denied") acknowledge("Camera access is off in Settings", "close");
@@ -515,6 +525,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
               onTicked={(on) => (on ? doneHaptic() : tick())}
               onInserted={help.onInserted}
               photoSource={photoSource}
+              photoFetch={demo ? undefined : fetchPhoto}
               onShown={() => {
                 setShown(true);
                 if (__DEV__) console.log(`[note] ${isNew ? "new page" : "note"} shown ${Date.now() - openedMs.current} ms after opening`);
@@ -612,7 +623,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
         </View>
         <View style={[styles.toolbar, { backgroundColor: colors.card, borderTopColor: colors.hairline }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.tools}>
-            {(demo ? TOOLS : ACCOUNT_TOOLS).map((tool) => {
+            {(demo || photosOn ? TOOLS : WITHOUT_PHOTO).map((tool) => {
               const on = !!(formats && tool.on?.(formats));
               return (
                 <Pressable

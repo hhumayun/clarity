@@ -109,6 +109,13 @@ export async function getNote(
   return parseResponse(result);
 }
 
+/**
+ * A note saved. `missingPhotos`: photos it names that the server doesn't
+ * have, for the phone to upload if it has them (revamp 5). The body is sent
+ * as given, never parsed against a schema here, so no field is stripped.
+ */
+export type NoteSaved = { note: NoteRecord; missingPhotos?: string[] };
+
 export async function postNoteCreate(
   body: {
     /** Made on the phone (it may be sent later, from the outbox). */
@@ -124,7 +131,7 @@ export async function postNoteCreate(
     projectIds?: string[];
   },
   init?: RequestInit,
-): Promise<{ note: NoteRecord }> {
+): Promise<NoteSaved> {
   const result = await apiFetch("/_api/notes/create", {
     method: "POST",
     body: superjson.stringify(body),
@@ -145,9 +152,14 @@ export async function postNoteUpdate(
     projectIds?: string[];
     /** When the change was made on the phone; the server keeps it, never later than now (revamp 5). */
     changedAt?: Date;
+    /**
+     * Photos the writer took out of the note (revamp 5). The server puts back,
+     * at the end, any photo the note had that a save neither names nor lists here.
+     */
+    removedPhotos?: string[];
   },
   init?: RequestInit,
-): Promise<{ note: NoteRecord }> {
+): Promise<NoteSaved> {
   const result = await apiFetch("/_api/notes/update", {
     method: "POST",
     body: superjson.stringify(body),

@@ -70,7 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
-    await signOut();
+    // A callback in place of Clerk's redirect: on the web its redirect is a
+    // full page load, which could cut off the clearing below (photos left in
+    // IndexedDB after signing out). The app's own routing shows the welcome
+    // screen once signed out, on the phone and the web alike.
+    await signOut(() => {});
     await clearOfflineData(queryClient);
     await cancelAllReminders();
   }, [queryClient, signOut]);

@@ -5,6 +5,7 @@ import { apiFetch } from "../../helpers/apiFetch";
 import { NoteSourceArrayValues } from "../../helpers/schema";
 import { MAX_NOTE_PROJECTS } from "../../helpers/noteProjects";
 import { noteDocSchema } from "../../helpers/noteDoc";
+import { MAX_PHOTOS_PER_NOTE } from "../../helpers/attachmentLimits";
 
 export const schema = z.object({
   /** Made on the phone, so a retried create returns the same note. */
@@ -21,12 +22,20 @@ export const schema = z.object({
   taskId: z.string().uuid().optional(),
   /** Areas to tag the note with from the start. */
   projectIds: z.array(z.string().min(1)).max(MAX_NOTE_PROJECTS).optional(),
+  /**
+   * Ids of photos this writer saw in this note and took out. A new note has
+   * no photos to keep, so it changes nothing here; accepted so one body
+   * shape serves both create and update.
+   */
+  removedPhotos: z.array(z.string().max(100)).max(MAX_PHOTOS_PER_NOTE).optional(),
 });
 
 export type InputType = z.infer<typeof schema>;
 
 export type OutputType = {
   note: NoteRecord;
+  /** Photo ids the note names that the server has no ready photo for (at most 100). */
+  missingPhotos: string[];
 };
 
 export const postNoteCreate = async (

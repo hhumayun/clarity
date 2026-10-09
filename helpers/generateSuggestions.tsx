@@ -13,6 +13,7 @@ import {
   type CompletionSuggestion,
   type Suggestion,
 } from "./suggestionCategories";
+import { withoutAttachments } from "./attachmentRefs";
 
 /**
  * Adaptive sentence-starter suggestions. Personalization (accepted/dismissed
@@ -214,7 +215,7 @@ export async function loadEntityExcerpts(
           (ENTITY_TYPE_WEIGHTS[a.type as EntityType] ?? 1),
       );
       const terms = matches.flatMap((m) => [m.name, ...m.aliases]);
-      return { title: note.title, excerpt: excerptAround(note.content, terms) };
+      return { title: note.title, excerpt: excerptAround(withoutAttachments(note.content), terms) };
     })
     .filter((e) => e.title.trim().length > 0 || e.excerpt.trim().length > 0);
 }
@@ -340,10 +341,12 @@ function buildPrompt(
       `Phrases the writer recently dismissed — do NOT suggest these: ${ctx.dismissedPhrases.join("; ")}`,
     );
   }
+  // Photos out before the slice, so a photo never takes the model's 800 characters.
+  const before = withoutAttachments(textBeforeCursor);
   parts.push(
-    textBeforeCursor.trim().length === 0
+    before.trim().length === 0
       ? "The writer has not started yet. Offer gentle sentence starters."
-      : `The writer's text so far (ends at the cursor):\n"""${textBeforeCursor.slice(-800)}"""`,
+      : `The writer's text so far (ends at the cursor):\n"""${before.slice(-800)}"""`,
   );
   return parts.join("\n\n");
 }

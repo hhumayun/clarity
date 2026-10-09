@@ -3,6 +3,7 @@ import { createClerkClient } from "@clerk/backend";
 import { db } from "../../helpers/db";
 import { requireUser } from "../../helpers/requireUser";
 import { endpointError } from "../../helpers/endpointError";
+import { deleteAccountData } from "../../helpers/accountDeletion";
 import { schema, type OutputType } from "./delete_POST.schema";
 
 const clerk = createClerkClient({
@@ -14,7 +15,9 @@ const clerk = createClerkClient({
  * Permanently remove the account and everything attached to it. Projects,
  * tasks, notes, entities, suggestion history and preferences all cascade
  * from the user row; the rows are removed explicitly first so a partial
- * failure can never leave note text behind. The Clerk user is deleted last.
+ * failure can never leave note text behind (helpers/accountDeletion.tsx,
+ * which also queues the account's photos for deletion from the bucket).
+ * The Clerk user is deleted last.
  */
 export async function handle(request: Request) {
   try {
@@ -27,29 +30,9 @@ export async function handle(request: Request) {
       .where("id", "=", user.id)
       .executeTakeFirstOrThrow();
 
-    await db.transaction().execute(async (trx) => {
-      await trx.deleteFrom("taskExtractions").where("userId", "=", user.id).execute();
-      // Also removed by the cascade from tasks; named here so the list of
-      // what an account deletion erases stays complete in one place.
-      await trx.deleteFrom("focusSessions").where("userId", "=", user.id).execute();
-      await trx.deleteFrom("tasks").where("userId", "=", user.id).execute();
-      await trx.deleteFrom("projects").where("userId", "=", user.id).execute();
-      await trx
-        .deleteFrom("noteEntities")
-        .where("userId", "=", user.id)
-        .execute();
-      await trx
-        .deleteFrom("suggestionEvents")
-        .where("userId", "=", user.id)
-        .execute();
-      await trx.deleteFrom("noteProjects").where("userId", "=", user.id).execute();
-      await trx.deleteFrom("notes").where("userId", "=", user.id).execute();
-      await trx
-        .deleteFrom("userPreferences")
-        .where("userId", "=", user.id)
-        .execute();
-      await trx.deleteFrom("users").where("id", "=", user.id).execute();
-    });
+    // Every row, photos first (their bucket objects are queued for deletion
+    // in the same transaction, then deleted right away when the bucket allows).
+    await deleteAccountData(user.id);
 
     // Remove the Clerk account too, so the same email can sign up again
     // without resurrecting a deleted profile.

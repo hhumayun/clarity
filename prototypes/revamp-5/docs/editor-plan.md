@@ -195,18 +195,21 @@ The AI decisions, including word help, are in `docs/backend-plan.md`, section 9.
   - a photo not on the phone, or an image with any other address, is a quiet outline.
 - **Taking one out:** Backspace at the start of the line under a photo chooses it (outlined), and a second Backspace removes it. Typing with it chosen writes under it.
 - **The main app** knows photos too, showing each one's place as an outline. It opens a note with a photo whole, and saves it whole.
-- **Samples only, for now:** a photo is only on the phone it was added on, so the tool isn't offered in your account's notes until the server keeps photos.
+- **Samples:** a photo stays on the phone it was added on.
+- **Your account's notes** (built 2026-10-09, below): the tool shows once the server says it keeps photos.
 
 **Checks:**
 - 26 more editor checks (`tests/editor`, 126 in all), and 8 in the main app's (`tests/note-editor`, 83 in all);
 - `tests/checks/photo-flow.mjs`: 12 checks in the web build, from the tool to the photo still there when the note is opened again, sending nothing;
 - still to do on the phone: taking and choosing a photo, a note with several photos opening (each crosses to the page as text), and Backspace and typing around a photo.
 
-**Next, each part with your OK:**
-- a Railway Bucket for the files, and an `attachments` table (migration 017);
-- endpoints to start an upload (a signed upload link), confirm it, get a short-lived viewing link, and delete; a size cap per photo, and a quota;
-- photo uploads through the outbox, so a photo added offline goes up later;
-- clean-up when a photo leaves a note, or a note or account is deleted, and photos in the export. Until then, a photo taken out of a note stays on the phone;
-- `![](attachment:…)` taken out of a note before it goes to the AI.
+**On the server (2026-10-09, design `docs/photos-server.md` in the server's repo):** a Railway Bucket for the files and migration 017 on the server's side; 10 MB a photo, 1 GB an account. Sage's side, built in this copy:
+- **The Photo tool in account notes** shows only once `GET /_api/attachments/usage` says `enabled` (`usePhotosEnabled`, kept on the phone so it's known offline). Today's server answers 404, so nothing changes on the phone until go-live. The web build can be left out alone (`PHOTOS_ON_WEB`) if the bucket won't take a CORS rule.
+- **Uploads go through the outbox** (`photo.upload`), in a lane of their own, one photo at a time: a signed link from the server, the bytes straight to the bucket, then a confirm (`src/editor/photoUpload.ts`). They work offline and retry, each at its own stored time, so typing never hurries a failing photo, a slow one never holds back a note or task, and a waiting photo never stops lists refreshing. A photo pasted into a note, or one the server lost while a note here still has it, goes up when a save says it's missing.
+- **Removing a photo is said:** each save lists the photos this writer saw in the note and took out (`removedPhotos`). The server puts any other photo the note had back at the end, so an older or stale writer can't lose one.
+- **Another device** shows a photo it hasn't got by asking the server for a short-lived link, downloading it, and keeping it (`fetchPhoto`). One not there yet is an outline, asked for again on reconnecting and every 30 seconds while the note is open.
+- **Signing out** warns about changes and photos not yet on the server (`src/editor/photoLedger.ts` keeps the photos only this phone has), then deletes the phone's photos; a download still under way is thrown away.
 
-Then the Photo tool comes to your account's notes, and the main app can show the photos themselves.
+**Checks:** 28 more outbox checks (34 in all, `src/data/outbox.test.ts`): photos never fold, a note's delete leaves them, the main lane never sees them, their failures, and the `removedPhotos` rules. Still to do: the web build against a local server and bucket (`tests/checks/photo-account.mjs`), and on the phone after go-live, first checking that Expo Go has the newer native upload and download (the older API takes over if not).
+
+Then the main app can show the photos themselves.

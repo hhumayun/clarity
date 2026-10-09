@@ -30,6 +30,52 @@ export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export type UserRole = "admin" | "user";
 
+/** A photo kept in the bucket (migration 017). */
+export interface Attachments {
+  bytes: number;
+  confirmedAt: Timestamp | null;
+  contentType: AttachmentContentType;
+  createdAt: Generated<Timestamp>;
+  height: number | null;
+  id: string;
+  kind: Generated<AttachmentKind>;
+  orphanedSince: Timestamp | null;
+  status: Generated<AttachmentStatus>;
+  storageKey: string;
+  uploadStartedAt: Generated<Timestamp>;
+  userId: number;
+  width: number | null;
+}
+export type AttachmentKind = "photo";
+export type AttachmentStatus = "pending" | "ready";
+export type AttachmentContentType = "image/jpeg" | "image/png" | "image/webp";
+
+/** Which notes name which photo ids, rebuilt on every save (migration 017). */
+export interface NoteAttachments {
+  attachmentId: string;
+  noteId: string;
+  userId: number;
+}
+
+/** Bucket objects (or prefixes) still to delete, not before `notBefore` (migration 017). */
+export interface StorageDeletions {
+  attempts: Generated<number>;
+  bytes: number | null;
+  isPrefix: Generated<boolean>;
+  lastError: string | null;
+  notBefore: Generated<Timestamp>;
+  queuedAt: Generated<Timestamp>;
+  storageKey: string;
+  userId: number | null;
+}
+
+/** One server instance at a time for periodic work (migration 017). */
+export interface MaintenanceLeases {
+  heldUntil: Timestamp;
+  holder: string;
+  name: string;
+}
+
 export interface NoteEntities {
   aliases: Generated<string[]>;
   createdAt: Generated<Timestamp>;
@@ -187,12 +233,16 @@ export interface Users {
 }
 
 export interface DB {
+  attachments: Attachments;
   focusSessions: FocusSessions;
+  maintenanceLeases: MaintenanceLeases;
+  noteAttachments: NoteAttachments;
   noteEntities: NoteEntities;
   noteProjects: NoteProjects;
   notes: Notes;
   noteTasks: NoteTasks;
   projects: Projects;
+  storageDeletions: StorageDeletions;
   suggestionEvents: SuggestionEvents;
   taskExtractions: TaskExtractions;
   taskSuggestions: TaskSuggestions;
@@ -212,6 +262,7 @@ export const NoteSourceArrayValues: [NoteSource, ...NoteSource[]] = ["focus","pa
 export const TaskSuggestionStatusArrayValues: [TaskSuggestionStatus, ...TaskSuggestionStatus[]] = ["dismissed","pending"];
 export const FocusOutcomeArrayValues: [FocusOutcome, ...FocusOutcome[]] = ["finished","progress","stuck"];
 export const TaskStatusArrayValues: [TaskStatus, ...TaskStatus[]] = ["done","in_progress","todo"];
+export const AttachmentContentTypeArrayValues: [AttachmentContentType, ...AttachmentContentType[]] = ["image/jpeg","image/png","image/webp"];
 // Table/column names whose snake_case spelling kysely's default CamelCasePlugin
 // cannot recover from the camelCase name used in code (an underscore directly
 // before a digit, e.g. reminder_48h_sent ⇄ reminder48hSent). The db helper's

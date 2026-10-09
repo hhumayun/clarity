@@ -23,6 +23,7 @@ import { localDrafts } from "../helpers/localDrafts";
 import { getNote } from "../endpoints/notes/get_GET.schema";
 import { postNoteCreate } from "../endpoints/notes/create_POST.schema";
 import { postNoteUpdate } from "../endpoints/notes/update_POST.schema";
+import { attachmentIdsInText } from "../helpers/attachmentRefs";
 import {
   isCompletionSuggestion,
   type BubbleSuggestion,
@@ -66,6 +67,14 @@ export default function NoteEditorPage() {
   const noteIdRef = useRef(noteId);
   noteIdRef.current = noteId;
   const creatingRef = useRef(false);
+  // Photos this tab has shown the writer: the ids in the loaded text plus
+  // every text it saved. A save lists the ones it no longer has as
+  // removedPhotos; a photo added elsewhere since was never seen here, so this
+  // tab can't remove it (the server puts it back at the end of the note).
+  const seenPhotosRef = useRef<Set<string>>(new Set());
+  const seePhotos = (text: string) => {
+    for (const id of attachmentIdsInText(text)) seenPhotosRef.current.add(id);
+  };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -85,6 +94,7 @@ export default function NoteEditorPage() {
         setTitle(draft.title);
         setContent(draft.content);
         setCursorPos(draft.content.length);
+        seePhotos(draft.content);
       }
       setLoaded(true);
     };
@@ -103,11 +113,13 @@ export default function NoteEditorPage() {
           setTitle(draft.title);
           setContent(draft.content);
           setCursorPos(draft.content.length);
+          seePhotos(draft.content);
           setStatus("saving");
         } else {
           setTitle(note.title);
           setContent(note.content);
           setCursorPos(note.content.length);
+          seePhotos(note.content);
           setStatus("saved");
         }
         setLoaded(true);
@@ -118,6 +130,7 @@ export default function NoteEditorPage() {
           setTitle(draft.title);
           setContent(draft.content);
           setCursorPos(draft.content.length);
+          seePhotos(draft.content);
           setStatus("offline");
           setLoaded(true);
         } else {
@@ -161,12 +174,16 @@ export default function NoteEditorPage() {
             creatingRef.current = false;
           }
         } else {
+          const named = attachmentIdsInText(nextContent);
+          const removedPhotos = [...seenPhotosRef.current].filter((id) => !named.has(id));
           await postNoteUpdate({
             id: noteIdRef.current,
             title: nextTitle,
             content: nextContent,
+            ...(removedPhotos.length > 0 ? { removedPhotos: removedPhotos.slice(0, 200) } : {}),
           });
         }
+        seePhotos(nextContent);
         localDrafts.clear(draftKey);
         setStatus("saved");
       } catch {

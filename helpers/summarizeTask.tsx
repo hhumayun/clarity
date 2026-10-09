@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { aiChatJson, DEFAULT_MODEL } from "./ai";
 import { parseModelJson } from "./parseModelJson";
 import { describeDay, validDate } from "./parseExtractedTasks";
+import { withoutAttachments } from "./attachmentRefs";
 
 /** One step in how a task has gone, as shown under its summary. */
 export type ProgressStep = { date: string; text: string };
@@ -90,7 +91,7 @@ export async function summarizeTask(input: TaskSummaryInput, currentDate: string
   const noteBlocks: string[] = [];
   for (const note of notes) {
     if (budget <= 0) break;
-    const body = note.content.trim().slice(0, Math.min(MAX_NOTE_CHARS, budget));
+    const body = withoutAttachments(note.content).trim().slice(0, Math.min(MAX_NOTE_CHARS, budget));
     budget -= body.length;
     noteBlocks.push(`--- ${isoDay(note.createdAt)} · "${note.title.trim() || "Untitled"}"\n${body}`);
   }
