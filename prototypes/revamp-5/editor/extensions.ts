@@ -3,15 +3,17 @@
  * NoteEditor.tsx at 4344bd8): indents that survive Markdown, Backspace at a
  * line's start made the same everywhere, empty checklist rows never ticked,
  * quotes with their own Backspace, and links that end at their last letter.
- * Only the temporary tracing (TRACE) is left out. Keep these in step with the
+ * Only the temporary tracing (TRACE) is left out. Photos (2026-10-09) were
+ * added here and in the main app together. Keep these in step with the
  * main app; `src/core/SOURCE.md` lists the differences.
  */
 import Blockquote from "@tiptap/extension-blockquote";
 import HardBreak from "@tiptap/extension-hard-break";
+import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Paragraph from "@tiptap/extension-paragraph";
-import { Extension, type Editor } from "@tiptap/core";
-import { Plugin, Selection, TextSelection } from "@tiptap/pm/state";
+import { Extension, type Editor, type JSONContent } from "@tiptap/core";
+import { NodeSelection, Plugin, Selection, TextSelection } from "@tiptap/pm/state";
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 
@@ -261,6 +263,25 @@ function backspaceIntoTickedItem(editor: Editor): boolean {
   return true;
 }
 
+/**
+ * Backspace at the start of a line with words, right under a photo: the
+ * photo is chosen (outlined), not taken away. The editor's own Backspace
+ * deletes a photo there in one press, unseen; here it takes a second press.
+ * (An empty line under a photo just goes, and the photo is chosen, as the
+ * editor's own Backspace does it.)
+ */
+function backspaceUnderPhoto(editor: Editor): boolean {
+  const { empty, $from } = editor.state.selection;
+  if (!empty || $from.parentOffset !== 0 || $from.depth < 1 || $from.parent.content.size === 0) return false;
+  const index = $from.index($from.depth - 1);
+  if (index === 0) return false;
+  const before = $from.node($from.depth - 1).child(index - 1);
+  if (before.type.name !== "image") return false;
+  const photoAt = $from.before($from.depth) - before.nodeSize;
+  editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, photoAt)).scrollIntoView());
+  return true;
+}
+
 /** Runs the key through the editor's keymaps, naming the one that took it. */
 function runKeymaps(view: EditorView, event: KeyboardEvent): string | null {
   if (view.props.handleKeyDown?.call(view, view, event)) return "view";
@@ -286,7 +307,9 @@ export const LineStartBackspace = Extension.create({
   name: "lineStartBackspace",
   priority: 1000,
   addKeyboardShortcuts() {
-    return { Backspace: () => backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor) };
+    return {
+      Backspace: () => backspaceUnderPhoto(this.editor) || backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor),
+    };
   },
   addProseMirrorPlugins() {
     // Set while a Backspace this editor has just taken is still being
@@ -313,7 +336,9 @@ export const LineStartBackspace = Extension.create({
               // In a list: this editor's rule, first and directly. Elsewhere at
               // a line's start: the editor's own Backspace. Never Safari's.
               let by: string | null =
-                backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor) ? "rule" : null;
+                backspaceUnderPhoto(this.editor) || backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor)
+                  ? "rule"
+                  : null;
               by ??= runKeymaps(view, plain);
               if (!by) return false;
               event.preventDefault();
@@ -392,3 +417,92 @@ export const Quote = Blockquote.extend({
 // A link ends at its last letter: words typed after it are not part of it.
 // (With autolink on, Tiptap would otherwise let a link grow as you type.)
 export const NoteLink = Link.extend({ inclusive: () => false });
+
+/**
+ * A photo's address in a note: `attachment:` and the photo's id. The photo
+ * itself is a file kept apart from the note; the note only names it, as
+ * `![](attachment:<id>)` in its Markdown and an `image` in its rich text.
+ */
+export const PHOTO_PREFIX = "attachment:";
+
+/** The id of the photo an image's address names, or null for any other address. */
+export function photoIdOf(src: unknown): string | null {
+  return typeof src === "string" && src.startsWith(PHOTO_PREFIX) ? src.slice(PHOTO_PREFIX.length) || null : null;
+}
+
+/**
+ * Each photo on a line of its own, in a note read from Markdown. A photo with
+ * words on the very next line (`![](…)` then a line break, as a plain-text
+ * editor can leave it), or one in a list item (its Markdown puts the photo
+ * right under the item's words), reads back inside a line of words, where a
+ * photo can't be: the line is split around it, and the line breaks beside it
+ * go. A list item still starts with a line of words, if an empty one.
+ */
+export function liftPhotos(node: JSONContent): JSONContent {
+  if (!node.content) return node;
+  const content: JSONContent[] = [];
+  for (const child of node.content.map(liftPhotos)) {
+    const words = child.type === "paragraph" || child.type === "heading" ? child.content : undefined;
+    if (!words?.some((inline) => inline.type === "image")) {
+      content.push(child);
+      continue;
+    }
+    let run: JSONContent[] = [];
+    const endRun = () => {
+      while (run[0]?.type === "hardBreak") run.shift();
+      while (run[run.length - 1]?.type === "hardBreak") run.pop();
+      if (run.length) content.push({ ...child, content: run });
+      run = [];
+    };
+    for (const inline of words) {
+      if (inline.type !== "image") {
+        run.push(inline);
+        continue;
+      }
+      endRun();
+      const { marks: _marks, ...photo } = inline;
+      content.push(photo);
+    }
+    endRun();
+  }
+  if ((node.type === "listItem" || node.type === "taskItem") && content[0]?.type !== "paragraph") content.unshift({ type: "paragraph" });
+  return { ...node, content };
+}
+
+/**
+ * Typing with a photo chosen: the words go on the line under it, and the
+ * photo stays. (The editor would otherwise type over it, and the photo would
+ * be gone.)
+ */
+function writeUnderChosenPhoto(view: EditorView, text: string): boolean {
+  const { selection, schema } = view.state;
+  if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") return false;
+  const after = selection.to;
+  const tr = view.state.tr;
+  if (!tr.doc.resolve(after).nodeAfter?.isTextblock) tr.insert(after, schema.nodes.paragraph.create());
+  tr.setSelection(TextSelection.create(tr.doc, after + 1)).insertText(text);
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+/**
+ * Photos: Tiptap's image, as a block of its own. A paste brings in only
+ * photos kept apart from a note, never a web page's images or one written
+ * into the note itself; one can't be dragged about by mistake, and typing
+ * `![…](…)` doesn't make one. A photo goes only by Backspace or Delete while
+ * it's chosen (backspaceUnderPhoto, writeUnderChosenPhoto). Images with
+ * any other address (a web image typed into a note elsewhere) are kept as
+ * written, and never loaded.
+ */
+export const Photo = Image.extend({
+  draggable: false,
+  parseHTML() {
+    return [{ tag: `img[src^="${PHOTO_PREFIX}"]` }];
+  },
+  addInputRules() {
+    return [];
+  },
+  addProseMirrorPlugins() {
+    return [new Plugin({ props: { handleTextInput: (view, _from, _to, text) => writeUnderChosenPhoto(view, text) } })];
+  },
+});

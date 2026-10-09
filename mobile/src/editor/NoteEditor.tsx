@@ -2,13 +2,14 @@
 
 import Blockquote from "@tiptap/extension-blockquote";
 import HardBreak from "@tiptap/extension-hard-break";
+import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Placeholder } from "@tiptap/extensions";
 import { Markdown } from "@tiptap/markdown";
 import Paragraph from "@tiptap/extension-paragraph";
 import { Extension } from "@tiptap/core";
-import { Plugin, Selection, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, Selection, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { ReplaceStep } from "@tiptap/pm/transform";
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
@@ -389,6 +390,25 @@ function backspaceIntoTickedItem(editor: Editor): boolean {
   return true;
 }
 
+/**
+ * Backspace at the start of a line with words, right under a photo: the
+ * photo is chosen (outlined), not taken away. The editor's own Backspace
+ * deletes a photo there in one press, unseen; here it takes a second press.
+ * (An empty line under a photo just goes, and the photo is chosen, as the
+ * editor's own Backspace does it.)
+ */
+function backspaceUnderPhoto(editor: Editor): boolean {
+  const { empty, $from } = editor.state.selection;
+  if (!empty || $from.parentOffset !== 0 || $from.depth < 1 || $from.parent.content.size === 0) return false;
+  const index = $from.index($from.depth - 1);
+  if (index === 0) return false;
+  const before = $from.node($from.depth - 1).child(index - 1);
+  if (before.type.name !== "image") return false;
+  const photoAt = $from.before($from.depth) - before.nodeSize;
+  editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, photoAt)).scrollIntoView());
+  return true;
+}
+
 /** Runs the key through the editor's keymaps, naming the one that took it. */
 function runKeymaps(view: EditorView, event: KeyboardEvent): string | null {
   if (view.props.handleKeyDown?.call(view, view, event)) return "view";
@@ -414,7 +434,9 @@ const LineStartBackspace = Extension.create({
   name: "lineStartBackspace",
   priority: 1000,
   addKeyboardShortcuts() {
-    return { Backspace: () => backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor) };
+    return {
+      Backspace: () => backspaceUnderPhoto(this.editor) || backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor),
+    };
   },
   addProseMirrorPlugins() {
     // Set while a Backspace this editor has just taken is still being
@@ -478,7 +500,9 @@ const LineStartBackspace = Extension.create({
               // In a list: this editor's rule, first and directly. Elsewhere at
               // a line's start: the editor's own Backspace. Never Safari's.
               let by: string | null =
-                backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor) ? "rule" : null;
+                backspaceUnderPhoto(this.editor) || backspaceAtItemStart(this.editor) || backspaceIntoTickedItem(this.editor)
+                  ? "rule"
+                  : null;
               by ??= runKeymaps(view, plain);
               if (TRACE) trace(view, `keydown Backspace taken by ${by ?? "nobody (Safari's own)"}`);
               if (!by) return false;
@@ -568,6 +592,118 @@ const Quote = Blockquote.extend({
 // A link ends at its last letter: words typed after it are not part of it.
 // (With autolink on, Tiptap would otherwise let a link grow as you type.)
 const NoteLink = Link.extend({ inclusive: () => false });
+
+/**
+ * A photo's address in a note: `attachment:` and the photo's id. The photo
+ * itself is a file kept apart from the note; the note only names it, as
+ * `![](attachment:<id>)` in its Markdown and an `image` in its rich text.
+ */
+const PHOTO_PREFIX = "attachment:";
+
+/**
+ * Each photo on a line of its own, in a note read from Markdown. A photo with
+ * words on the very next line (`![](…)` then a line break, as a plain-text
+ * editor can leave it), or one in a list item (its Markdown puts the photo
+ * right under the item's words), reads back inside a line of words, where a
+ * photo can't be: the line is split around it, and the line breaks beside it
+ * go. A list item still starts with a line of words, if an empty one.
+ */
+function liftPhotos(node: JSONContent): JSONContent {
+  if (!node.content) return node;
+  const content: JSONContent[] = [];
+  for (const child of node.content.map(liftPhotos)) {
+    const words = child.type === "paragraph" || child.type === "heading" ? child.content : undefined;
+    if (!words?.some((inline) => inline.type === "image")) {
+      content.push(child);
+      continue;
+    }
+    let run: JSONContent[] = [];
+    const endRun = () => {
+      while (run[0]?.type === "hardBreak") run.shift();
+      while (run[run.length - 1]?.type === "hardBreak") run.pop();
+      if (run.length) content.push({ ...child, content: run });
+      run = [];
+    };
+    for (const inline of words) {
+      if (inline.type !== "image") {
+        run.push(inline);
+        continue;
+      }
+      endRun();
+      const { marks: _marks, ...photo } = inline;
+      content.push(photo);
+    }
+    endRun();
+  }
+  if ((node.type === "listItem" || node.type === "taskItem") && content[0]?.type !== "paragraph") content.unshift({ type: "paragraph" });
+  return { ...node, content };
+}
+
+/**
+ * Typing with a photo chosen: the words go on the line under it, and the
+ * photo stays. (The editor would otherwise type over it, and the photo would
+ * be gone.)
+ */
+function writeUnderChosenPhoto(view: EditorView, text: string): boolean {
+  const { selection, schema } = view.state;
+  if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") return false;
+  const after = selection.to;
+  const tr = view.state.tr;
+  if (!tr.doc.resolve(after).nodeAfter?.isTextblock) tr.insert(after, schema.nodes.paragraph.create());
+  tr.setSelection(TextSelection.create(tr.doc, after + 1)).insertText(text);
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+/**
+ * Photos: Tiptap's image, as a block of its own. A paste brings in only
+ * photos kept apart from a note, never a web page's images or one written
+ * into the note itself; one can't be dragged about by mistake, and typing
+ * `![…](…)` doesn't make one. A photo goes only by Backspace or Delete while
+ * it's chosen (backspaceUnderPhoto, writeUnderChosenPhoto). Images with
+ * any other address (a web image typed into a note elsewhere) are kept as
+ * written, and never loaded.
+ */
+const Photo = Image.extend({
+  draggable: false,
+  parseHTML() {
+    return [{ tag: `img[src^="${PHOTO_PREFIX}"]` }];
+  },
+  addInputRules() {
+    return [];
+  },
+  addProseMirrorPlugins() {
+    return [new Plugin({ props: { handleTextInput: (view, _from, _to, text) => writeUnderChosenPhoto(view, text) } })];
+  },
+});
+
+/**
+ * Photos as this app shows them: in their place, as a quiet outline (their
+ * shape when the note has it), since the app keeps no photos of its own yet
+ * (revamp 5 is trying them: prototypes/revamp-5/src/editor/photos.ts). So a
+ * note with a photo opens, and saves, whole.
+ */
+const NotePhoto = Photo.extend({
+  addNodeView:
+    () =>
+    ({ node }) => {
+      const dom = document.createElement("div");
+      dom.className = "photo";
+      dom.setAttribute("role", "img");
+      dom.setAttribute("aria-label", (node.attrs.alt as string | null) || "Photo");
+      const width = Number(node.attrs.width);
+      const height = Number(node.attrs.height);
+      // A tall one no taller than 3:5.
+      if (width > 0 && height > 0) dom.style.aspectRatio = String(Math.max(width / height, 3 / 5));
+      return { dom };
+    },
+});
+
+/** A photo's outline (Lucide's image), where a photo stands. */
+function photoGlyph(stroke: string): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='3' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
 // The app's own typeface. Metro hands back an asset id (or its URL); the
 // font then comes from the dev server, or from the app's own files.
@@ -694,6 +830,7 @@ export default function NoteEditor({
       UntickEmptyRows,
       LineBreak,
       NoteLink.configure({ openOnClick: false, autolink: true, linkOnPaste: true, defaultProtocol: "https" }),
+      NotePhoto,
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
@@ -777,9 +914,11 @@ export default function NoteEditor({
       return;
     }
     // The rich text when the note has it; its Markdown otherwise (notes from
-    // before rich text, or edited as plain text since).
+    // before rich text, or edited as plain text since). Either way, each
+    // photo on a line of its own (liftPhotos).
     const rich = doc && typeof doc === "object" && (doc as { type?: unknown }).type === "doc";
-    if (rich) editor.commands.setContent(doc as JSONContent, { emitUpdate: false });
+    const content = rich ? (doc as JSONContent) : editor.markdown?.parse(markdown);
+    if (content) editor.commands.setContent(liftPhotos(content), { emitUpdate: false });
     else editor.commands.setContent(markdown, { contentType: "markdown", emitUpdate: false });
     announce(editor);
     // Only the seed says when to take the text in.
@@ -950,6 +1089,14 @@ export default function NoteEditor({
       .ProseMirror blockquote { margin: 4px 0; padding-left: 12px; border-left: 3px solid ${palette.border}; color: ${palette.muted}; }
       .ProseMirror a { color: ${palette.accent}; text-decoration: underline; text-underline-offset: 2px; }
       .ProseMirror code { background: ${palette.surface}; border-radius: 4px; padding: 1px 4px; font-size: 0.9em; }
+      /* A photo holds its place, the words' width, as a quiet outline (see NotePhoto). */
+      .ProseMirror .photo {
+        margin: 10px 0; border-radius: 14px; aspect-ratio: 4 / 3;
+        background: ${palette.surface} ${photoGlyph(palette.muted)} center / 36px 36px no-repeat;
+        -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+      }
+      /* Chosen (Backspace takes it next), while writing: a note that starts with a photo doesn't open outlined. */
+      .ProseMirror.ProseMirror-focused .photo.ProseMirror-selectednode { outline: 3px solid ${palette.accent}; outline-offset: 2px; }
       .ProseMirror p.is-editor-empty:first-child::before {
         content: attr(data-placeholder); color: ${palette.muted}; float: left; height: 0; pointer-events: none;
       }

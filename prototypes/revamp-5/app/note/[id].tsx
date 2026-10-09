@@ -15,6 +15,7 @@ import { blocksOf } from "../../src/data/adapt";
 import { NO_SEED_YET, type NoteEditorHandle } from "../../src/editor/bridge";
 import { useEditorLook } from "../../src/editor/look";
 import { NoteEditorView } from "../../src/editor/NoteEditorView";
+import { addPhoto, photoSource, type PhotoFrom } from "../../src/editor/photos";
 import type { EditorCommand, EditorFormats } from "../../src/editor/protocol";
 import { questionPage, useAccountNoteSession, useDemoNoteSession, type NoteParams, type NoteSession } from "../../src/editor/useNoteSession";
 import { useDeeperQuestions, useWritingHelp, type WordIdea } from "../../src/editor/useWritingHelp";
@@ -37,7 +38,7 @@ import { ThinkingDots } from "../../src/ui/Thinking";
 import { Txt, useType } from "../../src/ui/Txt";
 import { WORD_ROW_HEIGHT, WORD_STRIP_MAX_HEIGHT, WordStrip } from "../../src/ui/WordStrip";
 
-/** The tools while writing: every one the main app has, in its order. */
+/** The tools while writing: every one the main app has, in its order, and Photo after Link (as the main app's editor lab has it). */
 const TOOLS: { name: EditorCommand; icon: IconName; label: string; on?: (formats: EditorFormats) => boolean }[] = [
   { name: "task", icon: "checklist", label: "Checklist", on: (f) => f.task },
   { name: "bullet", icon: "list", label: "Bulleted list", on: (f) => f.bullet },
@@ -50,7 +51,10 @@ const TOOLS: { name: EditorCommand; icon: IconName; label: string; on?: (formats
   { name: "heading", icon: "heading", label: "Heading", on: (f) => f.heading },
   { name: "quote", icon: "quote", label: "Quote", on: (f) => f.quote },
   { name: "link", icon: "link", label: "Link", on: (f) => f.link != null },
+  { name: "insertPhoto", icon: "image", label: "Photo" },
 ];
+// Photos are kept only on the phone they're added on until the server keeps them too: in the samples only, for now.
+const ACCOUNT_TOOLS = TOOLS.filter((tool) => tool.name !== "insertPhoto");
 
 const PLACEHOLDER = "Write freely. Nothing here has to be finished.";
 
@@ -362,6 +366,36 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
     ]);
   };
 
+  // Photos: taken or chosen, kept on this phone (src/editor/photos.ts), and put
+  // on a line of their own after the cursor's, the cursor under them. Back to
+  // writing either way.
+  const takePhoto = async (from: PhotoFrom) => {
+    try {
+      const added = await addPhoto(from);
+      if (added && added !== "denied") {
+        editor.current?.run("insertPhoto", JSON.stringify(added));
+        return;
+      }
+      if (added === "denied") acknowledge("Camera access is off in Settings", "close");
+    } catch (error) {
+      if (__DEV__) console.warn("[photo]", error);
+      acknowledge("Couldn't add that photo just now", "close");
+    }
+    editor.current?.run("focus");
+  };
+  const onPhoto = () => {
+    // The web build has no camera to speak of: its photos come from a file.
+    if (web) {
+      void takePhoto("library");
+      return;
+    }
+    Alert.alert("Add a photo", undefined, [
+      { text: "Take a photo", onPress: () => void takePhoto("camera") },
+      { text: "Choose a photo", onPress: () => void takePhoto("library") },
+      { text: "Cancel", style: "cancel", onPress: () => editor.current?.run("focus") },
+    ]);
+  };
+
   const archive = () => {
     if (!session.noteId) return;
     tick();
@@ -480,6 +514,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
               }}
               onTicked={(on) => (on ? doneHaptic() : tick())}
               onInserted={help.onInserted}
+              photoSource={photoSource}
               onShown={() => {
                 setShown(true);
                 if (__DEV__) console.log(`[note] ${isNew ? "new page" : "note"} shown ${Date.now() - openedMs.current} ms after opening`);
@@ -577,7 +612,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
         </View>
         <View style={[styles.toolbar, { backgroundColor: colors.card, borderTopColor: colors.hairline }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.tools}>
-            {TOOLS.map((tool) => {
+            {(demo ? TOOLS : ACCOUNT_TOOLS).map((tool) => {
               const on = !!(formats && tool.on?.(formats));
               return (
                 <Pressable
@@ -585,6 +620,7 @@ function NotePage({ id, prompt, page, session, asked }: PageProps & { session: N
                   onPress={() => {
                     tick();
                     if (tool.name === "link") onLink();
+                    else if (tool.name === "insertPhoto") onPhoto();
                     else editor.current?.run(tool.name);
                   }}
                   accessibilityRole="button"

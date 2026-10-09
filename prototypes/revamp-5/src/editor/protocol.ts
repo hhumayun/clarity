@@ -68,6 +68,12 @@ export type EditorCommand =
    */
   | "insertWords"
   | "insertQuestion"
+  /**
+   * `value` is JSON `{ id, width, height }`: a photo kept on the phone, on a
+   * line of its own after the one the cursor is in, with the cursor on an
+   * empty line under it. The page then asks where to show it from (`needPhotos`).
+   */
+  | "insertPhoto"
   | "flush"
   | "tray"
   | "keyboard"
@@ -84,6 +90,12 @@ export type ToPage =
    * has one, else its Markdown. `focus` puts the cursor in it once it's in.
    */
   | { type: "seed"; seed: string; markdown: string; doc: unknown; focus: "end" | null }
+  /**
+   * Where each photo the page asked about (`needPhotos`) can be shown from,
+   * by its id: a `data:` address for one kept on the phone, or null when the
+   * phone doesn't have it.
+   */
+  | { type: "photos"; sources: Record<string, string | null> }
   | { type: "run"; name: EditorCommand; value?: string };
 
 /** From the page. */
@@ -106,6 +118,11 @@ export type FromPage =
   | { type: "ticked"; on: boolean }
   /** Words from the strip went in (insertWords): the text now before the cursor, and how many characters went in. */
   | { type: "inserted"; before: string; length: number }
+  /**
+   * Photos in the note (`![](attachment:<id>)`, see editor/extensions.ts) the
+   * page has nothing to show for yet, by id: answered with "photos".
+   */
+  | { type: "needPhotos"; ids: string[] }
   | { type: "error"; message: string };
 
 /** The global the page listens on; the app calls it with `injectJavaScript`. */

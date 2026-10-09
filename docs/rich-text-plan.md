@@ -214,6 +214,8 @@ Then decide whether to go ahead.
 
 ### Phase 2: photos (large)
 
+*Started on 2026-10-09 in revamp 5 (`prototypes/revamp-5/docs/editor-plan.md`, section 10): photos in the editor, kept on the phone, in the samples only. This app's editor keeps photos in notes, each shown as an outline. The server's part below is next.*
+
 - **Server:**
   - **Storage:** the Bucket, and an `attachments` table (id, user, note,
     photo/file, name, type, size, width, height, storage key, status, created).
