@@ -12,8 +12,7 @@ import { Editor, type JSONContent } from "@tiptap/core";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Placeholder } from "@tiptap/extensions";
 import { Markdown } from "@tiptap/markdown";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import {
   PAGE_RECEIVER,
@@ -31,13 +30,9 @@ import {
   LineStartBackspace,
   MAX_INDENT,
   NoteLink,
-  PHOTO_PREFIX,
-  Photo,
   Quote,
   UntickEmptyRows,
   inList,
-  liftPhotos,
-  photoIdOf,
   shiftIndent,
   shiftInList,
 } from "./extensions";
@@ -122,12 +117,6 @@ function check(stroke: string, width: number, opacity = 1): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-/** A photo's outline (Lucide's image), where a photo isn't on this phone. */
-function photoGlyph(stroke: string): string {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='3' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
-
 function applyLook(next: EditorLook) {
   look = next;
   const { colors: c, body, question: q, padding: p } = next;
@@ -167,11 +156,11 @@ function applyLook(next: EditorLook) {
       transition: color 220ms cubic-bezier(0.16, 1, 0.3, 1), text-decoration-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { color: ${c.ink3}; text-decoration-color: ${c.ink3}; }
-    /* A question or a photo added comes down into place. */
-    .ProseMirror blockquote.arriving, .ProseMirror .photo.arriving { animation: sage-arrive 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+    /* A question added comes down into place. */
+    .ProseMirror blockquote.arriving { animation: sage-arrive 300ms cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes sage-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) {
-      .ProseMirror blockquote.arriving, .ProseMirror .photo.arriving { animation-name: sage-fade; }
+      .ProseMirror blockquote.arriving { animation-name: sage-fade; }
       @keyframes sage-fade { from { opacity: 0; } to { opacity: 1; } }
     }
     .ProseMirror ul[data-type="taskList"] input {
@@ -192,21 +181,6 @@ function applyLook(next: EditorLook) {
     .ProseMirror blockquote p { margin: 0; }
     .ProseMirror a { color: ${c.accentText}; text-decoration: underline; text-underline-offset: 2px; }
     .ProseMirror code { background: ${c.sunken}; border-radius: 4px; padding: 1px 4px; font-size: 0.9em; }
-    /* A photo: the words' width, held at its shape on the sunken colour until it's drawn, so nothing moves when it is. */
-    .ProseMirror .photo {
-      position: relative; margin: 10px 0; border-radius: 14px; overflow: hidden;
-      background: ${c.sunken}; aspect-ratio: 4 / 3;
-      -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
-    }
-    .ProseMirror .photo img {
-      display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; pointer-events: none;
-      -webkit-user-drag: none; transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .ProseMirror .photo.drawn img { opacity: 1; }
-    @media (prefers-reduced-motion: reduce) { .ProseMirror .photo img { transition: none; } }
-    .ProseMirror .photo.missing { background: ${c.sunken} ${photoGlyph(c.ink3)} center / 36px 36px no-repeat; }
-    /* Chosen (Backspace takes it next), while writing: a note that starts with a photo doesn't open outlined. */
-    .ProseMirror.ProseMirror-focused .photo.ProseMirror-selectednode { outline: 3px solid ${c.accent}; outline-offset: 2px; }
     .ProseMirror p.is-editor-empty:first-child::before,
     .ProseMirror blockquote + p.is-empty::before {
       content: attr(data-placeholder); color: ${c.ink3}; float: left; height: 0; pointer-events: none;
@@ -214,164 +188,6 @@ function applyLook(next: EditorLook) {
   `;
 }
 applyLook(look);
-
-// ---- Photos ------------------------------------------------------------------
-
-/**
- * A note's photos are files kept on the phone (the note only names them, see
- * extensions.ts), so the page asks the app for each one it shows. What it's
- * told is kept for the page's life: where to show the photo from, or null
- * when this phone doesn't have it.
- */
-const photoSources = new Map<string, string | null>();
-// The photos on the page, by id (a photo can be in a note twice).
-const photoViews = new Map<string, Set<PhotoView>>();
-// Asked about and not answered yet; asked for together, in one message.
-const photosAsked = new Set<string>();
-let photosToAsk: string[] = [];
-// Photos not drawn yet (nor known to be missing): the note is "shown" once they are, or after a moment.
-let photosBusy = 0;
-let whenPhotosDrawn: (() => void)[] = [];
-
-function askForPhoto(id: string) {
-  if (photosAsked.has(id)) return;
-  photosAsked.add(id);
-  photosToAsk.push(id);
-  if (photosToAsk.length > 1) return;
-  queueMicrotask(() => {
-    const ids = photosToAsk;
-    photosToAsk = [];
-    send({ type: "needPhotos", ids });
-  });
-}
-
-/** The app's answer: where each photo can be shown from, or null. */
-function takePhotos(sources: Record<string, string | null>) {
-  for (const [id, src] of Object.entries(sources)) {
-    photoSources.set(id, typeof src === "string" && src ? src : null);
-    photosAsked.delete(id);
-    for (const view of photoViews.get(id) ?? []) view.show();
-  }
-}
-
-/** Settles once every photo on the page is drawn, or known not to be on the phone. */
-function photosDrawn(): Promise<void> {
-  return photosBusy === 0 ? Promise.resolve() : new Promise((resolve) => whenPhotosDrawn.push(resolve));
-}
-
-// A tall photo is shown no taller than 3:5, whole, on the sunken colour: it never fills the screen.
-const TALLEST = 3 / 5;
-/** A photo's shape (width over height), from its size, if it's known. */
-function shapeOf(width: unknown, height: unknown): number | null {
-  const w = Number(width);
-  const h = Number(height);
-  return w > 0 && h > 0 ? Math.max(w / h, TALLEST) : null;
-}
-
-/**
- * A photo on the page. It holds its shape from the start (its size, when the
- * note has it), asks the app where to load it from, and fades in once drawn.
- * One the phone doesn't have, or an image from anywhere else, shows as a
- * quiet outline instead.
- */
-class PhotoView {
-  dom: HTMLElement;
-  private img: HTMLImageElement;
-  private node: ProseMirrorNode;
-  private id: string | null = null;
-  private busy = false;
-
-  constructor(node: ProseMirrorNode) {
-    this.node = node;
-    this.dom = document.createElement("div");
-    this.dom.className = "photo";
-    this.dom.setAttribute("role", "img");
-    this.img = document.createElement("img");
-    this.img.alt = "";
-    this.img.draggable = false;
-    this.dom.appendChild(this.img);
-    this.take(node);
-  }
-
-  private take(node: ProseMirrorNode) {
-    this.node = node;
-    this.dom.setAttribute("aria-label", (node.attrs.alt as string | null) || "Photo");
-    const shape = shapeOf(node.attrs.width, node.attrs.height);
-    if (shape) this.dom.style.aspectRatio = String(shape);
-    const id = photoIdOf(node.attrs.src);
-    if (id !== this.id) {
-      this.leave();
-      this.id = id;
-      if (id) {
-        if (!photoViews.has(id)) photoViews.set(id, new Set());
-        photoViews.get(id)?.add(this);
-      }
-    }
-    this.show();
-  }
-
-  /** Drawn once the app has said where the photo is; asked for until then. */
-  show() {
-    const src = this.id ? photoSources.get(this.id) : null;
-    if (src === undefined) {
-      this.setBusy(true);
-      askForPhoto(this.id as string);
-      return;
-    }
-    if (src === null) {
-      this.missing();
-      return;
-    }
-    if (this.img.getAttribute("src") === src) return;
-    this.setBusy(true);
-    this.dom.classList.remove("missing");
-    this.img.onload = () => {
-      if (!shapeOf(this.node.attrs.width, this.node.attrs.height)) {
-        this.dom.style.aspectRatio = String(shapeOf(this.img.naturalWidth, this.img.naturalHeight) ?? "");
-      }
-      this.dom.classList.add("drawn");
-      this.setBusy(false);
-    };
-    this.img.onerror = () => this.missing();
-    this.img.src = src;
-  }
-
-  private missing() {
-    this.img.onload = null;
-    this.img.onerror = null;
-    this.img.removeAttribute("src");
-    this.dom.classList.remove("drawn");
-    this.dom.classList.add("missing");
-    this.setBusy(false);
-  }
-
-  private setBusy(busy: boolean) {
-    if (busy === this.busy) return;
-    this.busy = busy;
-    photosBusy += busy ? 1 : -1;
-    if (photosBusy === 0) for (const resolve of whenPhotosDrawn.splice(0)) resolve();
-  }
-
-  private leave() {
-    if (this.id) photoViews.get(this.id)?.delete(this);
-  }
-
-  update(node: ProseMirrorNode) {
-    if (node.type !== this.node.type) return false;
-    const { src, alt, width, height } = this.node.attrs;
-    if (node.attrs.src !== src || node.attrs.alt !== alt || node.attrs.width !== width || node.attrs.height !== height) this.take(node);
-    else this.node = node;
-    return true;
-  }
-
-  destroy() {
-    this.leave();
-    this.setBusy(false);
-  }
-}
-
-// Photos, drawn by the page (PhotoView).
-const SagePhoto = Photo.extend({ addNodeView: () => ({ node }) => new PhotoView(node) });
 
 // ---- The editor ------------------------------------------------------------
 
@@ -393,7 +209,6 @@ const editor = new Editor({
     UntickEmptyRows,
     LineBreak,
     NoteLink.configure({ openOnClick: false, autolink: true, linkOnPaste: true, defaultProtocol: "https" }),
-    SagePhoto,
     TaskList,
     TaskItem.configure({ nested: true }),
     Placeholder.configure({ placeholder: placeholderFor }),
@@ -583,13 +398,10 @@ function takeSeed(message: Extract<ToPage, { type: "seed" }>) {
     return;
   }
   // The rich text when the note has it; its Markdown otherwise (notes from
-  // before rich text, or edited as plain text since). Either way, each photo
-  // on a line of its own (liftPhotos).
+  // before rich text, or edited as plain text since).
   const put = () => {
     const doc = message.doc as { type?: unknown } | null;
-    const rich = doc && typeof doc === "object" && doc.type === "doc" ? (doc as JSONContent) : null;
-    const content = rich ?? editor.markdown?.parse(message.markdown);
-    if (content) editor.commands.setContent(liftPhotos(content), { emitUpdate: false });
+    if (doc && typeof doc === "object" && doc.type === "doc") editor.commands.setContent(doc as JSONContent, { emitUpdate: false });
     else editor.commands.setContent(message.markdown, { contentType: "markdown", emitUpdate: false });
     if (message.focus === "end") editor.commands.focus("end");
     reportFormats(editor);
@@ -613,11 +425,10 @@ function takeSeed(message: Extract<ToPage, { type: "seed" }>) {
 }
 
 /**
- * "Shown" once the words are really on screen: Sage's face loaded, the
- * note's photos drawn (or known not to be on the phone), and the page drawn
- * (two frames), so the app's fade-in never starts on a blank or half-drawn
- * page. If any of it is slow to come (a page out of sight), it's said anyway
- * after a moment.
+ * "Shown" once the words are really on screen: Sage's face loaded and the
+ * page drawn (two frames), so the app's fade-in never starts on a blank or
+ * half-drawn page. If the face or the frames are slow to come (a page out
+ * of sight), it's said anyway after a moment.
  */
 function shownOnceDrawn(seed: string) {
   let said = false;
@@ -626,50 +437,8 @@ function shownOnceDrawn(seed: string) {
     said = true;
     send({ type: "shown", seed });
   };
-  void Promise.all([facesReady, photosDrawn()]).then(() => requestAnimationFrame(() => requestAnimationFrame(say)));
+  void facesReady.then(() => requestAnimationFrame(() => requestAnimationFrame(say)));
   setTimeout(say, 400);
-}
-
-/**
- * Where a block goes: after the line the cursor is in (in place of it, if
- * it's an empty line), or at the end of the note (in place of an empty last
- * line). Between blocks, or with a photo chosen, it goes right there.
- */
-function placeFor(atEnd: boolean): { from: number; to: number } {
-  const { doc, selection } = editor.state;
-  if (atEnd) {
-    const last = doc.lastChild;
-    const lastEmpty = last?.type.name === "paragraph" && last.content.size === 0;
-    return { from: lastEmpty && last ? doc.content.size - last.nodeSize : doc.content.size, to: doc.content.size };
-  }
-  if (selection.$from.depth === 0 && (selection instanceof NodeSelection || selection.empty)) {
-    const at = selection instanceof NodeSelection ? selection.to : selection.from;
-    return { from: at, to: at };
-  }
-  const index = selection.$from.index(0);
-  let start = 0;
-  for (let i = 0; i < index; i++) start += doc.child(i).nodeSize;
-  const block = doc.child(index);
-  const empty = block.type.name === "paragraph" && block.content.size === 0;
-  return empty ? { from: start, to: start + block.nodeSize } : { from: start + block.nodeSize, to: start + block.nodeSize };
-}
-
-/**
- * A block put in at `place`, with an empty line under it and the cursor
- * there. It comes down into place (a little rise as it fades in), and the
- * page glides to the empty line rather than jumping there.
- */
-function putWithLineUnder(block: ProseMirrorNode, { from, to }: { from: number; to: number }) {
-  const tr = editor.state.tr.replaceWith(from, to, [block, editor.schema.nodes.paragraph.create()]);
-  tr.setSelection(TextSelection.create(tr.doc, from + block.nodeSize + 1));
-  editor.view.dispatch(tr);
-  const added = editor.view.nodeDOM(from);
-  if (added instanceof HTMLElement) {
-    added.classList.add("arriving");
-    added.addEventListener("animationend", () => added.classList.remove("arriving"), { once: true });
-  }
-  editor.commands.focus(null, { scrollIntoView: false });
-  requestAnimationFrame(() => keepCaretClear(true));
 }
 
 /**
@@ -678,20 +447,38 @@ function putWithLineUnder(block: ProseMirrorNode, { from, to }: { from: number; 
  * empty line becomes the question); `atEnd` puts it at the end of the note.
  */
 function insertQuestion(text: string, atEnd: boolean) {
-  const { schema } = editor;
+  const { state } = editor;
+  const { schema, doc } = state;
   const quote = schema.nodes.blockquote.create(null, schema.nodes.paragraph.create(null, schema.text(text)));
-  putWithLineUnder(quote, placeFor(atEnd));
-}
-
-/**
- * A photo kept on the phone, on a line of its own after the one the cursor
- * is in (an empty line becomes the photo), with an empty line under it for
- * the cursor. Its size holds its shape until it's drawn.
- */
-function insertPhoto(id: string, width?: number, height?: number) {
-  const size = (value?: number) => (typeof value === "number" && value > 0 ? Math.round(value) : null);
-  const photo = editor.schema.nodes.image.create({ src: PHOTO_PREFIX + id, width: size(width), height: size(height) });
-  putWithLineUnder(photo, placeFor(false));
+  const answer = schema.nodes.paragraph.create();
+  let from: number;
+  let to: number;
+  if (atEnd) {
+    const last = doc.lastChild;
+    const lastEmpty = last?.type.name === "paragraph" && last.content.size === 0;
+    from = lastEmpty && last ? doc.content.size - last.nodeSize : doc.content.size;
+    to = doc.content.size;
+  } else {
+    const index = state.selection.$from.index(0);
+    let start = 0;
+    for (let i = 0; i < index; i++) start += doc.child(i).nodeSize;
+    const block = doc.child(index);
+    const empty = block.type.name === "paragraph" && block.content.size === 0;
+    from = empty ? start : start + block.nodeSize;
+    to = empty ? start + block.nodeSize : from;
+  }
+  const tr = state.tr.replaceWith(from, to, [quote, answer]);
+  tr.setSelection(TextSelection.create(tr.doc, from + quote.nodeSize + 1));
+  editor.view.dispatch(tr);
+  // It comes down into place (a little rise as it fades in), and the page
+  // glides to the answer's line rather than jumping there.
+  const added = editor.view.nodeDOM(from);
+  if (added instanceof HTMLElement) {
+    added.classList.add("arriving");
+    added.addEventListener("animationend", () => added.classList.remove("arriving"), { once: true });
+  }
+  editor.commands.focus(null, { scrollIntoView: false });
+  requestAnimationFrame(() => keepCaretClear(true));
 }
 
 function run(name: EditorCommand, value?: string) {
@@ -783,12 +570,6 @@ function run(name: EditorCommand, value?: string) {
       if (text) insertQuestion(text, Boolean(atEnd));
       break;
     }
-    // `value` is JSON: the photo's id, and its size.
-    case "insertPhoto": {
-      const { id, width, height } = JSON.parse(value ?? "{}") as { id?: string; width?: number; height?: number };
-      if (id) insertPhoto(id, width, height);
-      break;
-    }
     // With the suggestion strip in the keyboard's place, a tap moves the
     // cursor and brings no keyboard.
     case "tray":
@@ -823,7 +604,6 @@ function run(name: EditorCommand, value?: string) {
   receive(message: ToPage) {
     if (message.type === "look") applyLook(message.look);
     else if (message.type === "seed") takeSeed(message);
-    else if (message.type === "photos") takePhotos(message.sources);
     else run(message.name, message.value);
   },
 };

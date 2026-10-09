@@ -28,13 +28,10 @@ const LOOK = {
   padding: { top: 12, side: 16, bottom: 56 },
 };
 
-// `photos`, when given, is the app's side of photos: `sources` by id (an id
-// not in it is answered null: not on this phone), sent `delay` ms after the
-// page asks. Each answer is noted in the messages as { type: "answered" }.
-async function open(browser, markdown, doc = null, photos = null) {
+async function open(browser, markdown, doc = null) {
   const page = await browser.newPage({ viewport: { width: 390, height: 700 } });
   page.on("pageerror", (e) => console.log("  PAGE ERROR:", e.message));
-  await page.addInitScript(([md, seedDoc, look, photoAnswers]) => {
+  await page.addInitScript(([md, seedDoc, look]) => {
     window.__msgs = [];
     // What the page says, in the shape the main app's checks read
     // ({ data: { actionId, args } }), so they stay as they were.
@@ -61,17 +58,10 @@ async function open(browser, markdown, doc = null, photos = null) {
             window.clarityEditor.receive({ type: "seed", seed: "1", markdown: md, doc: seedDoc, focus: null });
           });
         }
-        if (msg.type === "needPhotos" && photoAnswers) {
-          setTimeout(() => {
-            const sources = Object.fromEntries(msg.ids.map((id) => [id, photoAnswers.sources[id] ?? null]));
-            window.__msgs.push({ type: "answered", ids: msg.ids });
-            window.clarityEditor.receive({ type: "photos", sources });
-          }, photoAnswers.delay ?? 0);
-        }
       },
     };
     window._domRefProxy = { run: (name, value) => window.clarityEditor.receive({ type: "run", name, value: value ?? undefined }) };
-  }, [markdown, doc, LOOK, photos]);
+  }, [markdown, doc, LOOK]);
   await page.goto(PAGE, { waitUntil: "load", timeout: 60000 });
   await page.waitForFunction(
     () => window.__msgs.some((m) => m.data && m.data.actionId === "onReady") && window._domRefProxy,
@@ -851,167 +841,6 @@ function check(name, got, want) {
     await pause(page, 200);
     check("sage: words typed out already before the tap: nothing more goes in", await text(page), `${ANCHOR} so soft and golden`);
     check("sage: …and the app is told so", (await inserted(page))?.length, 0);
-    await page.close();
-
-    // ---- Photos (2026-10-09): files kept on the phone, named in the note as ![](attachment:<id>) ----
-    const PHOTO = "aaaa1111-2222-4333-8444-555566667777";
-    const OTHER = "bbbb1111-2222-4333-8444-555566667777";
-    // A stand-in photo of a given size.
-    const picture = (w, h) =>
-      "data:image/svg+xml," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><rect width='100%' height='100%' fill='#c84'/></svg>`);
-    const photoState = (pg) =>
-      pg.evaluate(() =>
-        [...document.querySelectorAll(".ProseMirror .photo")].map((el) => {
-          const img = el.querySelector("img");
-          return { classes: el.className, shape: el.style.aspectRatio, src: img.getAttribute("src"), width: img.naturalWidth, outline: getComputedStyle(el).outlineStyle };
-        }),
-      );
-    const asked = (pg) => pg.evaluate(() => window.__msgs.filter((m) => m.type === "needPhotos").flatMap((m) => m.ids));
-    const tree = (pg) =>
-      pg.evaluate(() => {
-        const outline = (n) => (n.type === "text" || n.type === "hardBreak" ? n.type : n.content ? `${n.type}(${n.content.map(outline).join(",")})` : n.type);
-        return document.querySelector(".ProseMirror").editor.getJSON().content.map(outline).join(" ");
-      });
-
-    // A note's photo: asked for by its id, drawn from what the app sends, and kept as written.
-    page = await open(browser, `Before\n\n![](attachment:${PHOTO})\n\nAfter`, null, { sources: { [PHOTO]: picture(40, 30) } });
-    check("photos: the page asks the app for a note's photo, by its id", JSON.stringify(await asked(page)), JSON.stringify([PHOTO]));
-    let photos = await photoState(page);
-    check("photos: …and draws it from what the app sends", photos.length === 1 && photos[0].classes.includes("drawn") ? photos[0].width : null, 40);
-    check("photos: …at its own shape", photos[0].shape.startsWith("1.33"), true);
-    await setCaret(page, "After", 5);
-    await pause(page, 200);
-    await type(page, " all");
-    await pause(page);
-    check("photos: a note's photo stays as written", await last(page, "onChange"), `Before\n\n![](attachment:${PHOTO})\n\nAfter all`);
-    check("photos: …and its rich text names it", (await lastDoc(page)).content[1].attrs.src, `attachment:${PHOTO}`);
-    await page.close();
-
-    // "Shown" waits for the note's photos, so the words never fade in with a hole where one goes.
-    page = await open(browser, `![](attachment:${PHOTO})\n\nUnder it`, null, { sources: { [PHOTO]: picture(40, 30) }, delay: 150 });
-    const order = await page.evaluate(() => window.__msgs.map((m) => m.type ?? m.data?.actionId).filter((t) => t === "answered" || t === "onReady"));
-    check("photos: a note is shown once its photos are drawn", order.join(" > "), "answered > onReady");
-    check("photos: a note that starts with a photo doesn't open with it outlined", (await photoState(page))[0].outline, "none");
-    await page.close();
-
-    // From rich text, a photo holds its shape before it's drawn (nothing moves when it is); a slow
-    // answer doesn't hold the note back.
-    const sized = { type: "doc", content: [
-      { type: "paragraph", content: [{ type: "text", text: "Over it" }] },
-      { type: "image", attrs: { src: `attachment:${PHOTO}`, width: 300, height: 400 } },
-      { type: "paragraph", content: [{ type: "text", text: "Under it" }] },
-    ] };
-    page = await open(browser, "", sized, { sources: {}, delay: 5000 });
-    photos = await photoState(page);
-    check("photos: a photo holds its shape before it's drawn", photos[0].shape.startsWith("0.75"), true);
-    check("photos: …and a slow answer doesn't hold the note back", photos[0].classes.includes("drawn"), false);
-    await page.close();
-
-    page = await open(browser, `![](attachment:${PHOTO})`, null, { sources: { [PHOTO]: picture(30, 100) } });
-    check("photos: a tall photo is shown no taller than 3:5", (await photoState(page))[0].shape.startsWith("0.6"), true);
-    await page.close();
-
-    // Not on this phone: a quiet outline in its place, and the note keeps it.
-    page = await open(browser, `![](attachment:${PHOTO})\n\nWords`, null, { sources: {} });
-    photos = await photoState(page);
-    check("photos: one the phone doesn't have shows as an outline", photos[0].classes.includes("missing") && photos[0].src === null, true);
-    await setCaret(page, "Words", 5);
-    await pause(page, 200);
-    await type(page, "!");
-    await pause(page);
-    check("photos: …and stays in the note", await last(page, "onChange"), `![](attachment:${PHOTO})\n\nWords!`);
-    await page.close();
-
-    // An image with any other address (a web image typed into a note elsewhere): kept as written, never loaded.
-    page = await open(browser, "![](https://example.com/photo.png)\n\nWords", null, { sources: {} });
-    photos = await photoState(page);
-    check("photos: a web image is never loaded, nor asked for", photos[0].classes.includes("missing") && photos[0].src === null && (await asked(page)).length === 0, true);
-    await setCaret(page, "Words", 5);
-    await pause(page, 200);
-    await type(page, "!");
-    await pause(page);
-    check("photos: …and is kept as written", await last(page, "onChange"), "![](https://example.com/photo.png)\n\nWords!");
-    await page.close();
-
-    // Read from Markdown, each photo is on a line of its own: one with words on the very next line
-    // (as a plain-text editor can leave it), and one in a list item (its Markdown puts the photo
-    // right under the item's words).
-    page = await open(browser, `![](attachment:${PHOTO})\nWords under\n\n- An item\n  ![](attachment:${OTHER})`, null, {
-      sources: { [PHOTO]: picture(40, 30), [OTHER]: picture(40, 30) },
-    });
-    check("photos: a photo with words right under it, and one in a list item, are each a line of their own", await tree(page), "image paragraph(text) bulletList(listItem(paragraph(text),image)) paragraph");
-    await setCaret(page, "Words under", 11);
-    await pause(page, 200);
-    await type(page, ".");
-    await pause(page);
-    check("photos: …and read back the same", await last(page, "onChange"), `![](attachment:${PHOTO})\n\nWords under.\n\n- An item\n  ![](attachment:${OTHER})`);
-    await page.close();
-
-    // The photo button: a photo on a line of its own after the cursor's line, with the cursor on an empty line under it.
-    page = await open(browser, "First line\n\nLast line", null, { sources: { [PHOTO]: picture(40, 30) } });
-    await setCaret(page, "First line", 5);
-    await pause(page, 200);
-    await run(page, "insertPhoto", JSON.stringify({ id: PHOTO, width: 1600, height: 1200 }));
-    await type(page, "Under it");
-    await pause(page);
-    check("photos: a photo goes in after the cursor's line, with the cursor under it", await last(page, "onChange"), `First line\n\n![](attachment:${PHOTO})\n\nUnder it\n\nLast line`);
-    check("photos: …with its size", JSON.stringify((await lastDoc(page)).content[1].attrs), JSON.stringify({ src: `attachment:${PHOTO}`, alt: null, title: null, width: 1600, height: 1200 }));
-    check("photos: …asked for, and drawn", (await photoState(page))[0].classes.includes("drawn"), true);
-    await page.close();
-
-    page = await open(browser, "", null, { sources: { [PHOTO]: picture(40, 30) } });
-    await page.click(".ProseMirror");
-    await run(page, "insertPhoto", JSON.stringify({ id: PHOTO, width: 40, height: 30 }));
-    await type(page, "Words");
-    await pause(page);
-    check("photos: on an empty line, the photo takes the line's place", await last(page, "onChange"), `![](attachment:${PHOTO})\n\nWords`);
-    await page.close();
-
-    // Backspace under a photo chooses it; only the next one takes it away. Typing with it chosen writes under it.
-    page = await open(browser, `Over it\n\n![](attachment:${PHOTO})\n\nUnder it`, null, { sources: { [PHOTO]: picture(40, 30) } });
-    await setCaret(page, "Under it", 0);
-    await pause(page, 200);
-    await page.keyboard.press("Backspace");
-    await pause(page);
-    photos = await photoState(page);
-    check("photos: Backspace at the start of the line under a photo chooses it", photos[0].classes.includes("ProseMirror-selectednode") && photos[0].outline, "solid");
-    check("photos: …and takes nothing away", (await calls(page, "onChange")).length, 0);
-    await type(page, "So ");
-    await pause(page);
-    check("photos: typing with a photo chosen writes on the line under it", await last(page, "onChange"), `Over it\n\n![](attachment:${PHOTO})\n\nSo Under it`);
-    await setCaret(page, "So Under it", 0);
-    await pause(page, 200);
-    await page.keyboard.press("Backspace");
-    await page.keyboard.press("Backspace");
-    await pause(page);
-    check("photos: a second Backspace takes the chosen photo away", await last(page, "onChange"), "Over it\n\nSo Under it");
-    await page.close();
-
-    // An empty line under a photo just goes, and the photo is chosen (the editor's own Backspace).
-    const emptyUnder = { type: "doc", content: [
-      { type: "image", attrs: { src: `attachment:${PHOTO}` } },
-      { type: "paragraph" },
-      { type: "paragraph", content: [{ type: "text", text: "After" }] },
-    ] };
-    page = await open(browser, "", emptyUnder, { sources: { [PHOTO]: picture(40, 30) } });
-    await page.evaluate(() => document.querySelector(".ProseMirror").editor.chain().focus().setTextSelection(2).run());
-    await pause(page, 200);
-    await page.keyboard.press("Backspace");
-    await pause(page);
-    check("photos: an empty line under a photo goes, and the photo is chosen", (await photoState(page))[0].classes.includes("ProseMirror-selectednode") && (await last(page, "onChange")), `![](attachment:${PHOTO})\n\nAfter`);
-    await page.close();
-
-    // A paste brings in photos named by id only: never a web page's images, nor one written into the note.
-    page = await open(browser, "Start", null, { sources: { [PHOTO]: picture(40, 30) } });
-    await setCaret(page, "Start", 5);
-    await pause(page, 200);
-    await page.evaluate((id) => {
-      const data = new DataTransfer();
-      data.setData("text/html", `<p>Pasted</p><img src="https://example.com/a.png"><img src="data:image/png;base64,iVBORw0KGgo="><img src="attachment:${id}"><p>End</p>`);
-      document.querySelector(".ProseMirror").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
-    }, PHOTO);
-    await pause(page);
-    check("photos: a paste keeps only photos named by id", ((await last(page, "onChange")) ?? "").match(/!\[[^\]]*\]\([^)]*\)/g)?.join(" "), `![](attachment:${PHOTO})`);
     await page.close();
   } finally {
     await browser.close();

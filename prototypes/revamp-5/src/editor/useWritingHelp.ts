@@ -358,14 +358,13 @@ function ideasOf(result: Awaited<ReturnType<typeof postSuggestionsGenerate>>, be
   return { finishes, starts: starts.slice(0, START_MAX) };
 }
 
-/** A note as plain words, for asking about it: no list marks, quote marks, emphasis or photos. */
+/** A note as plain words, for asking about it: no list marks, quote marks or emphasis. */
 export function plainWords(markdown: string): string {
   return markdown
     .split("\n")
     .map((line) => line.replace(/^\s*(?:>\s?)+/, "").replace(/^\s*(?:[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+|#{1,6}\s+)/, ""))
     .join("\n")
     .replace(/(\*\*|__|~~|\*|_)(\S(?:.*?\S)?)\1/g, "$2")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .trim();
 }

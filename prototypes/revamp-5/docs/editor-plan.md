@@ -146,7 +146,7 @@ The backend plan sizes this phase L. The page and the checks are the largest par
 ## 6. Not in this phase
 
 - The AI pieces come in phase 6: word help, the AI's questions, title ideas, re-indexing and Find tasks. The decisions they need are in `docs/backend-plan.md`, section 9.
-- Dictation waits for the main app. Photos came on 2026-10-09 (section 10).
+- Photos and dictation wait for the main app.
 
 ## 7. Risks
 
@@ -176,37 +176,3 @@ The AI decisions, including word help, are in `docs/backend-plan.md`, section 9.
   - Worth another look in a few months; they're changing quickly.
 - **10tap,** which packages Tiptap much as this plan does: no release since November 2025, and an unanswered report that it never starts on newer React Native.
 - **Simpler approaches:** plain Markdown with a formatted reading view isn't rich while you type. One text box per paragraph means building selection, paste and undo ourselves.
-
-## 10. Photos (2026-10-09)
-
-**Built:** the first two steps of photos (phase 2 of the main app's `docs/rich-text-plan.md`): photos in the editor, kept on the phone, in the samples only.
-
-- **In a note,** a photo is a file kept apart from it. The note only names it: `![](attachment:<id>)` in its Markdown, an `image` in its rich text.
-  - Never the photo itself. One photo is a few hundred KB as text, past the server's limits (100,000 characters of Markdown, 500,000 of rich text).
-  - And the whole note crosses from the page to the app at least once a second while writing.
-- **The Photo tool** comes after Link in the tools row:
-  - take a photo or choose one (expo-image-picker);
-  - it's made a JPEG and shrunk to 2048 on its longer side (expo-image-manipulator), and kept under a new id (`src/editor/photos.ts`);
-  - it goes on a line of its own after the cursor's line, with the cursor on an empty line under it.
-- **Kept** in the app's documents folder (`src/editor/photoStore.ts`). The web build keeps them in the browser's IndexedDB (`photoStore.web.ts`).
-- **Shown** by the editor page:
-  - it asks the app for each photo by id, and is sent a `data:` address (the page is loaded from a string, so it can't read the phone's files);
-  - it holds the photo's shape until it's drawn, and the note is "shown" once its photos are drawn (or after a moment);
-  - a photo not on the phone, or an image with any other address, is a quiet outline.
-- **Taking one out:** Backspace at the start of the line under a photo chooses it (outlined), and a second Backspace removes it. Typing with it chosen writes under it.
-- **The main app** knows photos too, showing each one's place as an outline. It opens a note with a photo whole, and saves it whole.
-- **Samples only, for now:** a photo is only on the phone it was added on, so the tool isn't offered in your account's notes until the server keeps photos.
-
-**Checks:**
-- 26 more editor checks (`tests/editor`, 126 in all), and 8 in the main app's (`tests/note-editor`, 83 in all);
-- `tests/checks/photo-flow.mjs`: 12 checks in the web build, from the tool to the photo still there when the note is opened again, sending nothing;
-- still to do on the phone: taking and choosing a photo, a note with several photos opening (each crosses to the page as text), and Backspace and typing around a photo.
-
-**Next, each part with your OK:**
-- a Railway Bucket for the files, and an `attachments` table (migration 017);
-- endpoints to start an upload (a signed upload link), confirm it, get a short-lived viewing link, and delete; a size cap per photo, and a quota;
-- photo uploads through the outbox, so a photo added offline goes up later;
-- clean-up when a photo leaves a note, or a note or account is deleted, and photos in the export. Until then, a photo taken out of a note stays on the phone;
-- `![](attachment:…)` taken out of a note before it goes to the AI.
-
-Then the Photo tool comes to your account's notes, and the main app can show the photos themselves.

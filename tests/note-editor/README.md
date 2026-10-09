@@ -9,7 +9,7 @@ Expo DOM component) in desktop Chrome, the way the app drives it on the phone:
 - what the editor calls back (`onChange`, `onState`, `onCursor`, ...) is
   captured and checked.
 
-About 83 checks cover:
+About 75 checks cover:
 - lists and checklists: Backspace at an item's start, empty rows, ticked rows, indent and outdent;
 - quotes;
 - links;
@@ -17,7 +17,6 @@ About 83 checks cover:
 - suggestions inserted at the cursor;
 - how changes are batched to the app;
 - row heights, and the room under a note's last line.
-- photos (2026-10-09): a note with one opens and saves whole, Backspace under one, photos read from Markdown, and pastes.
 
 ## Running them
 
