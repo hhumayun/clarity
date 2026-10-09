@@ -27,6 +27,8 @@ export type NoteEditorProps = {
   onTicked?: (on: boolean) => void;
   /** Words from the strip went in: the text now before the cursor, and how many characters went in. */
   onInserted?: (before: string, length: number) => void;
+  /** Where a photo in the note can be shown from, by its id (src/editor/photos.ts), or null when this phone doesn't have it. */
+  photoSource?: (id: string) => Promise<string | null>;
   /** The note is on screen. */
   onShown?: () => void;
   /** The page didn't start, or broke before showing the note. */
@@ -123,6 +125,14 @@ export function useEditorBridge(props: NoteEditorProps, deliver: (message: ToPag
       case "inserted":
         current.onInserted?.(message.before, message.length);
         break;
+      // The note's photos the page has nothing to show for: each found, or null, and answered together.
+      case "needPhotos": {
+        const find = current.photoSource;
+        void Promise.all(message.ids.map(async (id) => [id, find ? await find(id).catch(() => null) : null] as const)).then((found) => {
+          if (ready.current) deliverRef.current({ type: "photos", sources: Object.fromEntries(found) });
+        });
+        break;
+      }
       case "error":
         if (!shown.current) fail(message.message);
         else if (__DEV__) console.warn("[editor]", message.message);

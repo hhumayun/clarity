@@ -661,6 +661,63 @@ function check(name, got, want) {
     });
     check("room under a long note's last line is about two lines", room <= 28 * 2 + 4, true);
     await page.close();
+
+    // 10. Photos (2026-10-09): a note naming a photo (![](attachment:<id>), as revamp 5 adds them)
+    // opens whole and saves with it. The app keeps no photos yet: each holds its place, unshown.
+    const PHOTO = "aaaa1111-2222-4333-8444-555566667777";
+    const photoDoc = { type: "doc", content: [
+      { type: "paragraph", content: [{ type: "text", text: "Over it" }] },
+      { type: "image", attrs: { src: `attachment:${PHOTO}`, width: 300, height: 400 } },
+      { type: "paragraph", content: [{ type: "text", text: "Under it" }] },
+    ] };
+    page = await open(browser, `Over it\n\n![](attachment:${PHOTO})\n\nUnder it`, photoDoc);
+    check("photos: a note with a photo opens whole", await page.evaluate(() => document.querySelector(".ProseMirror").innerText.includes("Under it") && document.querySelectorAll(".ProseMirror .photo").length), 1);
+    check("photos: …the photo holding its place, at its shape", (await page.evaluate(() => document.querySelector(".ProseMirror .photo").style.aspectRatio)).startsWith("0.75"), true);
+    await setCaret(page, "Under it", 8);
+    await pause(page, 200);
+    await type(page, " too");
+    await pause(page);
+    check("photos: …and saves with it", await last(page, "onChange"), `Over it\n\n![](attachment:${PHOTO})\n\nUnder it too`);
+    check("photos: …in its rich text too", (await lastDoc(page)).content[1].attrs.src, `attachment:${PHOTO}`);
+    const changesBefore = (await calls(page, "onChange")).length;
+    await setCaret(page, "Under it too", 0);
+    await pause(page, 200);
+    await page.keyboard.press("Backspace");
+    await pause(page);
+    check(
+      "photos: Backspace on the line under a photo chooses it, and takes nothing away",
+      (await page.evaluate(() => document.querySelector(".ProseMirror .photo").classList.contains("ProseMirror-selectednode"))) && (await calls(page, "onChange")).length === changesBefore,
+      true,
+    );
+    await page.keyboard.press("Backspace");
+    await pause(page);
+    check("photos: …a second Backspace takes it away", await last(page, "onChange"), "Over it\n\nUnder it too");
+    await page.close();
+
+    // From Markdown, each photo is on a line of its own: one with words on the very next line, and one in a list item.
+    page = await open(browser, `![](attachment:${PHOTO})\nWords under\n\n- An item\n  ![](attachment:${PHOTO})`);
+    check(
+      "photos: read from Markdown, each photo is a line of its own",
+      await page.evaluate(() => {
+        const outline = (n) => (n.type === "text" || n.type === "hardBreak" ? n.type : n.content ? `${n.type}(${n.content.map(outline).join(",")})` : n.type);
+        return document.querySelector(".ProseMirror").editor.getJSON().content.map(outline).join(" ");
+      }),
+      "image paragraph(text) bulletList(listItem(paragraph(text),image)) paragraph",
+    );
+    await page.close();
+
+    // A paste brings in photos named by id only: never a web page's images, nor one written into the note.
+    page = await open(browser, "Start");
+    await setCaret(page, "Start", 5);
+    await pause(page, 200);
+    await page.evaluate((id) => {
+      const data = new DataTransfer();
+      data.setData("text/html", `<p>Pasted</p><img src="https://example.com/a.png"><img src="data:image/png;base64,iVBORw0KGgo="><img src="attachment:${id}"><p>End</p>`);
+      document.querySelector(".ProseMirror").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    }, PHOTO);
+    await pause(page);
+    check("photos: a paste keeps only photos named by id", ((await last(page, "onChange")) ?? "").match(/!\[[^\]]*\]\([^)]*\)/g)?.join(" "), `![](attachment:${PHOTO})`);
+    await page.close();
   } finally {
     await browser.close();
   }
